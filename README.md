@@ -26,6 +26,8 @@ bash uninstall.sh
 
 ## usage-statusline
 
+![usage-statusline plugin in action](usage-statusline.png)
+
 Shows in the Claude Code status bar:
 
 ```
