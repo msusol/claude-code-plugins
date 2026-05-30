@@ -1,3 +1,4 @@
 blocklist.json
 known_marketplaces.json
 marketplaces/
+.idea/
