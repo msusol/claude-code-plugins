@@ -16,7 +16,26 @@ if [ -n "$used" ]; then
 fi
 
 limits=""
-[ -n "$five" ] && limits="5h:$(printf '%.0f' "$five")%"
+if [ -n "$five" ]; then
+  five_str="5h:$(printf '%.0f' "$five")%"
+  if awk "BEGIN{exit !($five > 75)}"; then
+    resets_at=$(echo "$input" | jq -r '.rate_limits.five_hour.resets_at // empty')
+    if [ -n "$resets_at" ]; then
+      now=$(date +%s)
+      if [ "$resets_at" -gt "$now" ]; then
+        diff=$((resets_at - now))
+        hrs=$((diff / 3600))
+        mins=$(( (diff % 3600) / 60 ))
+        if [ "$hrs" -gt 0 ]; then
+          five_str="$five_str (resets in ${hrs}hr)"
+        else
+          five_str="$five_str (resets in ${mins}m)"
+        fi
+      fi
+    fi
+  fi
+  limits="$five_str"
+fi
 [ -n "$week" ] && limits="${limits:+$limits }7d:$(printf '%.0f' "$week")%"
 [ -n "$limits" ] && parts+=("$limits")
 

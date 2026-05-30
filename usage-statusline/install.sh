@@ -20,4 +20,8 @@ if [ -f "$old" ]; then
   echo "Removed legacy $old"
 fi
 
+mkdir -p "$HOME/.claude/commands"
+cp "$PLUGIN_DIR/commands/setup.md" "$HOME/.claude/commands/usage-statusline-setup.md"
+
 echo "Installed: statusLine -> $PLUGIN_DIR/statusline.sh"
+echo "Installed: /usage-statusline-setup command"
