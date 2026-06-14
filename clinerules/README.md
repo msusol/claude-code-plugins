@@ -71,6 +71,21 @@ The installer is idempotent — safe to re-run after updates.
 
 Restart Claude Code to pick up the `/install-clinerules` skill.
 
+### First-time setup
+
+On a fresh machine, `~/.claude/CLAUDE.md` may not yet have the `@-import` block that
+tells Claude Code to load your rules. Run `/install-clinerules` once from any project
+after restarting — the script bootstraps `~/.claude/CLAUDE.md` automatically:
+
+| State of `~/.claude/CLAUDE.md` | What the script does |
+|---|---|
+| Does not exist | Creates it with a `## Cline Project Rules` header and the full `@-import` block |
+| Exists, sentinel markers present | Replaces only the managed block, preserving everything else |
+| Exists, no sentinels | Wraps any existing bare `@~/.clinerules/` lines in sentinels, or appends the block if none are found |
+
+After this one-time run, Claude Code loads all rules from `~/.clinerules/` in every
+session globally — no further per-project setup needed for the rules themselves.
+
 ## Using the skill
 
 From any project in Claude Code:
