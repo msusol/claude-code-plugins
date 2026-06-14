@@ -1,0 +1,13 @@
+# git-guard allowlist — one pattern per line, matched as substring of remote URL
+# Lines starting with # are ignored.
+#
+# A remote URL is approved if it contains any pattern in this file.
+# The check applies to: git commit, git push, git tag.
+# If a repo has no remote 'origin', all write ops are blocked.
+#
+# Examples:
+#   github.com/your-org      matches all repos in your org
+#   your-company.com         matches any remote on your company's domain
+#   github.com/yourname      matches your personal forks
+#
+# Add your approved patterns below:

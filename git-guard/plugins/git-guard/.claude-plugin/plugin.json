@@ -1,0 +1,8 @@
+{
+  "name": "git-guard",
+  "version": "1.0.0",
+  "description": "The /commit skill — the sanctioned path through git-guard's shell wrapper + PreToolUse hook + deny rules. Walks each stage of a git commit with explicit confirmation at every step.",
+  "author": {
+    "name": "git-guard"
+  }
+}
