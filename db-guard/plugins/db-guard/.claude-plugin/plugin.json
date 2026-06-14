@@ -1,0 +1,8 @@
+{
+  "name": "db-guard",
+  "version": "1.0.0",
+  "description": "The /db-drop skill — the sanctioned path through db-guard's PreToolUse hook. Walks the investigation-first workflow (count, schema audit, dependency check, explicit confirmation) before any DROP TABLE, TRUNCATE, DROP SCHEMA, or DROP COLUMN.",
+  "author": {
+    "name": "db-guard"
+  }
+}
