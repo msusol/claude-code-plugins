@@ -1,11 +1,16 @@
 # claude-code-plugins
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 Personal collection of [Claude Code](https://claude.ai/code) plugins.
 
 ## Plugins
 
 | Plugin | Description |
 |--------|-------------|
+| [clinerules](clinerules/) | Symlinks `~/.clinerules/*` into the current project's `.clinerules/` and keeps the `@-import` block in `CLAUDE.md` in sync |
+| [db-guard](db-guard/) | Two-layer guard against unauthorized `DROP TABLE`, `TRUNCATE`, `DROP DATABASE`, `DROP SCHEMA`, and `DROP COLUMN` |
+| [git-guard](git-guard/) | Three-layer protection against unauthorized `git commit` and `git push` |
 | [usage-statusline](usage-statusline/) | Status line showing model, context %, and subscription rate limits |
 
 ## Usage
