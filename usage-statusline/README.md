@@ -11,12 +11,14 @@ Status line for Claude Code showing model name, context window usage, and subscr
 Shows in the Claude Code status bar:
 
 ```
-Claude Sonnet 4.6 | ctx:12% | 5h:34% 7d:8%
+Claude Sonnet 4.6 | ctx:54% | 5h:21% 7d:13% (resets Sat) | $4.35
 ```
 
 - **Model** — active model name
 - **ctx** — context window used this turn
 - **5h / 7d** — subscription rate limits used (appear after first API response)
+- **(resets Day)** — day the 7-day limit resets
+- **$X.XX** — total session cost
 
 ## Install
 
