@@ -21,7 +21,7 @@ Claude Sonnet 4.6 | ctx:12% | 5h:34% 7d:8%
 ## Install
 
 ```zsh
-./install.sh
+./deploy.zsh
 ```
 
 ## Uninstall

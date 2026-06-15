@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/env zsh
 set -e
 
 PLUGIN_DIR="$(cd "$(dirname "$0")" && pwd)"
