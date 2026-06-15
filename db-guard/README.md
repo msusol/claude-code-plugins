@@ -133,7 +133,8 @@ db-guard/
 │               └── SKILL.md          # /db-drop sanctioned path skill
 ├── src/
 │   ├── db-guard-hook.zsh              # PreToolUse hook (source)
-│   └── clinerule-15-db-guard.md       # Clinerule (source — deployed to ~/.clinerules/)
+│   └── clinerule-15-db-guard.md       # Clinerule deployed to ~/.clinerules/15-db-guard.md
+│                                      # (slot 15 is reserved by this plugin)
 └── scripts/
     └── manage-settings.py             # Idempotent settings.json merge + uninstall
 ```

@@ -46,7 +46,6 @@ Invoked by `/install-clinerules` or natural language ("link clinerules", "set up
 
 - macOS or Linux
 - Claude Code (desktop app, VS Code extension, or CLI)
-- `~/.clinerules/` populated with your global rule files
 
 ## Install
 
@@ -61,7 +60,8 @@ The installer is idempotent — safe to re-run after updates.
 ### What deploy.zsh does
 
 1. Copies `src/link-clinerules.sh` to `~/.claude/scripts/link-clinerules.sh`
-2. Registers this repo as a Claude Code plugin marketplace and installs `clinerules`
+2. Copies `src/rules/*.md` to `~/.clinerules/` (installs missing files; updates changed ones)
+3. Registers this repo as a Claude Code plugin marketplace and installs `clinerules`
 
 > **Note:** Running `claude plugin install clinerules@clinerules` alone is not sufficient.
 > The skill calls `~/.claude/scripts/link-clinerules.sh`, which only `deploy.zsh` installs.
@@ -116,11 +116,39 @@ Or run the script directly:
 Removes `~/.claude/scripts/link-clinerules.sh` and unregisters the plugin. Existing
 `.clinerules/` symlinks in projects are left untouched.
 
+## Rule numbering
+
+Rules are numbered `NN-name.md` to control load order. Some slots are reserved by other
+plugins and will not appear in `src/rules/` — they are listed in `.collectignore`:
+
+| Slot | File | Owner |
+|---|---|---|
+| 15 | `15-db-guard.md` | [db-guard](../db-guard) plugin |
+
+When adding a new rule, pick the next unused number after the highest existing one.
+
+## Keeping rules in sync
+
+`src/rules/` is the committed source of truth for your global rule files.
+
+- **`./collect.zsh`** — copies `~/.clinerules/*.md` → `src/rules/` so you can commit changes.
+- **`./deploy.zsh`** — copies `src/rules/*.md` → `~/.clinerules/` (runs automatically on install; re-run after pulling updates).
+
+Typical workflow after editing a rule:
+
+```zsh
+# 1. Edit ~/.clinerules/some-rule.md
+./collect.zsh        # pull changes into the repo
+# commit and push
+# on another machine: git pull && ./deploy.zsh
+```
+
 ## Package layout
 
 ```
 clinerules/
 ├── README.md
+├── collect.zsh                             # Pull ~/.clinerules/ into src/rules/ for committing
 ├── deploy.zsh                              # Installer
 ├── uninstall.zsh                           # Uninstaller
 ├── .claude-plugin/
@@ -133,5 +161,8 @@ clinerules/
 │           └── install-clinerules/
 │               └── SKILL.md               # /install-clinerules skill definition
 └── src/
-    └── link-clinerules.sh                  # Linker script (source — deployed to ~/.claude/scripts/)
+    ├── link-clinerules.sh                  # Linker script (source — deployed to ~/.claude/scripts/)
+    └── rules/                              # Committed rule files (source of truth)
+        ├── 01-global.md
+        └── ...
 ```

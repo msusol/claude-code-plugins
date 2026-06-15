@@ -13,6 +13,8 @@ set -euo pipefail
 REPO_DIR="${0:A:h}"
 SCRIPT_SRC="$REPO_DIR/src/link-clinerules.sh"
 SCRIPT_DEST="$HOME/.claude/scripts/link-clinerules.sh"
+RULES_SRC="$REPO_DIR/src/rules"
+RULES_DEST="$HOME/.clinerules"
 
 print "==> clinerules installer"
 print ""
@@ -23,7 +25,28 @@ cp "$SCRIPT_SRC" "$SCRIPT_DEST"
 chmod +x "$SCRIPT_DEST"
 print "✓ Installed script: $SCRIPT_DEST"
 
-# 2. Claude Code plugin registration
+# 2. Install rule files to ~/.clinerules/
+if [[ -d "$RULES_SRC" ]]; then
+  mkdir -p "$RULES_DEST"
+  installed=0; updated=0
+  for src in "$RULES_SRC"/*.md(N); do
+    name="${src:t}"
+    dest="$RULES_DEST/$name"
+    if [[ ! -f "$dest" ]]; then
+      cp "$src" "$dest"
+      (( installed++ )) || true
+    elif ! diff -q "$src" "$dest" &>/dev/null; then
+      cp "$src" "$dest"
+      (( updated++ )) || true
+    fi
+  done
+  print "✓ Rules: $installed installed, $updated updated → $RULES_DEST"
+else
+  print "⚠ No src/rules/ found — skipping rule installation"
+  print "  Run ./collect.zsh to populate src/rules/ from ~/.clinerules/"
+fi
+
+# 3. Claude Code plugin registration
 if command -v claude &>/dev/null; then
   claude plugin marketplace add "$REPO_DIR" 2>/dev/null || true
   claude plugin install clinerules@clinerules 2>/dev/null || true
