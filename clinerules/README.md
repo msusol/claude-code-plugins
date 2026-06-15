@@ -116,16 +116,26 @@ Or run the script directly:
 Removes `~/.claude/scripts/link-clinerules.sh` and unregisters the plugin. Existing
 `.clinerules/` symlinks in projects are left untouched.
 
-## Rule numbering
+## Rule numbering and load order
 
-Rules are numbered `NN-name.md` to control load order. Some slots are reserved by other
-plugins and will not appear in `src/rules/` — they are listed in `.collectignore`:
+Rules are numbered `NN-name.md` to control filesystem sort order. Some slots are reserved by
+other plugins and will not appear in `src/rules/` — they are listed in `.collectignore`:
 
 | Slot | File | Owner |
 |---|---|---|
 | 15 | `15-db-guard.md` | [db-guard](../db-guard) plugin |
 
 When adding a new rule, pick the next unused number after the highest existing one.
+
+### Does order affect how Claude reads the rules?
+
+No. Claude Code loads all files in `.clinerules/` and concatenates them into a single context
+block — it does not apply rules sequentially or give later rules precedence over earlier ones.
+The numeric prefix exists purely for human readability (consistent `ls` output, predictable
+directory scans) and has no effect on Claude's behavior.
+
+The practical implication: there is no need to carefully sequence rules for correctness.
+Order only matters if you want related rules to appear adjacent when scanning the directory.
 
 ## Keeping rules in sync
 

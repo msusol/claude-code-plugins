@@ -15,19 +15,71 @@ Personal collection of [Claude Code](https://claude.ai/code) plugins.
 
 ## Usage
 
-Clone the repo anywhere, then run the plugin's `install.sh`:
+Clone the repo, then run each plugin's installer:
 
-```bash
-git clone https://github.com/marksusol/claude-code-plugins.git
-cd claude-code-plugins/usage-statusline
-bash install.sh
+```zsh
+git clone https://github.com/msusol/claude-code-plugins.git
+cd claude-code-plugins
+
+./clinerules/deploy.zsh
+./db-guard/deploy.zsh
+./git-guard/deploy.zsh
+./usage-statusline/deploy.zsh
 ```
 
-To remove a plugin:
+All installers are idempotent — safe to re-run after pulling updates. To remove a plugin:
 
-```bash
-bash uninstall.sh
+```zsh
+./clinerules/uninstall.zsh
+./db-guard/uninstall.zsh
+./git-guard/uninstall.zsh
+./usage-statusline/uninstall.zsh
 ```
+
+## clinerules
+
+Maintains a global `~/.clinerules/` ruleset and symlinks it into any project's `.clinerules/`
+directory. Keeps the `@-import` block in `~/.claude/CLAUDE.md` in sync automatically.
+
+- **`src/rules/`** — committed source of truth for your rule files
+- **`./collect.zsh`** — pulls `~/.clinerules/*.md` into `src/rules/` for committing
+- **`./deploy.zsh`** — installs rules to `~/.clinerules/` and registers the plugin
+- **`/install-clinerules`** — skill that symlinks the global rules into the current project
+
+See [clinerules/README.md](clinerules/README.md) for the full rule authoring workflow.
+
+## db-guard
+
+Two-layer protection against unauthorized destructive SQL (`DROP TABLE`, `TRUNCATE`,
+`DROP DATABASE`, `DROP SCHEMA`, `ALTER TABLE … DROP COLUMN`).
+
+| Layer | Mechanism |
+|---|---|
+| PreToolUse hook | Intercepts matching Bash tool calls before execution |
+| Clinerule | Cognitive enforcement for Python-driven SQL the hook can't see |
+| `/db-drop` skill | The only sanctioned path — enforces investigation-first workflow |
+
+The sanctioned workflow (row count → schema audit → recovery check → confirm → execute)
+must be completed before any destructive operation runs. Use `DB_GUARD_SANCTIONED=1`
+as the bypass sentinel after completing it.
+
+See [db-guard/README.md](db-guard/README.md) for the full workflow.
+
+## git-guard
+
+Three-layer protection against unauthorized `git commit`, `git push`, and `git tag`.
+
+| Layer | Mechanism |
+|---|---|
+| Shell wrapper | Shadows `git` binary in PATH — fires before any process |
+| PreToolUse hook | Intercepts matching Bash tool calls before execution |
+| Deny rules | Absolute floor enforced by the Claude Code runtime |
+| `/commit` skill | The only sanctioned path — per-step confirmation at every stage |
+
+The `/commit` skill walks through status → stage → allowlist check → attribution →
+commit message → push decision, with explicit confirmation at each step.
+
+See [git-guard/README.md](git-guard/README.md) for allowlist configuration and full workflow.
 
 ## usage-statusline
 
@@ -88,6 +140,7 @@ dropping a table with 8 FK references).
 **Layers:**
 - PreToolUse hook: `~/.claude/scripts/db-guard-hook.zsh`
 - Clinerule: `~/.clinerules/15-db-guard.md` — cognitive enforcement for Python-driven SQL
+     (installed by db-guard/deploy.zsh; see db-guard/src/clinerule-15-db-guard.md)
 - Skill: `/db-drop` — the sanctioned investigation-first path
 
 **Bypass sentinel:** `DB_GUARD_SANCTIONED=1 psql ... "DROP TABLE ..."` — required even
