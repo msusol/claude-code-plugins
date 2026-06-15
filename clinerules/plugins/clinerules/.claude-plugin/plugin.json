@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "The /install-clinerules skill — symlinks ~/.clinerules/* into the current project root's .clinerules/ directory and updates the @-import block in ~/.claude/CLAUDE.md.",
   "author": {
-    "name": "clinerules"
-  }
+    "name": "Mark Susol"
+  },
+  "license": "MIT"
 }

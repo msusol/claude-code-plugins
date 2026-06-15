@@ -4,5 +4,6 @@
   "description": "Status line showing model name, context window usage, and subscription rate limits (5h / 7d). Alerts with restart time when 5h usage exceeds 75%.",
   "author": {
     "name": "Mark Susol"
-  }
+  },
+  "license": "MIT"
 }
