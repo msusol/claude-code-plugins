@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/env zsh
 # Claude Code status line: subscription usage + model + context
 input=$(cat)
 

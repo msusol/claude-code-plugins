@@ -9,7 +9,7 @@ if [ ! -f "$SETTINGS" ]; then
 fi
 
 tmp=$(mktemp)
-jq --arg cmd "bash $PLUGIN_DIR/statusline.sh" \
+jq --arg cmd "zsh $PLUGIN_DIR/statusline.zsh" \
   '.statusLine = {"type": "command", "command": $cmd}' \
   "$SETTINGS" > "$tmp" && mv "$tmp" "$SETTINGS"
 
@@ -23,5 +23,5 @@ fi
 mkdir -p "$HOME/.claude/commands"
 cp "$PLUGIN_DIR/commands/setup.md" "$HOME/.claude/commands/usage-statusline-setup.md"
 
-echo "Installed: statusLine -> $PLUGIN_DIR/statusline.sh"
+echo "Installed: statusLine -> $PLUGIN_DIR/statusline.zsh"
 echo "Installed: /usage-statusline-setup command"
