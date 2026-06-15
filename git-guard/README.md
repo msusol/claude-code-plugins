@@ -109,6 +109,16 @@ The installer is idempotent — safe to re-run if you update the package.
 1. **Edit the allowlist** — `~/.config/git-guard/allowlist` is empty by default. Add your approved remote URL patterns before making any commits.
 2. **Restart Claude Code** to load the new hook and pick up the plugin's `/commit` skill.
 
+### Updating after pulling changes
+
+After pulling changes from the repo, re-run the installer to be safe:
+
+```zsh
+./deploy.zsh
+```
+
+Then restart Claude Code to pick up the changes.
+
 ### Updating, disabling, uninstalling the plugin
 
 The plugin uses Claude Code's standard plugin tooling, so day-to-day management is the same as any other plugin:
