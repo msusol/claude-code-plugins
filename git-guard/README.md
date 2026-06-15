@@ -169,6 +169,29 @@ To add project-level overrides without touching the global deny list, create
 }
 ```
 
+## Testing
+
+Unit tests for the PreToolUse hook are in `tests/test-git-guard-hook.zsh`.
+
+```zsh
+zsh tests/test-git-guard-hook.zsh
+```
+
+The suite covers:
+
+- Bare `git commit / push / tag` — blocked (exit 2)
+- `GIT_GUARD_SANCTIONED=1 git commit / push / tag` — sentinel bypasses hook (exit 0)
+- Sentinel with leading whitespace — still bypasses
+- Heredoc commit message with sentinel — still bypasses
+- Read-only commands (`git status`, `git add`, `git diff`, `git log`, etc.) — allowed
+- Malformed / empty JSON input — allowed (no false positives)
+- Sentinel without required trailing space — still blocked
+
+The grep/sed fallback path (used when `jq` is unavailable) is tested automatically
+when `jq` lives in an isolated directory (e.g. MacPorts at `/opt/local/bin`). It is
+skipped with a `SKIP` message when `jq` is in a shared system directory (`/usr/bin`)
+where stripping it from `PATH` would break other tools the hook depends on.
+
 ## Uninstall
 
 ```zsh
@@ -208,6 +231,8 @@ git-guard/
 │   ├── git-wrapper.zsh            # Shell wrapper source (REAL_GIT substituted at install)
 │   ├── git-guard-hook.zsh         # PreToolUse hook
 │   └── allowlist.template         # Blank allowlist template
+├── tests/
+│   └── test-git-guard-hook.zsh    # Unit tests for the PreToolUse hook
 └── scripts/
     └── manage-settings.py         # Idempotent settings.json merge + uninstall
 ```

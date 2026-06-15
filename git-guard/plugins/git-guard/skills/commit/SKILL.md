@@ -61,7 +61,7 @@ If `git diff --staged` is empty, ask the user which files to stage.
 Offer specific choices based on the `git status` output — do not stage everything blindly with `git add .`.
 Wait for explicit confirmation before running any `git add` commands.
 
-Use `GIT_GUARD_SANCTIONED=1 $REAL_GIT add <file>` for each file the user approves.
+Use `$REAL_GIT add <file>` for each file the user approves. The sentinel is not needed here — the hook does not intercept `git add`.
 
 ## Step 3 — Allowlist check
 
