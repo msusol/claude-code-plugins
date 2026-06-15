@@ -2,6 +2,8 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+**Author:** Mark Susol
+
 Personal collection of [Claude Code](https://claude.ai/code) plugins.
 
 ## Plugins
@@ -36,78 +38,19 @@ All installers are idempotent — safe to re-run after pulling updates. To remov
 ./usage-statusline/uninstall.zsh
 ```
 
-## clinerules
-
-Maintains a global `~/.clinerules/` ruleset and symlinks it into any project's `.clinerules/`
-directory. Keeps the `@-import` block in `~/.claude/CLAUDE.md` in sync automatically.
-
-- **`src/rules/`** — committed source of truth for your rule files
-- **`./collect.zsh`** — pulls `~/.clinerules/*.md` into `src/rules/` for committing
-- **`./deploy.zsh`** — installs rules to `~/.clinerules/` and registers the plugin
-- **`/install-clinerules`** — skill that symlinks the global rules into the current project
-
-See [clinerules/README.md](clinerules/README.md) for the full rule authoring workflow.
-
-## db-guard
-
-Two-layer protection against unauthorized destructive SQL (`DROP TABLE`, `TRUNCATE`,
-`DROP DATABASE`, `DROP SCHEMA`, `ALTER TABLE … DROP COLUMN`).
-
-| Layer | Mechanism |
-|---|---|
-| PreToolUse hook | Intercepts matching Bash tool calls before execution |
-| Clinerule | Cognitive enforcement for Python-driven SQL the hook can't see |
-| `/db-drop` skill | The only sanctioned path — enforces investigation-first workflow |
-
-The sanctioned workflow (row count → schema audit → recovery check → confirm → execute)
-must be completed before any destructive operation runs. Use `DB_GUARD_SANCTIONED=1`
-as the bypass sentinel after completing it.
-
-See [db-guard/README.md](db-guard/README.md) for the full workflow.
-
-## git-guard
-
-Three-layer protection against unauthorized `git commit`, `git push`, and `git tag`.
-
-| Layer | Mechanism |
-|---|---|
-| Shell wrapper | Shadows `git` binary in PATH — fires before any process |
-| PreToolUse hook | Intercepts matching Bash tool calls before execution |
-| Deny rules | Absolute floor enforced by the Claude Code runtime |
-| `/commit` skill | The only sanctioned path — per-step confirmation at every stage |
-
-The `/commit` skill walks through status → stage → allowlist check → attribution →
-commit message → push decision, with explicit confirmation at each step.
-
-See [git-guard/README.md](git-guard/README.md) for allowlist configuration and full workflow.
-
-## usage-statusline
-
-![usage-statusline plugin in action](usage-statusline.png)
-
-Shows in the Claude Code status bar:
-
-```
-Claude Sonnet 4.6 | ctx:12% | 5h:34% 7d:8%
-```
-
-- **Model** — active model name
-- **ctx** — context window used this turn
-- **5h / 7d** — subscription rate limits used (appear after first API response)
-
 ## Known Behaviors
 
 ### Auto-memory + commit clinerule interaction
 
 When testing these plugins in a project that has active clinerules (especially
-`10-commit-description.md`), you may see Claude spontaneously say something like
+`clinerules-commit-description.md`), you may see Claude spontaneously say something like
 "save a memory about the db-guard pattern and commit." This is not the plugin acting —
 it is two Claude Code behaviors colliding:
 
 1. **Auto-memory** — Claude Code's built-in memory system writes `.md` files to
    `~/.claude/projects/.../memory/` when it encounters something it considers significant
    (such as a newly installed guard pattern or a schema it just inspected).
-2. **Commit clinerule** — if `10-commit-description.md` is active, Claude sees the new
+2. **Commit clinerule** — if `clinerules-commit-description.md` is active, Claude sees the new
    memory files as uncommitted changes and offers to commit them.
 
 Neither behavior originates from the plugin itself. If this is unwanted, the commit
@@ -140,7 +83,7 @@ dropping a table with 8 FK references).
 **Layers:**
 - PreToolUse hook: `~/.claude/scripts/db-guard-hook.zsh`
 - Clinerule: `~/.clinerules/dbguard-destructive-ops.md` — cognitive enforcement for Python-driven SQL
-     (installed by db-guard/deploy.zsh; see db-guard/src/clinerule-dbguard-destructive-ops.md)
+     (installed by db-guard/deploy.zsh; see db-guard/src/rules/dbguard-destructive-ops.md)
 - Skill: `/db-drop` — the sanctioned investigation-first path
 
 **Bypass sentinel:** `DB_GUARD_SANCTIONED=1 psql ... "DROP TABLE ..."` — required even
@@ -149,10 +92,3 @@ after verbal confirmation.
 **Sanctioned workflow:** count rows → schema/FK audit → recovery check → present
 findings → explicit confirm → execute with sentinel.
 ```
-
-## Known Limitations
-
-The `statusLine` command renders per-conversation context, not at CLI startup. It will appear after the first message or `/new` — not at the initial prompt. This is a Claude Code CLI limitation.
-
-A feature request for a `Startup` hook event has been filed:
-[anthropics/claude-code#64018 — add startup/session-init hook event to settings.json hooks](https://github.com/anthropics/claude-code/issues/64018)

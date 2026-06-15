@@ -2,6 +2,8 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+**Author:** Mark Susol
+
 Symlinks your global `~/.clinerules/*` ruleset into any project's `.clinerules/` directory
 and keeps the `@-import` block in `~/.claude/CLAUDE.md` in sync.
 

@@ -2,6 +2,8 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+**Author:** Mark Susol
+
 Two-layer protection against unauthorized `DROP TABLE`, `TRUNCATE`, `DROP DATABASE`,
 `DROP SCHEMA`, and `ALTER TABLE … DROP COLUMN` by Claude Code.
 
@@ -16,7 +18,7 @@ This package closes that gap using two independent defenses.
 | Layer | Mechanism | Bypassed by |
 |---|---|---|
 | PreToolUse hook | Intercepts `DROP TABLE` / `TRUNCATE` in Bash tool calls before they run | Nothing — fires before tool executes |
-| Clinerule `15-db-guard.md` | Cognitive enforcement for Python-driven SQL; defines investigation-first workflow | Nothing — always applies |
+| Clinerule `dbguard-destructive-ops.md` | Cognitive enforcement for Python-driven SQL; defines investigation-first workflow | Nothing — always applies |
 | `/db-drop` skill | Sanctioned path through both layers, with per-step confirmation | Both layers, by design — with explicit confirmation |
 
 ## How it works
@@ -39,7 +41,7 @@ permission prompt.
 `psql -c "DROP TABLE ..."`). For Python-driven SQL, Layer 2 (the clinerule) is
 the enforcement layer.
 
-### Layer 2 — Clinerule (`~/.clinerules/15-db-guard.md`)
+### Layer 2 — Clinerule (`~/.clinerules/dbguard-destructive-ops.md`)
 
 Loaded into every Claude Code session. Defines the investigation-first workflow
 and applies it to ALL destructive SQL, including Python-driven operations where
@@ -79,7 +81,7 @@ The installer is idempotent — safe to re-run after updates.
 ### What deploy.zsh does
 
 1. Copies `src/db-guard-hook.zsh` to `~/.claude/scripts/db-guard-hook.zsh`
-2. Copies `src/clinerule-15-db-guard.md` to `~/.clinerules/15-db-guard.md`
+2. Copies `src/rules/dbguard-destructive-ops.md` to `~/.clinerules/dbguard-destructive-ops.md`
 3. Merges the PreToolUse hook entry into `~/.claude/settings.json`
 4. Registers this repo as a Claude Code plugin marketplace and installs `db-guard`
 
@@ -133,7 +135,8 @@ db-guard/
 │               └── SKILL.md          # /db-drop sanctioned path skill
 ├── src/
 │   ├── db-guard-hook.zsh              # PreToolUse hook (source)
-│   └── clinerule-dbguard-destructive-ops.md  # Clinerule → ~/.clinerules/dbguard-destructive-ops.md
+│   └── rules/
+│       └── dbguard-destructive-ops.md  # Clinerule → ~/.clinerules/dbguard-destructive-ops.md
 └── scripts/
     └── manage-settings.py             # Idempotent settings.json merge + uninstall
 ```

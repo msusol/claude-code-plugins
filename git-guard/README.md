@@ -2,6 +2,8 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+**Author:** Mark Susol
+
 Three-layer protection against unauthorized `git commit` and `git push` by Claude Code.
 
 ## Why
