@@ -3,8 +3,9 @@
   "name": "db-guard",
   "description": "Two-layer guard against unauthorized DROP TABLE, TRUNCATE, DROP DATABASE, DROP SCHEMA, and DROP COLUMN. A PreToolUse hook blocks direct Bash calls; the /db-drop skill is the investigation-first sanctioned path with per-step confirmation.",
   "owner": {
-    "name": "db-guard"
+    "name": "Mark Susol"
   },
+  "license": "MIT",
   "plugins": [
     {
       "name": "db-guard",

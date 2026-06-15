@@ -3,8 +3,9 @@
   "name": "clinerules",
   "description": "Symlinks ~/.clinerules/* into the current project's .clinerules/ directory and keeps the @-import block in ~/.claude/CLAUDE.md in sync. Invoke /install-clinerules from any project to wire up the global ruleset.",
   "owner": {
-    "name": "clinerules"
+    "name": "Mark Susol"
   },
+  "license": "MIT",
   "plugins": [
     {
       "name": "clinerules",

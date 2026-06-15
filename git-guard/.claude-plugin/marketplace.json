@@ -3,8 +3,9 @@
   "name": "git-guard",
   "description": "git-guard local marketplace — exposes the /commit skill (the sanctioned escape hatch for the shell wrapper + PreToolUse hook that block unguided git writes).",
   "owner": {
-    "name": "git-guard"
+    "name": "Mark Susol"
   },
+  "license": "MIT",
   "plugins": [
     {
       "name": "git-guard",
