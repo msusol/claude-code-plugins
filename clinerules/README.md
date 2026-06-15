@@ -173,6 +173,6 @@ clinerules/
 └── src/
     ├── link-clinerules.sh                  # Linker script (source — deployed to ~/.claude/scripts/)
     └── rules/                              # Committed rule files (source of truth)
-        ├── 01-global.md
+        ├── clinerules-global.md
         └── ...
 ```

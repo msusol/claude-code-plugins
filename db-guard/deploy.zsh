@@ -16,7 +16,7 @@ set -euo pipefail
 
 REPO_DIR="${0:A:h}"
 HOOK_SRC="$REPO_DIR/src/db-guard-hook.zsh"
-CLINERULE_SRC="$REPO_DIR/src/clinerule-dbguard-destructive-ops.md"
+CLINERULE_SRC="$REPO_DIR/src/rules/dbguard-destructive-ops.md"
 HOOK_DEST="$HOME/.claude/scripts/db-guard-hook.zsh"
 CLINERULE_DEST="$HOME/.clinerules/dbguard-destructive-ops.md"
 CLINERULE_LEGACY="$HOME/.clinerules/15-db-guard.md"
