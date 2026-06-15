@@ -27,7 +27,7 @@ Claude Sonnet 4.6 | ctx:12% | 5h:34% 7d:8%
 ## Uninstall
 
 ```zsh
-./uninstall.sh
+./uninstall.zsh
 ```
 
 ## Known Limitations
