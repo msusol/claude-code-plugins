@@ -139,8 +139,8 @@ dropping a table with 8 FK references).
 
 **Layers:**
 - PreToolUse hook: `~/.claude/scripts/db-guard-hook.zsh`
-- Clinerule: `~/.clinerules/15-db-guard.md` — cognitive enforcement for Python-driven SQL
-     (installed by db-guard/deploy.zsh; see db-guard/src/clinerule-15-db-guard.md)
+- Clinerule: `~/.clinerules/dbguard-destructive-ops.md` — cognitive enforcement for Python-driven SQL
+     (installed by db-guard/deploy.zsh; see db-guard/src/clinerule-dbguard-destructive-ops.md)
 - Skill: `/db-drop` — the sanctioned investigation-first path
 
 **Bypass sentinel:** `DB_GUARD_SANCTIONED=1 psql ... "DROP TABLE ..."` — required even

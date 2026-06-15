@@ -118,14 +118,14 @@ Removes `~/.claude/scripts/link-clinerules.sh` and unregisters the plugin. Exist
 
 ## Rule numbering and load order
 
-Rules are numbered `NN-name.md` to control filesystem sort order. Some slots are reserved by
-other plugins and will not appear in `src/rules/` — they are listed in `.collectignore`:
+Rules use a `plugin-name-` prefix to identify ownership and avoid collisions across plugins.
+Files owned by other plugins are excluded from `src/rules/` and listed in `.collectignore`:
 
-| Slot | File | Owner |
-|---|---|---|
-| 15 | `15-db-guard.md` | [db-guard](../db-guard) plugin |
+| File | Owner |
+|---|---|
+| `dbguard-destructive-ops.md` | [db-guard](../db-guard) plugin |
 
-When adding a new rule, pick the next unused number after the highest existing one.
+When adding a new rule to this plugin, use the `clinerules-` prefix.
 
 ### Does order affect how Claude reads the rules?
 

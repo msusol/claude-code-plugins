@@ -3,7 +3,9 @@
 #
 # What this does:
 #   1. Copies link-clinerules.sh to ~/.claude/scripts/link-clinerules.sh
-#   2. Registers this repo as a Claude Code plugin marketplace and installs clinerules
+#   2. Copies src/rules/clinerules-*.md to ~/.clinerules/ (installs new, updates changed,
+#      removes legacy ##-prefixed files)
+#   3. Registers this repo as a Claude Code plugin marketplace and installs clinerules
 #
 # Prerequisites:
 #   - Claude Code CLI (claude) installed
@@ -41,6 +43,18 @@ if [[ -d "$RULES_SRC" ]]; then
     fi
   done
   print "✓ Rules: $installed installed, $updated updated → $RULES_DEST"
+
+  # Remove legacy ##-prefixed files that have been renamed to plugin-namespaced ones.
+  removed=0
+  for legacy in "$RULES_DEST"/[0-9][0-9]-*.md(N); do
+    name="${legacy:t}"
+    rm "$legacy"
+    print "✓ Removed legacy rule: $name"
+    (( removed++ )) || true
+  done
+  if (( removed > 0 )); then
+    print "✓ Removed $removed legacy ##-prefixed rules"
+  fi
 else
   print "⚠ No src/rules/ found — skipping rule installation"
   print "  Run ./collect.zsh to populate src/rules/ from ~/.clinerules/"
