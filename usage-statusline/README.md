@@ -6,7 +6,7 @@
 
 Status line for Claude Code showing model name, context window usage, and subscription rate limits.
 
-![usage-statusline plugin in action](../usage-statusline.png)
+![usage-statusline plugin in action](usage-statusline.png)
 
 Shows in the Claude Code status bar:
 
