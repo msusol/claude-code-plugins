@@ -43,9 +43,13 @@ the enforcement layer.
 
 ### Layer 2 — Rule (`~/.cline/rules/dbguard-destructive-ops.md`)
 
-Loaded into every Cline and Claude Code session. Defines the investigation-first
-workflow and applies it to ALL destructive SQL, including Python-driven operations
-where the SQL is not visible in the Bash command string.
+Loaded into every Cline and Claude Code session as a cognitive constraint. It does
+four things the hook cannot:
+
+1. **Cline sessions** — the PreToolUse hook only fires in Claude Code (`~/.claude/settings.json`). Cline has no equivalent hook mechanism. In a Cline session, this rule is the sole enforcement layer.
+2. **Python-driven SQL** — the hook sees only the Bash command string. `python3 migrate.py` is opaque to it; any `DROP TABLE` inside the script goes undetected. The rule applies the investigation-first workflow to *all* destructive SQL regardless of how it is invoked.
+3. **Defines the workflow** — the hook blocks and says "do this instead." The rule is what "this" means: count rows, audit FKs, check recovery options, present findings, wait for explicit confirmation, use the sentinel. Without the rule the hook's message points at nothing.
+4. **Planning phase** — the rule shapes Claude's reasoning before any tool call fires. Claude initiates the investigation-first workflow proactively rather than reactively after a blocked call.
 
 ### `/db-drop` skill — the sanctioned path
 
