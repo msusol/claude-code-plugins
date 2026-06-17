@@ -18,7 +18,7 @@ This package closes that gap using two independent defenses.
 | Layer | Mechanism | Bypassed by |
 |---|---|---|
 | PreToolUse hook | Intercepts `DROP TABLE` / `TRUNCATE` in Bash tool calls before they run | Nothing — fires before tool executes |
-| Clinerule `dbguard-destructive-ops.md` | Cognitive enforcement for Python-driven SQL; defines investigation-first workflow | Nothing — always applies |
+| Rule `dbguard-destructive-ops.md` | Cognitive enforcement for Python-driven SQL; defines investigation-first workflow | Nothing — always applies |
 | `/db-drop` skill | Sanctioned path through both layers, with per-step confirmation | Both layers, by design — with explicit confirmation |
 
 ## How it works

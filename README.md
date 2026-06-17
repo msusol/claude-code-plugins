@@ -63,7 +63,7 @@ The pattern is: if the risk is a specific runtime Bash event, add a hook. If the
 
 ## Known Behaviors
 
-### Auto-memory + commit clinerule interaction
+### Auto-memory + commit rule interaction
 
 When testing these plugins in a project that has active clinerules (especially
 `planning-commit-description.md`), you may see Claude spontaneously say something like
@@ -77,7 +77,7 @@ it is two Claude Code behaviors colliding:
    memory files as uncommitted changes and offers to commit them.
 
 Neither behavior originates from the plugin itself. If this is unwanted, the commit
-clinerule can be scoped to exclude the memory directory, or the auto-memory system can
+commit rule can be scoped to exclude the memory directory, or the auto-memory system can
 be ignored for memory-file changes.
 
 The auto-saved memory is often genuinely useful — Claude captures the *why* behind the

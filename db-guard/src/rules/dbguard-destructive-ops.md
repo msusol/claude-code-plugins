@@ -31,7 +31,7 @@ the audit signal.
 
 The hook only intercepts patterns visible in the Bash command string (e.g.
 `psql -c "DROP TABLE ..."`). For Python-driven drops where the SQL is inside a script,
-this clinerule is the enforcement layer — the hook is a secondary net, not the primary one.
+this rule is the enforcement layer — the hook is a secondary net, not the primary one.
 
 ## Sanctioned workflow (investigation-first)
 
