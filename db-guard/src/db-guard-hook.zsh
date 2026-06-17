@@ -9,8 +9,8 @@
 #
 # This hook intercepts patterns that are visible in the Bash command string
 # (e.g. psql -c "DROP TABLE ..."). SQL executed from inside Python scripts
-# is not caught here — the clinerule 15-db-guard.md is the enforcement layer
-# for those cases.
+# is not caught here — ~/.cline/rules/dbguard-destructive-ops.md is the
+# enforcement layer for those cases.
 
 input=$(cat)
 
@@ -32,7 +32,7 @@ if echo "$cmd" | grep -qiE \
   echo "db-guard: destructive SQL intercepted by PreToolUse hook." >&2
   echo "" >&2
   echo "Do NOT run DROP TABLE, TRUNCATE, DROP DATABASE, DROP SCHEMA, or DROP COLUMN directly." >&2
-  echo "Follow the db-guard investigation-first workflow (.clinerules/15-db-guard.md):" >&2
+  echo "Follow the db-guard investigation-first workflow (~/.cline/rules/dbguard-destructive-ops.md):" >&2
   echo "" >&2
   echo "  1. Count and sample the target table" >&2
   echo "  2. Audit schema, foreign keys, views, and indexes that depend on it" >&2
