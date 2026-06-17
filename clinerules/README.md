@@ -25,12 +25,12 @@ Claude token limits are reached — you only want to maintain one copy of your r
 This plugin achieves that with a single-source strategy:
 
 ```
-src/rules/clinerules-global.md   ← committed source of truth
+src/rules/planning-global.md   ← committed source of truth
           │
-          └─ deploy.zsh ──→  ~/.cline/rules/clinerules-global.md
-                                    │                │
-                              Cline reads it    @-import in ~/.claude/CLAUDE.md
-                              (auto, native)    Claude Code reads it
+          └─ deploy.zsh ──→  ~/.cline/rules/planning-global.md
+                                   │                │
+                             Cline reads it    @-import in ~/.claude/CLAUDE.md
+                             (auto, native)    Claude Code reads it
 ```
 
 Both clients see the same rules. To edit a rule:
@@ -57,8 +57,7 @@ The model changes; the behavioral guardrails do not.
 |---|---|
 | `src/rules/` | Committed source of truth for your global rule files |
 | `deploy.zsh` | Copies `src/rules/*.md` → `~/.cline/rules/`; regenerates `@-imports` in `~/.claude/CLAUDE.md` |
-| `collect.zsh` | Copies `~/.cline/rules/*.md` → `src/rules/` for committing |
-| `/install-clinerules` skill | Claude Code skill that re-deploys rules on demand |
+| `collect.zsh` | Copies `~/.cline/rules/planning-*.md` → `src/rules/` for committing |
 
 ### Global rules — no per-project setup
 
@@ -90,26 +89,11 @@ The installer is idempotent — safe to re-run after updates.
 4. Regenerates the `@-import` block in `~/.claude/CLAUDE.md` to point at `~/.cline/rules/`
 5. Registers this repo as a Claude Code plugin marketplace and installs the `clinerules` plugin
 
-### After install
-
-Restart Claude Code to pick up the `/install-clinerules` skill.
-
-## Using the skill
-
-From any Claude Code session:
-
-- `/install-clinerules`
-- "deploy clinerules"
-- "set up clinerules"
-- "sync clinerules"
-
-The skill runs `deploy.zsh` and reports how many rules were installed or updated.
-
 ## Keeping rules in sync
 
 `src/rules/` is the committed source of truth for your rule files.
 
-- **`./collect.zsh`** — copies `~/.cline/rules/*.md` → `src/rules/` so you can commit changes.
+- **`./collect.zsh`** — copies `~/.cline/rules/planning-*.md` → `src/rules/` so you can commit changes.
 - **`./deploy.zsh`** — copies `src/rules/*.md` → `~/.cline/rules/` (runs automatically on install; re-run after pulling updates).
 
 Typical workflow after editing a rule:
@@ -132,11 +116,8 @@ Removes the plugin's rule files from `~/.cline/rules/` and unregisters the plugi
 ## Rule naming and load order
 
 Rules use a `plugin-name-` prefix to identify ownership and avoid collisions across plugins.
-Files owned by other plugins are excluded from `src/rules/` and listed in `.collectignore`:
-
-| File | Owner |
-|---|---|
-| `dbguard-destructive-ops.md` | [db-guard](../db-guard) plugin |
+`collect.zsh` scopes to `planning-*.md` so it only ever syncs files owned by this plugin —
+files from other plugins (e.g. `dbguard-*.md` from [db-guard](../db-guard)) are never touched.
 
 When adding a new rule to this plugin, use the `planning-` prefix.
 
@@ -155,11 +136,8 @@ clinerules/
 │   └── marketplace.json                    # Declares this repo as a plugin marketplace
 ├── plugins/
 │   └── clinerules/
-│       ├── .claude-plugin/
-│       │   └── plugin.json                 # Plugin manifest
-│       └── skills/
-│           └── install-clinerules/
-│               └── SKILL.md               # /install-clinerules skill definition
+│       └── .claude-plugin/
+│           └── plugin.json                 # Plugin manifest
 └── src/
     └── rules/                              # Committed rule files (source of truth)
         ├── planning-global.md
