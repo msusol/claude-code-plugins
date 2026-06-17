@@ -5,7 +5,8 @@ set -euo pipefail
 
 REPO_DIR="${0:A:h}"
 HOOK_DEST="$HOME/.claude/scripts/db-guard-hook.zsh"
-CLINERULE_DEST="$HOME/.clinerules/15-db-guard.md"
+RULE_DEST="$HOME/.cline/rules/dbguard-destructive-ops.md"
+GLOBAL_CLAUDE="$HOME/.claude/CLAUDE.md"
 
 echo "==> db-guard uninstaller"
 echo ""
@@ -18,12 +19,29 @@ else
   echo "  Hook not found — skipping"
 fi
 
-# Remove clinerule
-if [[ -f "$CLINERULE_DEST" ]]; then
-  rm "$CLINERULE_DEST"
-  echo "✓ Removed clinerule: $CLINERULE_DEST"
+# Remove rule file
+if [[ -f "$RULE_DEST" ]]; then
+  rm "$RULE_DEST"
+  echo "✓ Removed rule: $RULE_DEST"
 else
-  echo "  Clinerule not found — skipping"
+  echo "  Rule not found — skipping"
+fi
+
+# Remove @-import block from ~/.claude/CLAUDE.md
+if [[ -f "$GLOBAL_CLAUDE" ]] && grep -qF "<!-- BEGIN db-guard-imports" "$GLOBAL_CLAUDE"; then
+  tmp="$(mktemp)"
+  awk '
+    /<!-- BEGIN db-guard-imports/ { buf=""; skip=1; next }
+    /<!-- END db-guard-imports -->/ { skip=0; next }
+    skip { next }
+    /^[[:space:]]*$/ { buf = buf "\n"; next }
+    { printf "%s", buf; buf=""; print }
+    END { printf "%s", buf }
+  ' "$GLOBAL_CLAUDE" > "$tmp"
+  mv "$tmp" "$GLOBAL_CLAUDE"
+  echo "✓ Removed @-import block from $GLOBAL_CLAUDE"
+else
+  echo "  No managed block found in $GLOBAL_CLAUDE — skipping"
 fi
 
 # Remove from settings.json

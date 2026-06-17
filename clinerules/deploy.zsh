@@ -58,9 +58,9 @@ else
 fi
 
 # ── 2. Regenerate @-import block in ~/.claude/CLAUDE.md ──────────────────────
-# Builds @-imports pointing at ~/.cline/rules/ so Claude Code loads the same
-# rules as Cline from a single source.
-files=("$RULES_DEST"/*.md(N))
+# Builds @-imports for files owned by this plugin only (src/rules/).
+# Other plugins manage their own sentinel blocks independently.
+files=("$RULES_SRC"/*.md(N))
 if (( ${#files[@]} > 0 )); then
   imports=""
   for f in "${files[@]}"; do

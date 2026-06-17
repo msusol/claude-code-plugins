@@ -1,5 +1,0 @@
-# .collectignore — filenames in ~/.clinerules/ that collect.zsh should skip.
-# Add one filename per line for rules installed by other plugins.
-
-# Installed by the db-guard plugin (db-guard/src/clinerule-dbguard-destructive-ops.md)
-dbguard-destructive-ops.md

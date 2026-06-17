@@ -38,14 +38,14 @@ This layer fires before the Bash tool runs — it cannot be bypassed by approvin
 permission prompt.
 
 **Scope:** only intercepts SQL patterns visible in the Bash command string (e.g.,
-`psql -c "DROP TABLE ..."`). For Python-driven SQL, Layer 2 (the clinerule) is
+`psql -c "DROP TABLE ..."`). For Python-driven SQL, Layer 2 (the rule) is
 the enforcement layer.
 
-### Layer 2 — Clinerule (`~/.clinerules/dbguard-destructive-ops.md`)
+### Layer 2 — Rule (`~/.cline/rules/dbguard-destructive-ops.md`)
 
-Loaded into every Claude Code session. Defines the investigation-first workflow
-and applies it to ALL destructive SQL, including Python-driven operations where
-the SQL is not visible in the Bash command string.
+Loaded into every Cline and Claude Code session. Defines the investigation-first
+workflow and applies it to ALL destructive SQL, including Python-driven operations
+where the SQL is not visible in the Bash command string.
 
 ### `/db-drop` skill — the sanctioned path
 
@@ -81,9 +81,10 @@ The installer is idempotent — safe to re-run after updates.
 ### What deploy.zsh does
 
 1. Copies `src/db-guard-hook.zsh` to `~/.claude/scripts/db-guard-hook.zsh`
-2. Copies `src/rules/dbguard-destructive-ops.md` to `~/.clinerules/dbguard-destructive-ops.md`
+2. Copies `src/rules/dbguard-destructive-ops.md` to `~/.cline/rules/dbguard-destructive-ops.md`
 3. Merges the PreToolUse hook entry into `~/.claude/settings.json`
 4. Registers this repo as a Claude Code plugin marketplace and installs `db-guard`
+
 
 ### After install
 
