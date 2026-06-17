@@ -69,7 +69,7 @@ After completing a heavy desync cleanup:
   - when the cleanup occurred
   - which source-of-truth strategy was used.
 - Optionally add a short note in each modified plan file indicating that it has been synchronized with `TODO.md`.
-- For subsequent sessions, resume the normal synchronization behavior defined in `.clinerules/02-plan-and-todo-sync.md`.
+- For subsequent sessions, resume the normal synchronization behavior defined in `planning-plan-sync.md`.
 - Avoid repeating heavy cleanup unless a similar large desync is detected again.
 
 ## 6. Safety constraints

@@ -1,7 +1,7 @@
 {
   "name": "clinerules",
   "version": "1.0.0",
-  "description": "The /install-clinerules skill — symlinks ~/.clinerules/* into the current project root's .clinerules/ directory and updates the @-import block in ~/.claude/CLAUDE.md.",
+  "description": "Deploys planning-* rules globally to ~/.cline/rules/ for Cline and regenerates the @-import block in ~/.claude/CLAUDE.md for Claude Code.",
   "author": {
     "name": "Mark Susol"
   },

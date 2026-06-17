@@ -31,7 +31,7 @@ Do not create a spec for:
 - With artifacts: named subdirectory — `docs/specs/feature-name/spec.md` + artifacts alongside
 - Use kebab-case for both flat file names and subdirectory names.
 
-See `.clinerules/14-docs-artifacts.md` for the full artifact co-location rule.
+See `planning-docs-artifacts.md` for the full artifact co-location rule.
 
 ## Default (minimal) spec mode
 

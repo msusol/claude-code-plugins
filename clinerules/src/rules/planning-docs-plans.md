@@ -75,8 +75,8 @@ When `TODO.md` is in use:
 
 - Write plan tasks so they can be copied or mapped directly into `TODO.md`.
 - Keep wording concise and action-oriented.
-- Follow `.clinerules/02-plan-and-todo-sync.md` for normal synchronization.
-- Follow `.clinerules/03-desync-cleanup.md` if you detect a large desync between plan files and `TODO.md`.
+- Follow `planning-plan-sync.md` for normal synchronization.
+- Follow `planning-desync-cleanup.md` if you detect a large desync between plan files and `TODO.md`.
 
 ## Editing discipline
 

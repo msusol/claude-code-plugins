@@ -18,7 +18,7 @@ paths:
   anchor doc named `YYYY-MM-DD-issue-name.md` inside it alongside the artifacts.
 - Use the same date-prefix convention for subdirectory names as for flat files.
 
-See `.clinerules/14-docs-artifacts.md` for the full artifact co-location rule.
+See `planning-docs-artifacts.md` for the full artifact co-location rule.
 
 ## Per-issue structure
 

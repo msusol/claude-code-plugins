@@ -137,7 +137,7 @@ db-guard/
 ├── src/
 │   ├── db-guard-hook.zsh              # PreToolUse hook (source)
 │   └── rules/
-│       └── dbguard-destructive-ops.md  # Clinerule → ~/.clinerules/dbguard-destructive-ops.md
+│       └── dbguard-destructive-ops.md  # Rule → ~/.cline/rules/dbguard-destructive-ops.md
 └── scripts/
     └── manage-settings.py             # Idempotent settings.json merge + uninstall
 ```

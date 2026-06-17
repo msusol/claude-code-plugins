@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "clinerules",
-  "description": "Symlinks ~/.clinerules/* into the current project's .clinerules/ directory and keeps the @-import block in ~/.claude/CLAUDE.md in sync. Invoke /install-clinerules from any project to wire up the global ruleset.",
+  "description": "Deploys planning-* rules to ~/.cline/rules/ (Cline's native global rules directory) and keeps the @-import block in ~/.claude/CLAUDE.md in sync so Claude Code loads the same rules.",
   "owner": {
     "name": "Mark Susol"
   },
@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "clinerules",
-      "description": "Provides the /install-clinerules skill — symlinks ~/.clinerules/* into the current project root's .clinerules/ directory and updates the @-import block in ~/.claude/CLAUDE.md.",
+      "description": "Deploys planning-* rules globally to ~/.cline/rules/ for Cline and regenerates the @-import block in ~/.claude/CLAUDE.md for Claude Code. Run deploy.zsh to install or update.",
       "category": "development",
       "source": "./plugins/clinerules"
     }
