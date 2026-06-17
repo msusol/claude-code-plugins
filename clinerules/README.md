@@ -4,45 +4,68 @@
 
 **Author:** Mark Susol
 
-Symlinks your global `~/.clinerules/*` ruleset into any project's `.clinerules/` directory
-and keeps the `@-import` block in `~/.claude/CLAUDE.md` in sync.
+Deploys your global ruleset to `~/.cline/rules/`, Cline's native global rules directory,
+so your rules are available in every project without per-project setup.
 
 ## Why
 
-Claude Code loads per-project rules from `.clinerules/`. Maintaining a separate copy in
-every repo means edits to your global rules don't propagate automatically. This plugin
-creates symlinks instead of copies, so every project always reflects the current state
-of `~/.clinerules/`.
+Cline loads rules from `~/.cline/rules/` automatically in every session — no symlinks,
+no per-project configuration. Keeping `src/rules/` as the committed source of truth
+means you can edit rules, commit them, and deploy to a new machine with a single command.
+
+`deploy.zsh` also regenerates `~/.claude/CLAUDE.md` with `@-import` lines pointing at
+the same `~/.cline/rules/` files, so Claude Code loads identical rules from the same
+copy. One rule file, two clients.
+
+## Using Claude Code and Cline together
+
+If you alternate between Claude Code and Cline — for example, switching to Cline when
+Claude token limits are reached — you only want to maintain one copy of your rules.
+
+This plugin achieves that with a single-source strategy:
+
+```
+src/rules/clinerules-global.md   ← committed source of truth
+          │
+          └─ deploy.zsh ──→  ~/.cline/rules/clinerules-global.md
+                                    │                │
+                              Cline reads it    @-import in ~/.claude/CLAUDE.md
+                              (auto, native)    Claude Code reads it
+```
+
+Both clients see the same rules. To edit a rule:
+
+1. Edit the file in `~/.cline/rules/` directly (both clients pick it up immediately).
+2. Run `./collect.zsh` to pull the change into `src/rules/` for committing.
+
+Or edit in `src/rules/`, commit, then run `./deploy.zsh` to push to `~/.cline/rules/`
+and refresh the `~/.claude/CLAUDE.md` `@-import` block.
+
+### Switching clients
+
+| Situation | Client to use |
+|---|---|
+| Claude tokens available | Claude Code (`claude` CLI or IDE extension) |
+| Claude tokens exhausted | Cline with an alternative model (e.g. Ollama, Gemini, OpenAI) |
+
+Rules behave identically in both clients because they read from the same files.
+The model changes; the behavioral guardrails do not.
 
 ## How it works
 
 | Component | Purpose |
 |---|---|
-| `src/link-clinerules.sh` | The linker — creates symlinks and updates `CLAUDE.md` |
-| `~/.claude/scripts/link-clinerules.sh` | Where `deploy.zsh` installs it |
-| `/install-clinerules` skill | The Claude Code skill that calls the linker for the current project |
+| `src/rules/` | Committed source of truth for your global rule files |
+| `deploy.zsh` | Copies `src/rules/*.md` → `~/.cline/rules/`; regenerates `@-imports` in `~/.claude/CLAUDE.md` |
+| `collect.zsh` | Copies `~/.cline/rules/*.md` → `src/rules/` for committing |
+| `/install-clinerules` skill | Claude Code skill that re-deploys rules on demand |
 
-### `link-clinerules.sh`
+### Global rules — no per-project setup
 
-For each file in `~/.clinerules/`:
-
-1. Creates a symlink at `<project-root>/.clinerules/<filename>` pointing to the global file.
-2. Skips files already linked (pass `--force` to overwrite).
-3. Skips real files (not symlinks) to avoid overwriting manual edits.
-
-After symlinking, it regenerates the `@-import` block in `~/.claude/CLAUDE.md` to match
-the current contents of `~/.clinerules/`. The block is delimited by sentinel markers so
-edits outside it are preserved.
-
-### `/install-clinerules` skill
-
-Invoked by `/install-clinerules` or natural language ("link clinerules", "set up clinerules",
-"sync clinerules") from any Claude Code session. The skill:
-
-1. Confirms the project root (`$PWD` by default).
-2. Runs `~/.claude/scripts/link-clinerules.sh "$PWD"`.
-3. Reports how many rules were linked vs. skipped.
-4. Verifies the `.clinerules/` directory with `ls -la`.
+`~/.cline/rules/` is Cline's native global rules directory, loaded automatically in every
+workspace. `~/.claude/CLAUDE.md` `@-imports` pointing at those same files give Claude Code
+identical coverage. Once you run `./deploy.zsh`, both clients have the rules active
+everywhere with no further setup needed.
 
 ## Prerequisites
 
@@ -59,54 +82,43 @@ cd clinerules
 
 The installer is idempotent — safe to re-run after updates.
 
-### What deploy.zsh does
+### What `deploy.zsh` does
 
-1. Copies `src/link-clinerules.sh` to `~/.claude/scripts/link-clinerules.sh`
-2. Copies `src/rules/*.md` to `~/.clinerules/` (installs missing files; updates changed ones)
-3. Registers this repo as a Claude Code plugin marketplace and installs `clinerules`
-
-> **Note:** Running `claude plugin install clinerules@clinerules` alone is not sufficient.
-> The skill calls `~/.claude/scripts/link-clinerules.sh`, which only `deploy.zsh` installs.
-> Always run `./deploy.zsh` as the single install step.
+1. Creates `~/.cline/rules/` if it does not exist
+2. Copies `src/rules/*.md` to `~/.cline/rules/` (installs new files, updates changed ones)
+3. Removes any legacy `##-prefixed` rule files left from a prior naming convention
+4. Regenerates the `@-import` block in `~/.claude/CLAUDE.md` to point at `~/.cline/rules/`
+5. Registers this repo as a Claude Code plugin marketplace and installs the `clinerules` plugin
 
 ### After install
 
 Restart Claude Code to pick up the `/install-clinerules` skill.
 
-### First-time setup
-
-On a fresh machine, `~/.claude/CLAUDE.md` may not yet have the `@-import` block that
-tells Claude Code to load your rules. Run `/install-clinerules` once from any project
-after restarting — the script bootstraps `~/.claude/CLAUDE.md` automatically:
-
-| State of `~/.claude/CLAUDE.md` | What the script does |
-|---|---|
-| Does not exist | Creates it with a `## Cline Project Rules` header and the full `@-import` block |
-| Exists, sentinel markers present | Replaces only the managed block, preserving everything else |
-| Exists, no sentinels | Wraps any existing bare `@~/.clinerules/` lines in sentinels, or appends the block if none are found |
-
-After this one-time run, Claude Code loads all rules from `~/.clinerules/` in every
-session globally — no further per-project setup needed for the rules themselves.
-
 ## Using the skill
 
-From any project in Claude Code:
+From any Claude Code session:
 
 - `/install-clinerules`
-- "link clinerules"
+- "deploy clinerules"
 - "set up clinerules"
 - "sync clinerules"
 
-To overwrite existing symlinks (e.g. after adding new rules to `~/.clinerules/`):
+The skill runs `deploy.zsh` and reports how many rules were installed or updated.
 
-- "force link clinerules"
-- "re-sync clinerules"
+## Keeping rules in sync
 
-Or run the script directly:
+`src/rules/` is the committed source of truth for your rule files.
+
+- **`./collect.zsh`** — copies `~/.cline/rules/*.md` → `src/rules/` so you can commit changes.
+- **`./deploy.zsh`** — copies `src/rules/*.md` → `~/.cline/rules/` (runs automatically on install; re-run after pulling updates).
+
+Typical workflow after editing a rule:
 
 ```zsh
-~/.claude/scripts/link-clinerules.sh [project-root]
-~/.claude/scripts/link-clinerules.sh --force [project-root]
+# 1. Edit ~/.cline/rules/some-rule.md directly
+./collect.zsh        # pull changes into the repo
+# commit and push
+# on another machine: git pull && ./deploy.zsh
 ```
 
 ## Uninstall
@@ -115,10 +127,9 @@ Or run the script directly:
 ./uninstall.zsh
 ```
 
-Removes `~/.claude/scripts/link-clinerules.sh` and unregisters the plugin. Existing
-`.clinerules/` symlinks in projects are left untouched.
+Removes the plugin's rule files from `~/.cline/rules/` and unregisters the plugin.
 
-## Rule numbering and load order
+## Rule naming and load order
 
 Rules use a `plugin-name-` prefix to identify ownership and avoid collisions across plugins.
 Files owned by other plugins are excluded from `src/rules/` and listed in `.collectignore`:
@@ -127,40 +138,17 @@ Files owned by other plugins are excluded from `src/rules/` and listed in `.coll
 |---|---|
 | `dbguard-destructive-ops.md` | [db-guard](../db-guard) plugin |
 
-When adding a new rule to this plugin, use the `clinerules-` prefix.
+When adding a new rule to this plugin, use the `planning-` prefix.
 
-### Does order affect how Claude reads the rules?
-
-No. Claude Code loads all files in `.clinerules/` and concatenates them into a single context
-block — it does not apply rules sequentially or give later rules precedence over earlier ones.
-The numeric prefix exists purely for human readability (consistent `ls` output, predictable
-directory scans) and has no effect on Claude's behavior.
-
-The practical implication: there is no need to carefully sequence rules for correctness.
-Order only matters if you want related rules to appear adjacent when scanning the directory.
-
-## Keeping rules in sync
-
-`src/rules/` is the committed source of truth for your global rule files.
-
-- **`./collect.zsh`** — copies `~/.clinerules/*.md` → `src/rules/` so you can commit changes.
-- **`./deploy.zsh`** — copies `src/rules/*.md` → `~/.clinerules/` (runs automatically on install; re-run after pulling updates).
-
-Typical workflow after editing a rule:
-
-```zsh
-# 1. Edit ~/.clinerules/some-rule.md
-./collect.zsh        # pull changes into the repo
-# commit and push
-# on another machine: git pull && ./deploy.zsh
-```
+Cline loads all files in `~/.cline/rules/` as a combined context — order does not affect
+how rules are applied.
 
 ## Package layout
 
 ```
 clinerules/
 ├── README.md
-├── collect.zsh                             # Pull ~/.clinerules/ into src/rules/ for committing
+├── collect.zsh                             # Pull ~/.cline/rules/ into src/rules/ for committing
 ├── deploy.zsh                              # Installer
 ├── uninstall.zsh                           # Uninstaller
 ├── .claude-plugin/
@@ -173,8 +161,7 @@ clinerules/
 │           └── install-clinerules/
 │               └── SKILL.md               # /install-clinerules skill definition
 └── src/
-    ├── link-clinerules.sh                  # Linker script (source — deployed to ~/.claude/scripts/)
     └── rules/                              # Committed rule files (source of truth)
-        ├── clinerules-global.md
+        ├── planning-global.md
         └── ...
 ```

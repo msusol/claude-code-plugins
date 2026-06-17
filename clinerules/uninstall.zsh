@@ -3,16 +3,50 @@
 
 set -euo pipefail
 
-SCRIPT_DEST="$HOME/.claude/scripts/link-clinerules.sh"
+REPO_DIR="${0:A:h}"
+RULES_SRC="$REPO_DIR/src/rules"
+RULES_DEST="$HOME/.cline/rules"
 
 print "==> clinerules uninstaller"
 print ""
 
-if [[ -f "$SCRIPT_DEST" ]]; then
-  rm "$SCRIPT_DEST"
-  print "✓ Removed script: $SCRIPT_DEST"
+# Remove rule files deployed by this plugin from ~/.cline/rules/
+if [[ -d "$RULES_DEST" && -d "$RULES_SRC" ]]; then
+  removed=0
+  for src in "$RULES_SRC"/*.md(N); do
+    name="${src:t}"
+    dest="$RULES_DEST/$name"
+    if [[ -f "$dest" ]]; then
+      rm "$dest"
+      print "✓ Removed: $dest"
+      (( removed++ )) || true
+    fi
+  done
+  if (( removed == 0 )); then
+    print "  No plugin rules found in $RULES_DEST — nothing to remove"
+  else
+    print "✓ Removed $removed rule(s) from $RULES_DEST"
+  fi
 else
-  print "  Script not found — skipping"
+  print "  $RULES_DEST not found — skipping"
+fi
+
+# Remove the managed @-import block from ~/.claude/CLAUDE.md
+GLOBAL_CLAUDE="$HOME/.claude/CLAUDE.md"
+if [[ -f "$GLOBAL_CLAUDE" ]] && grep -qE "<!-- BEGIN clinerules-imports" "$GLOBAL_CLAUDE"; then
+  tmp="$(mktemp)"
+  awk '
+    /<!-- BEGIN clinerules-imports/ { buf=""; skip=1; next }
+    /<!-- END clinerules-imports -->/ { skip=0; next }
+    skip { next }
+    /^[[:space:]]*$/ { buf = buf "\n"; next }
+    { printf "%s", buf; buf=""; print }
+    END { printf "%s", buf }
+  ' "$GLOBAL_CLAUDE" > "$tmp"
+  mv "$tmp" "$GLOBAL_CLAUDE"
+  print "✓ Removed @-import block from $GLOBAL_CLAUDE"
+else
+  print "  No managed block found in $GLOBAL_CLAUDE — skipping"
 fi
 
 if command -v claude &>/dev/null; then
@@ -22,4 +56,3 @@ fi
 
 print ""
 print "==> clinerules uninstalled."
-print "    Existing .clinerules/ symlinks in projects are untouched."

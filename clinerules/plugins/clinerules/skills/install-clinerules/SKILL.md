@@ -1,59 +1,54 @@
 ---
 name: install-clinerules
 description: >
-  Use this skill whenever the user wants to install, link, or sync clinerules
-  into the current project. Trigger on: /install-clinerules, "install clinerules",
-  "link clinerules", "set up clinerules", "add clinerules to this project",
-  "sync clinerules", or any request to wire the global ~/.clinerules/ ruleset
-  into the project's .clinerules/ directory.
-version: 1.0.0
+  Use this skill whenever the user wants to install, deploy, or sync clinerules
+  globally. Trigger on: /install-clinerules, "install clinerules",
+  "deploy clinerules", "set up clinerules", "sync clinerules", or any request
+  to deploy the global ~/.clinerules/ ruleset to ~/.cline/rules/.
+version: 2.0.0
 ---
 
 # install-clinerules
 
-Symlinks every file in `~/.clinerules/` into `<project-root>/.clinerules/` and
-updates the `@-import` block in `~/.claude/CLAUDE.md` to match.
+Deploys every file in `<repo>/src/rules/` to `~/.cline/rules/`, Cline's native
+global rules directory. Rules there are loaded automatically in every project —
+no per-project setup needed.
 
-## Step 1 — Confirm project root
+## Step 1 — Locate the plugin repo
 
-The project root is the current working directory. State it:
-
-```
-Project root: $PWD
-```
-
-If the user specified a different path, use that instead.
-
-## Step 2 — Run the linker
+Find the clinerules plugin repo. It is typically at one of:
 
 ```bash
-~/.claude/scripts/link-clinerules.sh "$PWD"
+ls ~/LosusAI/Projects/Claude/claude-code-plugins/clinerules/deploy.zsh 2>/dev/null \
+  || ls ~/claude-code-plugins/clinerules/deploy.zsh 2>/dev/null
 ```
 
-To overwrite existing symlinks (re-sync after adding new rules):
+Use whichever path exists. If neither exists, ask the user where the repo is cloned.
+
+## Step 2 — Run the installer
 
 ```bash
-~/.claude/scripts/link-clinerules.sh --force "$PWD"
+<repo-path>/deploy.zsh
 ```
 
-Use `--force` when the user says "force", "overwrite", "re-sync", or "update existing".
-Default (no flag) skips already-linked files and only adds new ones.
+To force-update all rules (even unchanged ones), there is no `--force` flag —
+re-running `deploy.zsh` is idempotent and always copies changed files.
 
 ## Step 3 — Report results
 
 Show the full output from the script. Summarise:
 
-- How many rules were linked (new symlinks created)
-- How many were skipped (already linked)
-- Whether `~/.claude/CLAUDE.md` was updated
+- How many rules were installed (new files)
+- How many were updated (changed files)
+- The destination directory (`~/.cline/rules/`)
 
 ## Step 4 — Verify
 
-Confirm the `.clinerules/` directory in the project now contains symlinks pointing
-to `~/.clinerules/`:
+Confirm the rules are present in `~/.cline/rules/`:
 
 ```bash
-ls -la "$PWD/.clinerules/" | head -20
+ls -1 ~/.cline/rules/
 ```
 
-Report any rules present in `~/.clinerules/` that are still missing from the project.
+Report the count. Rules are loaded globally by Cline in every project — no
+further per-project setup is required.

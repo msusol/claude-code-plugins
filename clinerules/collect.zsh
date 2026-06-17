@@ -1,14 +1,14 @@
 #!/usr/bin/env zsh
-# collect.zsh — copy ~/.clinerules/*.md into src/rules/ so changes can be committed.
+# collect.zsh — copy ~/.cline/rules/*.md into src/rules/ so changes can be committed.
 #
 # Usage:
-#   ./collect.zsh          copy from ~/.clinerules/ (default)
+#   ./collect.zsh          copy from ~/.cline/rules/ (default)
 #   ./collect.zsh --dry-run  show what would change without writing
 
 set -euo pipefail
 
 REPO_DIR="${0:A:h}"
-SRC_DIR="$HOME/.clinerules"
+SRC_DIR="$HOME/.cline/rules"
 DEST_DIR="$REPO_DIR/src/rules"
 IGNORE_FILE="$REPO_DIR/.collectignore"
 DRY_RUN=0
@@ -22,6 +22,13 @@ done
 
 if [[ ! -d "$SRC_DIR" ]]; then
   print "error: $SRC_DIR does not exist" >&2
+  print "  Run ./deploy.zsh first to create it, or run: mkdir -p $SRC_DIR" >&2
+  exit 1
+fi
+
+# Guard: warn if source is empty to prevent overwriting src/rules/ with nothing.
+if [[ -z "$(ls "$SRC_DIR"/*.md(N) 2>/dev/null)" ]]; then
+  print "error: $SRC_DIR contains no .md files — aborting to avoid wiping src/rules/" >&2
   exit 1
 fi
 
@@ -41,7 +48,7 @@ mkdir -p "$DEST_DIR"
 
 added=0; updated=0; unchanged=0; removed=0; skipped=0
 
-# Copy new and changed files from ~/.clinerules/ → src/rules/
+# Copy new and changed files from ~/.cline/rules/ → src/rules/
 for src in "$SRC_DIR"/*.md(N); do
   name="${src:t}"
   if [[ -n "${ignored[$name]:-}" ]]; then
@@ -64,11 +71,11 @@ for src in "$SRC_DIR"/*.md(N); do
   fi
 done
 
-# Flag files in src/rules/ that no longer exist in ~/.clinerules/
+# Flag files in src/rules/ that no longer exist in ~/.cline/rules/
 for dest in "$DEST_DIR"/*.md(N); do
   name="${dest:t}"
   if [[ ! -f "$SRC_DIR/$name" ]]; then
-    print "removed? $name  (in repo but not in ~/.clinerules/ — delete manually if intentional)"
+    print "removed? $name  (in repo but not in ~/.cline/rules/ — delete manually if intentional)"
     (( removed++ )) || true
   fi
 done
