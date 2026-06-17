@@ -117,7 +117,9 @@ EOF
         -v bf="$body_file" \
         -v header="$header_line" '
         BEGIN { while ((getline line < bf) > 0) body = (body == "" ? line : body "\n" line) }
-        /^@~\/(\.clinerules|\.cline\/rules)\// && !seen {
+        /<!-- BEGIN / { in_foreign=1 }
+        /<!-- END /   { in_foreign=0; last_blank=0; print; next }
+        /^@~\/(\.clinerules|\.cline\/rules)\// && !seen && !in_foreign {
           if (header != "") { print header; print "" }
           print begin; print body; print end
           seen=1; in_block=1; next
