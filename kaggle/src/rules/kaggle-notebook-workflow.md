@@ -12,15 +12,36 @@ managed via `kaggle kernels push` from the local machine. **Never instruct the u
 make changes manually in the Kaggle UI** — all configuration lives in version-controlled
 metadata files.
 
+## Notebook naming convention
+
+Each competition phase or modelling method gets its own notebook and metadata file,
+named after the version slug:
+
+```
+notebook/
+  v0.1-tfidf-baseline.ipynb
+  v0.1-tfidf-baseline-kernel-metadata.json
+  v0.2-llama-qlora.ipynb
+  v0.2-llama-qlora-kernel-metadata.json
+```
+
+- Slug format: `vX.Y-<short-method-description>` — matches the versioned plan name in
+  `docs/plans/vX.Y-<slug>-plan.md`.
+- Kernel title and `id` in the metadata file must also reflect the version
+  (e.g. `gdataranger/llm-classification-finetuning-v01-tfidf`).
+- Never reuse or overwrite a prior notebook; create a new file for each new method.
+- Keep an investigation doc in `docs/investigate/` tracking run results, errors, and
+  fixes for each notebook — one `##` section per slug.
+
 ## Push pattern
 
-The CLI requires the metadata file to be named exactly `kernel-metadata.json`. Keep a
-descriptive source name in the repo and copy it to a staging dir on push:
+The CLI requires the metadata file to be named exactly `kernel-metadata.json`. Use
+`scripts/push_notebook.sh <slug>` (if present in the project) or the manual pattern:
 
 ```zsh
 STAGE="$(mktemp -d)"
-cp notebook/<name>.ipynb "$STAGE/"
-cp notebook/<name>-kernel-metadata.json "$STAGE/kernel-metadata.json"
+cp notebook/<slug>.ipynb "$STAGE/"
+cp notebook/<slug>-kernel-metadata.json "$STAGE/kernel-metadata.json"
 kaggle kernels push -p "$STAGE"
 ```
 

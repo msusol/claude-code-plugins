@@ -26,8 +26,9 @@ docs/
     submission-checklist.md   pre-submit gate
   adr/                        NNNN-title.md decision records
   investigate/                investigation logs
-scripts/                      download_data.sh, convert/train/infer helpers
-notebook/                     Kaggle kernel .ipynb + kernel-metadata.json
+scripts/                      download_data.sh, push_notebook.sh, convert/train/infer helpers
+notebook/                     one .ipynb + one -kernel-metadata.json per version slug
+                              e.g. v0.1-tfidf-baseline.ipynb + v0.1-tfidf-baseline-kernel-metadata.json
 configs/                      training config (YAML)
 data/                         competition data (gitignored)
 ```
@@ -36,6 +37,10 @@ data/                         competition data (gitignored)
 
 - **Versioned plans** are named `vX.Y-<slug>-plan.md`; keep `docs/plans/TODO.md` in
   sync with the active plan.
+- **Versioned notebooks** follow `vX.Y-<slug>.ipynb` + `vX.Y-<slug>-kernel-metadata.json`.
+  The slug matches the plan name. Never overwrite a prior notebook — create a new file.
+  Track run results and errors in `docs/investigate/` (one `##` section per slug).
+- **Push via script:** `zsh scripts/push_notebook.sh vX.Y-<slug>`.
 - **Citations** use `[cite:N]` inline, registered in `docs/plans/CITATIONS.md`
   (see the kaggle-leaderboard and project citation rules; N = max existing + 1).
 - **Never use `model_*` identity columns as features** if they exist in train but not
