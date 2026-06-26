@@ -47,13 +47,11 @@ if command -v claude >/dev/null 2>&1; then
   else
     skip "claude plugin 'git-guard'"
   fi
-  if claude plugin marketplace list 2>/dev/null | grep -qw "git-guard"; then
-    claude plugin marketplace remove git-guard >/dev/null 2>&1 \
-      && ok "Removed marketplace 'git-guard'" \
-      || warn "claude plugin marketplace remove git-guard failed — try by hand"
-  else
-    skip "claude marketplace 'git-guard'"
-  fi
+  # The 'msusol' marketplace is shared by every plugin in this repo, so we do
+  # NOT remove it when uninstalling a single plugin (that would drop the others
+  # too). Remove it by hand only when removing the whole collection:
+  #   claude plugin marketplace remove msusol
+  skip "shared marketplace 'msusol' (left registered for other plugins)"
 else
   warn "claude CLI not found on PATH — skipping plugin + marketplace removal."
 fi

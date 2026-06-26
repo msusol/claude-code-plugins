@@ -1,0 +1,9 @@
+{
+  "name": "kaggle",
+  "version": "1.0.0",
+  "description": "Kaggle competition harness — global kaggle-* rules, a project-scaffold skill, and /kaggle:new and /kaggle:preflight commands.",
+  "author": {
+    "name": "Mark Susol"
+  },
+  "license": "MIT"
+}

@@ -146,12 +146,12 @@ fi
 
 # ── 3. Claude Code plugin registration ───────────────────────────────────────
 if command -v claude &>/dev/null; then
-  claude plugin marketplace add "$REPO_DIR" 2>/dev/null || true
-  claude plugin install clinerules@clinerules 2>/dev/null || true
+  claude plugin marketplace add "${REPO_DIR:h}" 2>/dev/null || true
+  claude plugin install clinerules@msusol 2>/dev/null || true
   print "✓ Plugin registered with Claude Code"
 else
   print "⚠ claude CLI not found — skipping plugin registration"
-  print "  Run manually: claude plugin marketplace add $REPO_DIR && claude plugin install clinerules@clinerules"
+  print "  Run manually: claude plugin marketplace add ${REPO_DIR:h} && claude plugin install clinerules@msusol"
 fi
 
 print ""

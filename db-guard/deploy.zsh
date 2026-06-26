@@ -84,12 +84,12 @@ python3 "$REPO_DIR/scripts/manage-settings.py" install
 
 # 5. Claude Code plugin registration
 if command -v claude &>/dev/null; then
-  claude plugin marketplace add "$REPO_DIR" 2>/dev/null || true
-  claude plugin install db-guard@db-guard 2>/dev/null || true
+  claude plugin marketplace add "${REPO_DIR:h}" 2>/dev/null || true
+  claude plugin install db-guard@msusol 2>/dev/null || true
   echo "✓ Plugin registered with Claude Code"
 else
   echo "⚠ claude CLI not found — skipping plugin registration"
-  echo "  Run manually: claude plugin marketplace add $REPO_DIR && claude plugin install db-guard@db-guard"
+  echo "  Run manually: claude plugin marketplace add ${REPO_DIR:h} && claude plugin install db-guard@msusol"
 fi
 
 echo ""

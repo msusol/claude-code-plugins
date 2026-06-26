@@ -100,14 +100,14 @@ if ! command -v claude >/dev/null 2>&1; then
 else
   # Register the marketplace. Idempotent: 'add' on an already-registered
   # source is a no-op error we swallow.
-  if claude plugin marketplace list 2>/dev/null | grep -qw "git-guard"; then
-    ok "Marketplace 'git-guard' already registered"
+  if claude plugin marketplace list 2>/dev/null | grep -qw "msusol"; then
+    ok "Marketplace 'msusol' already registered"
   else
-    if claude plugin marketplace add "$SCRIPT_DIR" >/dev/null 2>&1; then
-      ok "Registered marketplace 'git-guard' from $SCRIPT_DIR"
+    if claude plugin marketplace add "${SCRIPT_DIR:h}" >/dev/null 2>&1; then
+      ok "Registered marketplace 'msusol' from ${SCRIPT_DIR:h}"
     else
       warn "Failed to register marketplace via claude plugin marketplace add."
-      warn "Run it yourself: claude plugin marketplace add $SCRIPT_DIR"
+      warn "Run it yourself: claude plugin marketplace add ${SCRIPT_DIR:h}"
     fi
   fi
 
@@ -115,11 +115,11 @@ else
   if claude plugin list 2>/dev/null | grep -qw "git-guard"; then
     ok "Plugin 'git-guard' already installed"
   else
-    if claude plugin install "git-guard@git-guard" >/dev/null 2>&1; then
-      ok "Installed plugin 'git-guard@git-guard'"
+    if claude plugin install "git-guard@msusol" >/dev/null 2>&1; then
+      ok "Installed plugin 'git-guard@msusol'"
     else
       warn "Failed to install plugin via claude plugin install."
-      warn "Run it yourself: claude plugin install git-guard@git-guard"
+      warn "Run it yourself: claude plugin install git-guard@msusol"
     fi
   fi
 fi

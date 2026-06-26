@@ -1,0 +1,66 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "msusol",
+  "description": "Mark Susol's personal Claude Code plugins — planning rules, a Kaggle competition harness, git/db guards, and a usage status line.",
+  "owner": {
+    "name": "Mark Susol"
+  },
+  "license": "MIT",
+  "plugins": [
+    {
+      "name": "clinerules",
+      "source": {
+        "source": "git-subdir",
+        "url": "msusol/claude-code-plugins",
+        "path": "clinerules/plugins/clinerules",
+        "ref": "main"
+      },
+      "description": "Deploys planning-* rules to ~/.cline/rules/ and @-imports them in ~/.claude/CLAUDE.md.",
+      "category": "development"
+    },
+    {
+      "name": "kaggle",
+      "source": {
+        "source": "git-subdir",
+        "url": "msusol/claude-code-plugins",
+        "path": "kaggle/plugins/kaggle",
+        "ref": "main"
+      },
+      "description": "Light harness for Kaggle competitions — kaggle-* rules, a project-scaffold skill, and /kaggle:new + /kaggle:preflight commands.",
+      "category": "development"
+    },
+    {
+      "name": "db-guard",
+      "source": {
+        "source": "git-subdir",
+        "url": "msusol/claude-code-plugins",
+        "path": "db-guard/plugins/db-guard",
+        "ref": "main"
+      },
+      "description": "Two-layer guard against unauthorized DROP TABLE, TRUNCATE, DROP DATABASE, DROP SCHEMA, and DROP COLUMN.",
+      "category": "development"
+    },
+    {
+      "name": "git-guard",
+      "source": {
+        "source": "git-subdir",
+        "url": "msusol/claude-code-plugins",
+        "path": "git-guard/plugins/git-guard",
+        "ref": "main"
+      },
+      "description": "Three-layer protection against unauthorized git commit and git push.",
+      "category": "development"
+    },
+    {
+      "name": "usage-statusline",
+      "source": {
+        "source": "git-subdir",
+        "url": "msusol/claude-code-plugins",
+        "path": "usage-statusline",
+        "ref": "main"
+      },
+      "description": "Status line showing model, context %, and subscription rate limits.",
+      "category": "development"
+    }
+  ]
+}

@@ -11,6 +11,7 @@ Personal collection of [Claude Code](https://claude.ai/code) plugins.
 | Plugin | Description |
 |--------|-------------|
 | [clinerules](clinerules/) | Deploys `planning-*` rules to `~/.cline/rules/` (Cline) and `~/.claude/CLAUDE.md` `@-imports` (Claude Code) — one rule file, both clients |
+| [kaggle](kaggle/) | Light harness for Kaggle competitions: `kaggle-*` rules, a project-scaffold skill, and `/kaggle:new` + `/kaggle:preflight` commands |
 | [db-guard](db-guard/) | Two-layer guard against unauthorized `DROP TABLE`, `TRUNCATE`, `DROP DATABASE`, `DROP SCHEMA`, and `DROP COLUMN` |
 | [git-guard](git-guard/) | Three-layer protection against unauthorized `git commit` and `git push` |
 | [usage-statusline](usage-statusline/) | Status line showing model, context %, and subscription rate limits |
@@ -24,15 +25,31 @@ git clone https://github.com/msusol/claude-code-plugins.git
 cd claude-code-plugins
 
 ./clinerules/deploy.zsh
+./kaggle/deploy.zsh
 ./db-guard/deploy.zsh
 ./git-guard/deploy.zsh
 ./usage-statusline/deploy.zsh
 ```
 
+All plugins are published under a single marketplace named **`msusol`** (defined in the
+repo-root `.claude-plugin/marketplace.json`). Each `deploy.zsh` registers that one
+marketplace and installs its plugin as `<name>@msusol`. You can also add the marketplace
+once and install any plugin directly:
+
+```zsh
+claude plugin marketplace add msusol/claude-code-plugins
+claude plugin install kaggle@msusol
+claude plugin install clinerules@msusol
+```
+
+(The repo name `claude-code-plugins` is a reserved marketplace name, so the marketplace
+is named after the owner, `msusol`, instead.)
+
 All installers are idempotent — safe to re-run after pulling updates. To remove a plugin:
 
 ```zsh
 ./clinerules/uninstall.zsh
+./kaggle/uninstall.zsh
 ./db-guard/uninstall.zsh
 ./git-guard/uninstall.zsh
 ./usage-statusline/uninstall.zsh
