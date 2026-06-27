@@ -41,6 +41,16 @@ else
   print "  No managed block found in $GLOBAL_CLAUDE — skipping"
 fi
 
+# Remove kaggle-guard hook and deregister from settings.json
+HOOK_DEST="$HOME/.claude/scripts/kaggle-guard-hook.zsh"
+if [[ -f "$HOOK_DEST" ]]; then
+  rm "$HOOK_DEST"
+  print "✓ Removed hook: $HOOK_DEST"
+else
+  print "  Hook not found — skipping: $HOOK_DEST"
+fi
+python3 "$REPO_DIR/scripts/manage-settings.py" uninstall
+
 if command -v claude &>/dev/null; then
   claude plugin uninstall kaggle 2>/dev/null || true
   print "✓ Plugin unregistered"

@@ -5,7 +5,9 @@
 #   1. Copies src/rules/kaggle-*.md to ~/.cline/rules/ (installs new, updates changed)
 #   2. Regenerates the kaggle-imports @-import block in ~/.claude/CLAUDE.md so Claude
 #      Code also loads the same rules from ~/.cline/rules/
-#   3. Registers this repo as a Claude Code plugin marketplace and installs kaggle
+#   3. Installs the kaggle-guard PreToolUse hook to ~/.claude/scripts/ and registers
+#      it in ~/.claude/settings.json — blocks Claude from pushing notebooks directly
+#   4. Registers this repo as a Claude Code plugin marketplace and installs kaggle
 #
 # Owns the kaggle-* prefix only; the clinerules plugin (planning-*) and any other
 # plugin manage their own files and their own sentinel blocks independently.
@@ -97,7 +99,20 @@ else
   print "⚠ No kaggle-* rules found — skipping CLAUDE.md update"
 fi
 
-# ── 3. Claude Code plugin registration ───────────────────────────────────────
+# ── 3. Install kaggle-guard PreToolUse hook ──────────────────────────────────
+HOOK_SRC="$REPO_DIR/src/kaggle-guard-hook.zsh"
+HOOK_DEST="$HOME/.claude/scripts/kaggle-guard-hook.zsh"
+if [[ -f "$HOOK_SRC" ]]; then
+  mkdir -p "$HOME/.claude/scripts"
+  cp "$HOOK_SRC" "$HOOK_DEST"
+  chmod +x "$HOOK_DEST"
+  print "✓ Installed hook: $HOOK_DEST"
+  python3 "$REPO_DIR/scripts/manage-settings.py" install
+else
+  print "⚠ Hook source not found — skipping: $HOOK_SRC"
+fi
+
+# ── 4. Claude Code plugin registration ───────────────────────────────────────
 if command -v claude &>/dev/null; then
   claude plugin marketplace add "${REPO_DIR:h}" 2>/dev/null || true
   claude plugin install kaggle@msusol 2>/dev/null || true
@@ -111,5 +126,6 @@ print ""
 print "==> kaggle installed."
 print "    Rules   → $RULES_DEST (Cline, native)"
 print "    Rules   → $GLOBAL_CLAUDE (Claude Code, via @-imports)"
+print "    Hook    → $HOOK_DEST (blocks Claude from pushing notebooks)"
 print "    Skill   → kaggle-project-scaffold"
 print "    Commands→ /kaggle:new, /kaggle:preflight"
