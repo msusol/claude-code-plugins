@@ -68,6 +68,16 @@ kaggle kernels push -p "$STAGE"
 - **pip dependency warnings** (`dask-cuda`, `cuml-cu12`, `numba-cuda` conflicts) appear
   on every Kaggle kernel run and are harmless — they relate to RAPIDS packages unrelated
   to HuggingFace/PEFT/TRL. Ignore them.
+- **PEFT `autocast_adapter_dtype` is GPU-dependent:**
+  - On **P100 (sm_60)**: `get_peft_model()` raises `cudaErrorNoKernelImageForDevice`
+    during the fp16→fp32 adapter cast. Workaround: `get_peft_model(model, lora_config,
+    autocast_adapter_dtype=False)`. Side effect: LoRA adapters stay in fp16.
+  - On **T4**: do NOT pass `autocast_adapter_dtype=False`. PEFT must upcast adapters
+    to fp32 so that fp16 mixed-precision training (`fp16=True` in SFTConfig) can
+    unscale gradients correctly. Passing `autocast_adapter_dtype=False` on T4 causes
+    `ValueError: Attempting to unscale FP16 gradients` at the first gradient clip step.
+  - **Rule:** remove all P100 workarounds (`autocast_adapter_dtype=False`,
+    `enable_mem_efficient_sdp(False)`, `enable_flash_sdp(False)`) before running on T4.
 
 ## P100 vs T4 GPU — when to use each
 
