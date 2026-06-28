@@ -84,3 +84,35 @@ When `TODO.md` is in use:
 - Preserve the minimal structure when the work is still simple.
 - Expand only the sections that help for the current level of complexity.
 - Keep completed plans readable; use `docs/investigate/` for detailed investigation logs instead of turning plans into mixed artifacts.
+
+## Archiving completed plans
+
+When all tasks in a plan are checked off (or the plan has been superseded), move it to
+`docs/plans/archive/` rather than leaving it in `docs/plans/`.
+
+### When to archive
+
+Archive a plan when **all** of the following are true:
+
+- Every `- [ ]` task is either `- [x]` complete or explicitly marked deferred/dropped with a note.
+- No open questions remain that block future work.
+- The implementation it describes is in production or the plan has been superseded.
+
+Do not archive a plan that still has pending tasks unless those tasks have been explicitly
+deferred to another plan or doc.
+
+### How to archive
+
+1. Mark any remaining deferred tasks with a note: `- [ ] ~~Task~~ — deferred to <other-plan.md>`
+2. Move the file: `mv docs/plans/<name>.md docs/plans/archive/<name>.md`
+   (create `docs/plans/archive/` if it does not exist)
+3. Remove or update any `TODO.md` section that referenced the plan — add a one-line note
+   such as `_Archived 2026-06-28 — see docs/plans/archive/<name>.md_`
+4. Update `docs/index.md` if it linked to the plan (change the link or remove the entry).
+
+### What not to do
+
+- Do not delete completed plans — the archive preserves context and decision history.
+- Do not archive a plan mid-implementation just to tidy up.
+- Do not move plans to `docs/adr/` — if a decision in the plan deserves permanent record,
+  extract it into an ADR and reference it; then archive the plan normally.
