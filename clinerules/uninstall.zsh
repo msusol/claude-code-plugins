@@ -36,12 +36,26 @@ GLOBAL_CLAUDE="$HOME/.claude/CLAUDE.md"
 if [[ -f "$GLOBAL_CLAUDE" ]] && grep -qE "<!-- BEGIN clinerules-imports" "$GLOBAL_CLAUDE"; then
   tmp="$(mktemp)"
   awk '
-    /<!-- BEGIN clinerules-imports/ { buf=""; skip=1; next }
-    /<!-- END clinerules-imports -->/ { skip=0; next }
+    /^## / {
+      if (hdr != "") { printf "%s%s", buf, hdr; buf = ""; hdr = "" }
+      hdr = buf $0 "\n"; buf = ""; next
+    }
+    /^[[:space:]]*$/ {
+      if (hdr != "") { hdr = hdr "\n"; next }
+      buf = buf "\n"; next
+    }
+    /<!-- BEGIN clinerules-imports/ { hdr = ""; buf = ""; skip = 1; next }
+    /<!-- END clinerules-imports -->/ { skip = 0; next }
     skip { next }
-    /^[[:space:]]*$/ { buf = buf "\n"; next }
-    { printf "%s", buf; buf=""; print }
-    END { printf "%s", buf }
+    {
+      printf "%s%s", hdr, buf
+      hdr = ""; buf = ""
+      print
+    }
+    END {
+      if (hdr != "") printf "%s", hdr
+      printf "%s", buf
+    }
   ' "$GLOBAL_CLAUDE" > "$tmp"
   mv "$tmp" "$GLOBAL_CLAUDE"
   print "✓ Removed @-import block from $GLOBAL_CLAUDE"

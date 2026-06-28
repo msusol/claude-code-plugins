@@ -31,9 +31,26 @@ fi
 if [[ -f "$GLOBAL_CLAUDE" ]] && grep -qF "$BEGIN_MARKER" "$GLOBAL_CLAUDE"; then
   tmp="$(mktemp)"
   awk -v begin="$BEGIN_MARKER" -v end="$END_MARKER" '
-    $0 == begin { skip=1; next }
-    $0 == end   { skip=0; next }
-    !skip       { print }
+    /^## / {
+      if (hdr != "") { printf "%s%s", buf, hdr; buf = ""; hdr = "" }
+      hdr = buf $0 "\n"; buf = ""; next
+    }
+    /^[[:space:]]*$/ {
+      if (hdr != "") { hdr = hdr "\n"; next }
+      buf = buf "\n"; next
+    }
+    $0 == begin { hdr = ""; buf = ""; skip = 1; next }
+    $0 == end   { skip = 0; next }
+    skip        { next }
+    {
+      printf "%s%s", hdr, buf
+      hdr = ""; buf = ""
+      print
+    }
+    END {
+      if (hdr != "") printf "%s", hdr
+      printf "%s", buf
+    }
   ' "$GLOBAL_CLAUDE" > "$tmp"
   mv "$tmp" "$GLOBAL_CLAUDE"
   print "✓ Removed kaggle-imports block from $GLOBAL_CLAUDE"

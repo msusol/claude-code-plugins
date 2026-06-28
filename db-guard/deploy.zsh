@@ -72,7 +72,7 @@ else
   else
     awk -v begin="$BEGIN_MARKER" -v end="$END_MARKER" -v body="$import" '
       { last_blank = ($0 == ""); print }
-      END { if (!last_blank) print ""; print begin; print body; print end }
+      END { if (!last_blank) print ""; print "## Database Guard Rules"; print ""; print begin; print body; print end }
     ' "$GLOBAL_CLAUDE" > "$tmp"
     echo "✓ Added @-import block to $GLOBAL_CLAUDE"
   fi
