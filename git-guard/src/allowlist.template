@@ -6,8 +6,13 @@
 # If a repo has no remote 'origin', all write ops are blocked.
 #
 # Examples:
-#   github.com/your-org      matches all repos in your org
+#   github.com/your-org      matches all repos in your org (HTTPS remotes)
 #   your-company.com         matches any remote on your company's domain
-#   github.com/yourname      matches your personal forks
+#   github.com/yourname      matches your personal forks (HTTPS remotes)
+#
+# SSH remotes need a separate pattern — the check is a plain substring match, not
+# URL-aware, and SSH uses a colon after the host (git@github.com:you/repo.git) where
+# HTTPS uses a slash (https://github.com/you/repo). Add both forms if you use SSH:
+#   github.com:yourname      matches your personal forks (SSH remotes)
 #
 # Add your approved patterns below:

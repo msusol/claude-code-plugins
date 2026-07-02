@@ -162,8 +162,11 @@ claude plugin uninstall git-guard     # remove (deploy.zsh handles this too)
 # Approve all repos in your org
 github.com/your-org
 
-# Approve personal forks
+# Approve personal forks (HTTPS remotes)
 github.com/yourname
+
+# Approve personal forks (SSH remotes) — needed separately, see note below
+github.com:yourname
 
 # Approve an internal GitLab instance
 gitlab.your-company.com
@@ -171,6 +174,13 @@ gitlab.your-company.com
 
 A remote URL is approved if it contains any pattern. The check applies to `git commit`,
 `git push`, and `git tag`. If a repo has no remote `origin`, all write ops are blocked.
+
+**SSH vs HTTPS remotes need separate patterns.** The check is a plain substring match, not
+URL-aware — `github.com/yourname` (HTTPS: `https://github.com/yourname/repo`) does **not**
+match an SSH-style remote like `git@github.com:yourname/repo.git`, since HTTPS uses `/` after
+the host and SSH uses `:`. If a repo you expect to be approved fails the allowlist check,
+check `git remote get-url origin` for which form it uses before assuming the repo just isn't
+allowlisted.
 
 ## Using the commit and push skills
 
