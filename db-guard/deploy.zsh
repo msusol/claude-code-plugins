@@ -55,6 +55,8 @@ if [[ ! -f "$GLOBAL_CLAUDE" ]]; then
 
 The following rules apply across all projects.
 
+## Cline Project Rules
+
 $BEGIN_MARKER
 $import
 $END_MARKER
@@ -70,9 +72,14 @@ else
     ' "$GLOBAL_CLAUDE" > "$tmp"
     echo "✓ Updated $GLOBAL_CLAUDE (@-import block)"
   else
-    awk -v begin="$BEGIN_MARKER" -v end="$END_MARKER" -v body="$import" '
+    has_cline_header=$(grep -qE "^## Cline Project Rules" "$GLOBAL_CLAUDE" && echo yes || echo no)
+    awk -v begin="$BEGIN_MARKER" -v end="$END_MARKER" -v body="$import" -v has_header="$has_cline_header" '
       { last_blank = ($0 == ""); print }
-      END { if (!last_blank) print ""; print "## Database Guard Rules"; print ""; print begin; print body; print end }
+      END {
+        if (!last_blank) print ""
+        if (has_header == "no") { print "## Cline Project Rules"; print "" }
+        print begin; print body; print end
+      }
     ' "$GLOBAL_CLAUDE" > "$tmp"
     echo "✓ Added @-import block to $GLOBAL_CLAUDE"
   fi
