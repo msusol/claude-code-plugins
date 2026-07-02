@@ -67,8 +67,8 @@ data/     train/test (gitignored)
 
 ## Quick start
 
-```bash
-bash scripts/download_data.sh      # needs ~/.kaggle/kaggle.json + accepted rules
+```zsh
+zsh scripts/download_data.sh      # needs ~/.kaggle/kaggle.json + accepted rules
 ```
 
 See `docs/plans/implementation-plan.md` for the strategy ladder.
@@ -170,7 +170,7 @@ exists before adding model complexity.
 Goal: lock the offline submission pipeline and CV harness with a cheap model.
 
 ## Steps
-1. `bash scripts/download_data.sh`.
+1. `zsh scripts/download_data.sh`.
 2. EDA: target balance, key distributions, leakage checks.
 3. Simple features + fast model, 5-fold.
 4. Predict test, write `submission.csv`, verify header + row count.
@@ -183,8 +183,9 @@ Goal: lock the offline submission pipeline and CV harness with a cheap model.
         "docs/plans/TODO.md": """# TODO
 
 ## Phase 0 - Setup
-- [ ] ~/.kaggle/kaggle.json present; competition rules accepted
-- [ ] `bash scripts/download_data.sh`
+- [ ] ~/.kaggle/kaggle.json present
+- [ ] `zsh scripts/download_data.sh` exits 0 (halts + prints a rules-acceptance URL if
+      the competition rules haven't been accepted yet — accept them and re-run)
 - [ ] Trivial submission scores at the floor (sanity)
 
 ## Phase 1 - Baseline (v0.1)
@@ -258,13 +259,38 @@ Stage all dependencies (weights, adapters, wheels) as Kaggle inputs; load offlin
 """,
         "scripts/download_data.sh": f"""#!/usr/bin/env zsh
 # Download competition data. Requires ~/.kaggle/kaggle.json and accepted rules.
+#
+# Rule acceptance is a hard prerequisite: Kaggle refuses to serve any competition
+# file until you've clicked "I Understand and Accept" on the competition's rules
+# page. This script halts with clear instructions instead of a raw API error if
+# that hasn't happened yet.
 set -euo pipefail
 
 COMP="{slug}"
 DEST="$(cd "$(dirname "$0")/.." && pwd)/data"
 mkdir -p "$DEST"
 
-kaggle competitions download -c "$COMP" -p "$DEST"
+STDERR_LOG="$(mktemp)"
+if ! kaggle competitions download -c "$COMP" -p "$DEST" 2> "$STDERR_LOG"; then
+  # kaggle CLI 2.x returns a bare "403 Client Error: Forbidden" for this endpoint with
+  # no mention of "rules" — older 1.x CLIs spelled out "You must accept this
+  # competition's rules...". Match both since either can show up depending on version.
+  if grep -qiE "rules|403|forbidden" "$STDERR_LOG"; then
+    echo ""
+    echo "HALTED: competition rules not yet accepted for $COMP (or you have not"
+    echo "joined the competition)."
+    echo "  1. Visit https://www.kaggle.com/competitions/$COMP/rules"
+    echo "  2. Click \\"I Understand and Accept\\""
+    echo "  3. Re-run: zsh scripts/download_data.sh"
+    rm -f "$STDERR_LOG"
+    exit 1
+  fi
+  cat "$STDERR_LOG" >&2
+  rm -f "$STDERR_LOG"
+  exit 1
+fi
+rm -f "$STDERR_LOG"
+
 unzip -o "$DEST/${{COMP}}.zip" -d "$DEST"
 rm -f "$DEST/${{COMP}}.zip"
 
@@ -330,7 +356,7 @@ def main() -> None:
     if skipped:
         print(f"  skipped existing ({len(skipped)}): " + ", ".join(sorted(skipped)))
     print("Next: fill competition-overview.md + implementation-plan.md, then "
-          "`bash scripts/download_data.sh`.")
+          "`zsh scripts/download_data.sh`.")
 
 
 if __name__ == "__main__":

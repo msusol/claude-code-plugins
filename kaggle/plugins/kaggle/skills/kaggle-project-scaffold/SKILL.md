@@ -53,7 +53,7 @@ Conventions carried over from prior projects:
 
 ## How to run
 
-```bash
+```zsh
 python3 scripts/scaffold.py \
   --root "/path/to/Projects/Kaggle/kaggle-<slug>" \
   --slug "<competition-slug>" \
@@ -71,7 +71,7 @@ Flags:
 - `--force` overwrite existing files (default: skip files that already exist).
 
 After scaffolding: fill `competition-overview.md` and `implementation-plan.md` with the
-real rules/strategy, then `bash scripts/download_data.sh`.
+real rules/strategy, then `zsh scripts/download_data.sh`.
 
 ## Notes
 
