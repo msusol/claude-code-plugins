@@ -1,7 +1,7 @@
 {
   "name": "git-guard",
   "version": "1.0.0",
-  "description": "The /commit skill — the sanctioned path through git-guard's shell wrapper + PreToolUse hook + deny rules. Walks each stage of a git commit with explicit confirmation at every step.",
+  "description": "The /git-commit and /git-push skills — the sanctioned path through git-guard's shell wrapper + PreToolUse hook + deny rules. Each walks its own stages with explicit confirmation at every step; push always requires its own separate confirmation.",
   "author": {
     "name": "Mark Susol"
   },

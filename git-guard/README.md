@@ -17,7 +17,8 @@ using defenses at three independent levels, so no single failure opens the door.
 | Shell wrapper | OS-level, shadows `git` binary in PATH | Nothing — fires before any process |
 | PreToolUse hook | Claude Code intercepts before Bash tool executes | Nothing — fires before tool runs |
 | Deny rules | Absolute floor on dangerous patterns | Nothing — enforced by Claude Code runtime |
-| `/commit` skill | Sanctioned path through all guards | All guards, by design — with per-step confirmation |
+| `/git-commit` skill | Sanctioned path for commits | All guards, by design — with per-step confirmation |
+| `/git-push` skill | Sanctioned path for pushes, gated separately from commit | All guards, by design — a fresh confirmation every single push |
 
 ## How it works
 
@@ -33,9 +34,10 @@ This layer fires at the OS level — it cannot be bypassed by approving a permis
 ### Layer 2 — PreToolUse hook
 
 Registered in `~/.claude/settings.json`. Fires before every Bash tool call Claude makes.
-If the command contains `git commit`, `git push`, or `git tag`, the hook blocks the tool call
-and tells Claude to use the `/commit` skill instead. This gives Claude a clear error message
-early, before the shell wrapper even runs.
+If the command contains `git push`, the hook blocks it and points Claude to the `/git-push`
+skill. If it contains `git commit` or `git tag`, it points to `/git-commit` instead — the
+message is specific to which write operation was attempted. This gives Claude a clear
+error message early, before the shell wrapper even runs.
 
 ### Layer 3 — Deny rules
 
@@ -49,10 +51,11 @@ to execute regardless of context:
 
 These rules are enforced by the Claude Code runtime itself.
 
-### `/commit` skill — the sanctioned path
+### `/git-commit` skill — the sanctioned path for commits
 
-The only way through all three guards. Invoked by `/commit` or natural language
-("commit my changes", "stage and commit", "commit and push").
+The only way through all three guards for `git commit`/`git tag`. Invoked by `/git-commit`
+or natural language ("commit my changes", "stage and commit"). Never pushes — it stops
+once the commit is made.
 
 Workflow at each step — all with explicit confirmation before any write:
 
@@ -61,9 +64,25 @@ Workflow at each step — all with explicit confirmation before any write:
 3. Show `git config user.name` + `user.email` — confirm attribution
 4. Prompt for commit message (Conventional Commits format)
 5. Show the full message and ask for confirmation before committing
-6. Ask whether to push; confirm branch + remote before executing
+6. Show the commit result and stop — pushing is a separate skill (below)
 
-The skill uses the real git binary directly (bypassing the wrapper) because this
+### `/git-push` skill — the sanctioned path for pushes
+
+The only way through all three guards for `git push`. Invoked by `/git-push` or natural
+language ("push this", "push my changes"). Deliberately separate from `/git-commit` —
+**every push gets its own confirmation**, even if a commit was just made moments earlier
+in the same conversation. Confirming a commit never implicitly authorizes a push.
+
+Workflow:
+
+1. Show what's ahead of the upstream branch (`git status -sb`, `git log @{u}..HEAD`);
+   stop if there's nothing to push
+2. Check remote URL against `~/.config/git-guard/allowlist` — stop if not approved
+3. Show branch + remote + the specific commits about to be pushed; ask for explicit
+   confirmation of *this push*
+4. Execute
+
+Both skills use the real git binary directly (bypassing the wrapper) because this
 workflow is the intentional, audited path. The wrapper guards against unguided calls.
 
 ## Prerequisites
@@ -102,14 +121,14 @@ The installer is idempotent — safe to re-run if you update the package.
 2. Installs the wrapper to `~/.local/bin/git` with the correct real git path substituted
 3. Installs the PreToolUse hook to `~/.claude/scripts/git-guard-hook.zsh`
 4. Creates `~/.config/git-guard/allowlist` from the template (skips if it already exists)
-5. Registers the git-guard repo as a Claude Code plugin marketplace (`claude plugin marketplace add <repo-dir>`) and installs the `git-guard` plugin from it (`claude plugin install git-guard@git-guard`). This auto-enables `/commit` in every new Claude Code session — no manual `/plugin enable` step.
+5. Registers the shared `msusol` marketplace (`claude plugin marketplace add <repo-parent-dir>`) and installs the `git-guard` plugin from it (`claude plugin install git-guard@msusol`). This auto-enables `/git-commit` and `/git-push` in every new Claude Code session — no manual `/plugin enable` step.
 6. Merges hooks + deny rules into `~/.claude/settings.json` without clobbering existing settings.
-7. Best-effort removes any earlier-style installs (skill dropped inside the official marketplace, or copied into the user-skills dir) so the plugin is the single canonical source of `/commit`.
+7. Best-effort removes any earlier-style installs (skill dropped inside the official marketplace, or copied into the user-skills dir) so the plugin is the single canonical source of `/git-commit` and `/git-push`.
 
 ### After install
 
 1. **Edit the allowlist** — `~/.config/git-guard/allowlist` is empty by default. Add your approved remote URL patterns before making any commits.
-2. **Restart Claude Code** to load the new hook and pick up the plugin's `/commit` skill.
+2. **Restart Claude Code** to load the new hook and pick up the plugin's `/git-commit` and `/git-push` skills. Installing/enabling the plugin mid-session does not refresh an already-running conversation's skill list — a restart (or invoking the skill by its explicit slash form) is required.
 
 ### Updating after pulling changes
 
@@ -128,9 +147,9 @@ The plugin uses Claude Code's standard plugin tooling, so day-to-day management 
 ```zsh
 claude plugin list                    # confirm git-guard is installed
 claude plugin update git-guard        # pull latest from the repo dir
-claude plugin disable git-guard       # circuit-breaker: removes /commit;
-                                      # combined with the hook + wrapper this
-                                      # locks the session out of git writes
+claude plugin disable git-guard       # circuit-breaker: removes /git-commit and
+                                      # /git-push; combined with the hook + wrapper
+                                      # this locks the session out of git writes
 claude plugin enable git-guard        # re-enable
 claude plugin uninstall git-guard     # remove (deploy.zsh handles this too)
 ```
@@ -153,16 +172,16 @@ gitlab.your-company.com
 A remote URL is approved if it contains any pattern. The check applies to `git commit`,
 `git push`, and `git tag`. If a repo has no remote `origin`, all write ops are blocked.
 
-## Using the commit skill
+## Using the commit and push skills
 
 In any Claude Code session, say:
 
-- `/commit`
-- "commit my changes"
-- "stage and commit"
-- "commit and push"
+- `/git-commit`, "commit my changes", or "stage and commit" — commits only, never pushes
+- `/git-push`, "push this", or "push my changes" — pushes only, with its own confirmation
 
-Claude will walk through the workflow described above, stopping for confirmation at each step.
+Claude will walk through the workflow described above, stopping for confirmation at each
+step. A confirmed commit does not imply a confirmed push — even "commit and push" in one
+message runs both skills, each with its own explicit gate.
 
 ## Customizing deny rules
 
@@ -230,15 +249,15 @@ git-guard/
 ├── README.md
 ├── deploy.zsh                     # Installer
 ├── uninstall.zsh                  # Uninstaller
-├── .claude-plugin/
-│   └── marketplace.json           # Declares this repo as a single-plugin marketplace
 ├── plugins/
 │   └── git-guard/
 │       ├── .claude-plugin/
 │       │   └── plugin.json        # Plugin manifest
 │       └── skills/
-│           └── commit/
-│               └── SKILL.md       # Claude commit skill definition
+│           ├── git-commit/
+│           │   └── SKILL.md       # Claude commit skill definition (never pushes)
+│           └── git-push/
+│               └── SKILL.md       # Claude push skill definition (own confirmation gate)
 ├── src/
 │   ├── git-wrapper.zsh            # Shell wrapper source (REAL_GIT substituted at install)
 │   ├── git-guard-hook.zsh         # PreToolUse hook

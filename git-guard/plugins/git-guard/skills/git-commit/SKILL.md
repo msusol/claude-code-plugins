@@ -1,12 +1,13 @@
 ---
-name: commit
+name: git-commit
 description: >
-  Use this skill whenever the user wants to commit changes, stage files, push code, or save work to git.
-  Trigger on: /commit, "commit my changes", "commit and push", "stage and commit", "save my work",
-  "push this", "make a commit", "commit these changes", or any request to create a git commit.
-  This is the ONLY sanctioned path for git write operations — it bypasses the shell wrapper
-  that blocks unguided git commit/push calls, because it enforces explicit per-step confirmation.
-version: 1.0.0
+  Use this skill whenever the user wants to commit changes, stage files, or save work to git.
+  Trigger on: /git-commit, "commit my changes", "stage and commit", "save my work",
+  "make a commit", "commit these changes", or any request to create a git commit.
+  This is the ONLY sanctioned path for git commit/tag operations — it bypasses the shell
+  wrapper that blocks unguided calls, because it enforces explicit per-step confirmation.
+  Does NOT push — pushing is a separate action; use the git-push skill for that.
+version: 2.0.0
 ---
 
 # Safe Commit Workflow
@@ -14,6 +15,9 @@ version: 1.0.0
 This skill walks through each stage of a git commit with explicit confirmation at every step.
 It uses the real git binary directly (bypassing the `~/.local/bin/git` guard wrapper) because
 this workflow IS the sanctioned, audited path — the wrapper exists to block unguided calls, not this skill.
+
+This skill ends at the commit. It never pushes. If the user wants to push, hand off to
+the separate `git-push` skill — do not fold a push confirmation into this workflow.
 
 Determine the real git path once at the start:
 
@@ -24,12 +28,12 @@ REAL_GIT=$(command -v -p git 2>/dev/null || echo /usr/bin/git)
 
 Use `$REAL_GIT` in place of `git` for all commands in this workflow.
 
-**For write operations** (`add`, `commit`, `push`, `tag`), prepend the
+**For write operations** (`add`, `commit`, `tag`), prepend the
 sanctioned-path sentinel `GIT_GUARD_SANCTIONED=1` so the PreToolUse hook
 recognises the call originated from this audited workflow:
 
 ```bash
-GIT_GUARD_SANCTIONED=1 $REAL_GIT push -u origin <branch>
+GIT_GUARD_SANCTIONED=1 $REAL_GIT commit -m "..."
 ```
 
 Read-only commands (`status`, `diff`, `log`, `config`, `branch --show-current`,
@@ -117,29 +121,13 @@ EOF
 )"
 ```
 
-Show the commit result (hash + subject line).
-
-## Step 7 — Push decision
-
-Ask the user: push now, or leave as a local commit?
-
-If they want to push:
-- Show the current branch: `$REAL_GIT branch --show-current`
-- Show the configured remote: `$REAL_GIT remote -v`
-- Confirm: "Push branch `<branch>` to `<remote>`?"
-- Wait for explicit yes before running: `GIT_GUARD_SANCTIONED=1 $REAL_GIT push`
-
-If the branch has no upstream yet, propose:
-
-```bash
-GIT_GUARD_SANCTIONED=1 $REAL_GIT push -u origin <branch>
-```
-
-Show the full command before executing it.
+Show the commit result (hash + subject line). Stop here — do not ask about pushing.
+If the user wants to push, tell them to invoke the `git-push` skill (`/git-push` or
+"push this").
 
 ## Decision discipline
 
-Never execute a write operation (add, commit, push, tag) without showing the exact command
+Never execute a write operation (add, commit, tag) without showing the exact command
 to the user and receiving an explicit confirmation. "OK" or "yes" is sufficient, but silence
 or ambiguity is not.
 

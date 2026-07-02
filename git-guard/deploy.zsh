@@ -72,11 +72,11 @@ fi
 # The git-guard repo doubles as a single-plugin marketplace (see
 # .claude-plugin/marketplace.json at the repo root). We register it with
 # the Claude Code CLI so the operator gets:
-#   - /commit resolved without any manual /plugin enable step
+#   - /git-commit and /git-push resolved without any manual /plugin enable step
 #   - claude plugin update git-guard for future versioned upgrades
 #   - per-session disable via claude plugin disable git-guard if needed
 #     (useful as an enterprise circuit-breaker)
-step "Registering git-guard plugin marketplace + enabling commit plugin..."
+step "Registering git-guard plugin marketplace + enabling git-commit/git-push..."
 
 # Best-effort cleanup of two earlier install shapes so operators upgrading
 # from older releases end up in a single canonical state:
@@ -96,7 +96,7 @@ fi
 if ! command -v claude >/dev/null 2>&1; then
   warn "claude CLI not found on PATH — skipping plugin registration."
   warn "Install Claude Code (https://claude.com/claude-code) and re-run deploy.zsh"
-  warn "to wire up /commit."
+  warn "to wire up /git-commit and /git-push."
 else
   # Register the marketplace. Idempotent: 'add' on an already-registered
   # source is a no-op error we swallow.
@@ -135,4 +135,5 @@ echo ""
 echo "Next steps:"
 echo "  1. Edit ~/.config/git-guard/allowlist — add your approved remote URL patterns"
 echo "  2. Restart Claude Code to pick up the new hook and skill"
-echo "  3. Use /commit (or say 'commit my changes') for the safe commit workflow"
+echo "  3. Use /git-commit (or say 'commit my changes') to commit, /git-push (or"
+echo "     'push this') to push — each requires its own explicit confirmation"

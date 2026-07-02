@@ -7,10 +7,12 @@ REAL_GIT=__REAL_GIT_PLACEHOLDER__
 ALLOWLIST="${GIT_GUARD_ALLOWLIST:-$HOME/.config/git-guard/allowlist}"
 
 _guard_blocked() {
-  local remote_url="$1"
+  local remote_url="$1" subcmd="$2"
+  local skill="/git-commit"
+  [[ "$subcmd" == "push" ]] && skill="/git-push"
   echo "⛔  git-guard: '${remote_url:-no remote}' is not in the allowlist." >&2
   echo "   Edit $ALLOWLIST to approve this repository." >&2
-  echo "   Or use the /commit skill for a guided, audited commit workflow." >&2
+  echo "   Or use the $skill skill for a guided, audited workflow." >&2
   exit 1
 }
 
@@ -18,9 +20,12 @@ case "${1:-}" in
   commit|push|tag)
     remote_url=$("$REAL_GIT" remote get-url origin 2>/dev/null || true)
 
+    no_remote_skill="/git-commit"
+    [[ "${1:-}" == "push" ]] && no_remote_skill="/git-push"
+
     if [[ -z "$remote_url" ]]; then
       echo "⛔  git-guard: No remote 'origin' found — cannot verify repository." >&2
-      echo "   Add a remote or use the /commit skill." >&2
+      echo "   Add a remote or use the $no_remote_skill skill." >&2
       exit 1
     fi
 
@@ -33,7 +38,7 @@ case "${1:-}" in
       done < "$ALLOWLIST"
     fi
 
-    _guard_blocked "$remote_url"
+    _guard_blocked "$remote_url" "${1:-}"
     ;;
   *)
     exec "$REAL_GIT" "$@"
