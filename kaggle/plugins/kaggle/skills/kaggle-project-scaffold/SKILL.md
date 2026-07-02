@@ -19,7 +19,10 @@ Trigger when the user wants to begin a new Kaggle competition project — phrase
 
 ```
 <project-root>/
-  README.md                     competition link, goal, evaluator-constraints table, layout
+  README.md                     competition link, goal, evaluator-constraints table, layout;
+                                 MIT license badge + footer link back to this plugin
+  LICENSE                       MIT, derived from this plugin's own LICENSE (--author, default
+                                 "Mark Susol")
   .gitignore                    data + model artifacts + submission files
   requirements.txt              dev/EDA stack (note: heavy training in container/Spark)
   docs/
@@ -68,6 +71,7 @@ Flags:
 - `--title` human-readable competition title for README/overview.
 - `--metric` evaluation metric string (default: "score").
 - `--kaggle-user` Kaggle username for `kernel-metadata.json` id (default: "USERNAME").
+- `--author` copyright holder for the generated `LICENSE` file (default: "Mark Susol").
 - `--force` overwrite existing files (default: skip files that already exist).
 
 After scaffolding: fill `competition-overview.md` and `implementation-plan.md` with the

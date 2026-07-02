@@ -6,11 +6,13 @@ skeleton. Does NOT create CLAUDE.md or .clinerules (a Claude Code plugin owns th
 
 Usage:
     python3 scaffold.py --root <dir> --slug <comp-slug> [--title T] [--metric M]
-                        [--kaggle-user U] [--force]
+                        [--kaggle-user U] [--author A] [--force]
 """
 from __future__ import annotations
 import argparse
 import os
+import re
+from datetime import date
 from pathlib import Path
 
 DIRS = [
@@ -25,10 +27,23 @@ DIRS = [
 ]
 
 
-def tpl(slug: str, title: str, metric: str, user: str) -> dict[str, str]:
+def _license_text(author: str, year: int) -> str:
+    """Derive the scaffolded project's LICENSE from this plugin's own LICENSE file
+    (single source of truth for the MIT boilerplate), swapping in this project's
+    copyright year/author."""
+    plugin_root = Path(__file__).resolve().parents[3]  # plugins/kaggle/
+    src = (plugin_root / "LICENSE").read_text()
+    return re.sub(r"Copyright \(c\) \d{4} .+", f"Copyright (c) {year} {author}", src, count=1)
+
+
+def tpl(slug: str, title: str, metric: str, user: str, author: str) -> dict[str, str]:
     url = f"https://www.kaggle.com/competitions/{slug}"
+    year = date.today().year
     return {
+        "LICENSE": _license_text(author, year),
         "README.md": f"""# {title}
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 {url}
 
@@ -72,6 +87,11 @@ zsh scripts/download_data.sh      # needs ~/.kaggle/kaggle.json + accepted rules
 ```
 
 See `docs/plans/implementation-plan.md` for the strategy ladder.
+
+---
+
+Scaffolded by the [kaggle plugin](https://github.com/msusol/claude-code-plugins/tree/main/kaggle)
+for Claude Code.
 """,
         ".gitignore": """.env
 .venv/
@@ -327,6 +347,7 @@ def main() -> None:
     ap.add_argument("--title", default=None)
     ap.add_argument("--metric", default="score")
     ap.add_argument("--kaggle-user", default="USERNAME")
+    ap.add_argument("--author", default="Mark Susol")
     ap.add_argument("--force", action="store_true")
     args = ap.parse_args()
 
@@ -336,7 +357,7 @@ def main() -> None:
     for d in DIRS:
         (root / d).mkdir(parents=True, exist_ok=True)
 
-    files = tpl(args.slug, title, args.metric, args.kaggle_user)
+    files = tpl(args.slug, title, args.metric, args.kaggle_user, args.author)
     created, skipped = [], []
     for rel, content in files.items():
         path = root / rel
