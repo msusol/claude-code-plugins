@@ -5,5 +5,8 @@
   "author": {
     "name": "Mark Susol"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": [
+    "clinerules"
+  ]
 }

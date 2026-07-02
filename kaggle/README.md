@@ -19,6 +19,11 @@ in its own `docs/plans/` — never a duplicated `CLAUDE.md` or `.clinerules/`.
 
 ## Requirements
 
+This plugin depends on the `clinerules` plugin (declared in `plugin.json`) — Claude Code
+installs it automatically alongside `kaggle`. The `kaggle-*` rules this plugin deploys
+assume the `planning-*` rules (`docs/plans/` layout, TODO sync, etc.) are already in
+place; `kaggle-project-structure.md` builds directly on `planning-docs-plans.md`.
+
 Before running `/kaggle:new` or `/kaggle:preflight` against real Kaggle data:
 
 1. **Pinned CLI packages** — install into the project's venv, not just a system Python:
@@ -100,7 +105,8 @@ Idempotent — safe to re-run after pulling updates. To remove:
 | `uninstall.zsh` | Removes rules, `@-import` block, hook script, and hook from `settings.json` |
 
 This plugin owns the `kaggle-*` prefix and its own `kaggle-imports` sentinel block, so it
-coexists cleanly with the `clinerules` plugin (`planning-*`) and any others.
+coexists cleanly with the `clinerules` plugin (`planning-*`) and any others — and requires
+`clinerules` to be installed (see `dependencies` in `plugins/kaggle/.claude-plugin/plugin.json`).
 
 ## Usage
 
