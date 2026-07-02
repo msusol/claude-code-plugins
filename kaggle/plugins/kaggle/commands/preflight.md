@@ -13,8 +13,11 @@ Steps:
    - Notebook `kernel-metadata.json` has `enable_internet: false`.
    - All weights/adapters/wheels are declared as Kaggle inputs and loaded from
      `/kaggle/input/...` (no runtime downloads, no HF tokens).
-   - Predicted probabilities are valid (no NaN/negatives; rows sum to 1 where required)
-     and row count matches the test set.
+   - Predicted values match the target's actual format: for categorical/hard-label
+     targets, values exactly match the categories in `sample_submission.csv` (case,
+     spelling, no unseen labels); for probability/soft-label targets, no NaN/negatives
+     and rows sum to 1 where multiple class-probability columns are expected. Row count
+     matches the test set either way.
    - No leakage features (e.g. train-only identity columns) are used.
    - Full hidden-test runtime is within the competition cap (verified on the example set).
 3. Report each item as pass / fail / unchecked. For any failure, state the concrete fix.

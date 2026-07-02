@@ -17,6 +17,26 @@ across competitions. This plugin packages that **Tier-2** layer once. Each proje
 carries only its **Tier-3** specifics (hardware, exact package script, competition slug)
 in its own `docs/plans/` — never a duplicated `CLAUDE.md` or `.clinerules/`.
 
+## Requirements
+
+Before running `/kaggle:new` or `/kaggle:preflight` against real Kaggle data:
+
+1. **Pinned CLI packages** — install into the project's venv, not just a system Python:
+   ```zsh
+   pip install "kaggle>=1.8.0" "kagglehub>=0.4.1"
+   ```
+   `kaggle<1.8.0` predates token-based auth and will fail with a misleading
+   `401 Unauthorized - Unauthenticated` even when credentials are otherwise valid. Check
+   `kaggle --version` against whichever interpreter is actually on `PATH` — a project
+   `requirements.txt` pin doesn't help if a stale system-wide install shadows it.
+
+2. **`~/.kaggle/` credentials** — two files, both `chmod 600`:
+   - `kaggle.json` — classic API key: `{"username": "...", "key": "..."}`
+   - `access_token` — a bare single-line token (no JSON wrapper), used by newer
+     token-based auth. Only present if the account has been set up for it.
+
+   Verify auth works before scaffolding: `kaggle competitions files <slug>`.
+
 ## What it installs
 
 | Component | Purpose |
@@ -88,3 +108,33 @@ coexists cleanly with the `clinerules` plugin (`planning-*`) and any others.
 /kaggle:new <competition-slug> [project-root]   # scaffold a new project
 /kaggle:preflight                               # verify a submission is ready
 ```
+
+## Worked example
+
+Scaffolding and downloading against a real competition,
+[`playground-series-s6e7`](https://www.kaggle.com/competitions/playground-series-s6e7)
+("Predicting Student Health Risk"):
+
+```zsh
+/kaggle:new playground-series-s6e7
+zsh scripts/download_data.sh
+```
+
+produces:
+
+```
+kaggle-playground-series-s6e7/
+  docs/plans/{competition-overview,implementation-plan,TODO,leaderboard,CITATIONS,
+              submission-checklist,v0.1-baseline-plan}.md
+  docs/adr/0001-offline-submission-packaging.md
+  notebook/kernel-metadata.json     # enable_internet: false, competition_sources: [...]
+  scripts/download_data.sh
+  data/
+    train.csv               690,088 rows x 15 cols (id, health_condition, ...features)
+    test.csv                295,753 rows x 14 cols (id, ...features)
+    sample_submission.csv   295,753 rows: id, health_condition
+```
+
+`health_condition` is a **categorical** target (e.g. `at-risk`), not a probability —
+`docs/plans/submission-checklist.md` has a "Target format" section covering both cases,
+since not every competition's `sample_submission.csv` expects class probabilities.

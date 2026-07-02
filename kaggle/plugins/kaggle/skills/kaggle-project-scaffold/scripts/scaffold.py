@@ -223,6 +223,12 @@ Inline references use `[cite:N]`. N = max existing + 1; never reuse.
 - [ ] One row per test id; row count matches test set.
 - [ ] No NaN / invalid values.
 
+## Target format (check the one that applies)
+- [ ] **Categorical / hard label:** predicted values are an exact string/value match to
+      the categories used in sample_submission.csv (case, spelling, no unseen labels).
+- [ ] **Probability / soft label:** no NaN or negatives; rows sum to 1 where multiple
+      class-probability columns are expected.
+
 ## Offline / environment
 - [ ] Notebook `enable_internet=false`.
 - [ ] All weights/wheels loaded from /kaggle/input/... (no downloads).
