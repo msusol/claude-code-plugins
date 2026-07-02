@@ -120,7 +120,22 @@ Scaffolding and downloading against a real competition,
 zsh scripts/download_data.sh
 ```
 
-produces:
+`/kaggle:new` fills `competition-overview.md` with real data, then tailors
+`implementation-plan.md`'s Rung 0-4 ladder to this competition's actual modality/task
+(tabular classification here) instead of leaving it as generic boilerplate.
+
+`download_data.sh` enforces competition-rule acceptance as a hard prerequisite. If the
+rules haven't been accepted yet, it halts instead of failing on a raw API error:
+
+```
+HALTED: competition rules not yet accepted for playground-series-s6e7 (or you have not
+joined the competition).
+  1. Visit https://www.kaggle.com/competitions/playground-series-s6e7/rules
+  2. Click "I Understand and Accept"
+  3. Re-run: zsh scripts/download_data.sh
+```
+
+Once accepted, re-running produces:
 
 ```
 kaggle-playground-series-s6e7/
