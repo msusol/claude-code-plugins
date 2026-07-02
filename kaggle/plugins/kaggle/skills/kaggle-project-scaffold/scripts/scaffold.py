@@ -5,8 +5,8 @@ Derived from prior competition project layouts. Creates a docs/plans-centric
 skeleton. Does NOT create CLAUDE.md or .clinerules (a Claude Code plugin owns those).
 
 Usage:
-    python3 scaffold.py --root <dir> --slug <comp-slug> [--title T] [--metric M]
-                        [--kaggle-user U] [--author A] [--force]
+    python3 scaffold.py --root <dir> --slug <comp-slug> --author A [--title T] [--metric M]
+                        [--kaggle-user U] [--force]
 """
 from __future__ import annotations
 import argparse
@@ -347,7 +347,7 @@ def main() -> None:
     ap.add_argument("--title", default=None)
     ap.add_argument("--metric", default="score")
     ap.add_argument("--kaggle-user", default="USERNAME")
-    ap.add_argument("--author", default="Mark Susol")
+    ap.add_argument("--author", required=True, help="Copyright holder for LICENSE")
     ap.add_argument("--force", action="store_true")
     args = ap.parse_args()
 

@@ -21,8 +21,8 @@ Trigger when the user wants to begin a new Kaggle competition project — phrase
 <project-root>/
   README.md                     competition link, goal, evaluator-constraints table, layout;
                                  MIT license badge + footer link back to this plugin
-  LICENSE                       MIT, derived from this plugin's own LICENSE (--author, default
-                                 "Mark Susol")
+  LICENSE                       MIT, derived from this plugin's own LICENSE
+                                 (--author is required, copyright holder for this file)
   .gitignore                    data + model artifacts + submission files
   requirements.txt              dev/EDA stack (note: heavy training in container/Spark)
   docs/
@@ -60,6 +60,7 @@ Conventions carried over from prior projects:
 python3 scripts/scaffold.py \
   --root "/path/to/Projects/Kaggle/kaggle-<slug>" \
   --slug "<competition-slug>" \
+  --author "<Your Name>" \
   --title "<Human Title>" \
   --metric "log loss" \
   --kaggle-user "<username>"
@@ -68,10 +69,12 @@ python3 scripts/scaffold.py \
 Flags:
 - `--root` (required) destination project folder (created if missing).
 - `--slug` (required) Kaggle competition slug (used in URLs, download script, kernel metadata).
+- `--author` (required) copyright holder for the generated `LICENSE`. No default — every
+  scaffolded project's license belongs to whoever is actually running it, not whoever
+  wrote this plugin.
 - `--title` human-readable competition title for README/overview.
 - `--metric` evaluation metric string (default: "score").
 - `--kaggle-user` Kaggle username for `kernel-metadata.json` id (default: "USERNAME").
-- `--author` copyright holder for the generated `LICENSE` file (default: "Mark Susol").
 - `--force` overwrite existing files (default: skip files that already exist).
 
 After scaffolding: fill `competition-overview.md` and `implementation-plan.md` with the

@@ -13,7 +13,12 @@ Steps:
 1. Parse the competition slug and optional root from the arguments. If no root is given,
    default to `kaggle-<slug>` under the current working directory.
 2. Invoke the `kaggle-project-scaffold` skill to generate the skeleton. Run its
-   `scaffold.py` with `--root`, `--slug`, and a human `--title` derived from the slug.
+   `scaffold.py` with `--root`, `--slug`, a human `--title` derived from the slug, and
+   `--author`. `--author` is **required** — it becomes the copyright holder in the
+   generated `LICENSE`, and there is no default, so it is never silently wrong for
+   whoever is actually running this. Determine it by running `git config user.name`
+   (global, works even before the project directory is a repo); if that's unset, ask
+   the user for a name before scaffolding.
 3. Do **not** create a per-project `CLAUDE.md` or `.clinerules/` — global rules load from
    `~/.cline/rules/`.
 4. After scaffolding, fetch the competition overview/rules and fill
