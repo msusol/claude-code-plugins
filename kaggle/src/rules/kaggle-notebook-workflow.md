@@ -1,7 +1,7 @@
 ---
 description: Manage Kaggle notebooks via the CLI (kaggle kernels push) with version-controlled metadata; never instruct manual Kaggle UI edits.
 paths:
-  - "**/notebook/**"
+  - "**/notebooks/**"
   - "**/kernel-metadata.json"
 ---
 
@@ -18,7 +18,7 @@ Each competition phase or modelling method gets its own notebook and metadata fi
 named after the version slug:
 
 ```
-notebook/
+notebooks/
   v0.1-tfidf-baseline.ipynb
   v0.1-tfidf-baseline-kernel-metadata.json
   v0.2-llama-qlora.ipynb
@@ -40,8 +40,8 @@ The CLI requires the metadata file to be named exactly `kernel-metadata.json`. U
 
 ```zsh
 STAGE="$(mktemp -d)"
-cp notebook/<slug>.ipynb "$STAGE/"
-cp notebook/<slug>-kernel-metadata.json "$STAGE/kernel-metadata.json"
+cp notebooks/<slug>.ipynb "$STAGE/"
+cp notebooks/<slug>-kernel-metadata.json "$STAGE/kernel-metadata.json"
 kaggle kernels push -p "$STAGE"
 ```
 

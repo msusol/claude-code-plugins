@@ -1,6 +1,6 @@
 ---
 name: kaggle-project-scaffold
-description: Scaffold a barebones Kaggle competition project folder with a docs/plans structure (competition-overview, implementation-plan, versioned vX.Y plans, TODO, leaderboard, CITATIONS, submission-checklist), docs/adr + docs/investigate, scripts/, notebook/ with Kaggle kernel metadata, configs/, data/, README, requirements, and .gitignore. Use when the user wants to "start", "set up", "scaffold", or "bootstrap" a new Kaggle competition project, or asks for a barebones project skeleton for a competition. Does NOT generate CLAUDE.md or .clinerules (a separate Claude Code plugin owns those).
+description: Scaffold a barebones Kaggle competition project folder with a docs/plans structure (competition-overview, implementation-plan, versioned vX.Y plans, TODO, leaderboard, CITATIONS, submission-checklist), docs/adr + docs/investigate, scripts/, notebooks/ with Kaggle kernel metadata, configs/, data/, README, requirements, and .gitignore. Use when the user wants to "start", "set up", "scaffold", or "bootstrap" a new Kaggle competition project, or asks for a barebones project skeleton for a competition. Does NOT generate CLAUDE.md or .clinerules (a separate Claude Code plugin owns those).
 ---
 
 # Kaggle Project Scaffold
@@ -39,7 +39,7 @@ Trigger when the user wants to begin a new Kaggle competition project — phrase
     images/                     plots, dashboards
   scripts/
     download_data.sh            kaggle competitions download + unzip
-  notebook/
+  notebooks/
     kernel-metadata.json        kaggle kernels push metadata (internet off)
   configs/                      training YAML
   data/                         train/test (gitignored)

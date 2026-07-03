@@ -21,7 +21,7 @@ DIRS = [
     "docs/investigate",
     "docs/images",
     "scripts",
-    "notebook",
+    "notebooks",
     "configs",
     "data",
 ]
@@ -75,7 +75,7 @@ _What you are building and the target outcome._
 ```
 docs/   plans, adr, investigate, images
 scripts/  download_data.sh, ...
-notebook/ Kaggle kernel + kernel-metadata.json
+notebooks/ Kaggle kernel + kernel-metadata.json
 configs/  training YAML
 data/     train/test (gitignored)
 ```
@@ -317,7 +317,7 @@ rm -f "$DEST/${{COMP}}.zip"
 echo "Downloaded to $DEST:"
 ls -lh "$DEST"
 """,
-        "notebook/kernel-metadata.json": f"""{{
+        "notebooks/kernel-metadata.json": f"""{{
   "id": "{user}/{slug}-submission",
   "title": "{title} - Submission",
   "code_file": "submission.ipynb",

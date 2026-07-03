@@ -148,7 +148,7 @@ kaggle-playground-series-s6e7/
   docs/plans/{competition-overview,implementation-plan,TODO,leaderboard,CITATIONS,
               submission-checklist,v0.1-baseline-plan}.md
   docs/adr/0001-offline-submission-packaging.md
-  notebook/kernel-metadata.json     # enable_internet: false, competition_sources: [...]
+  notebooks/kernel-metadata.json    # enable_internet: false, competition_sources: [...]
   scripts/download_data.sh
   data/
     train.csv               690,088 rows x 15 cols (id, health_condition, ...features)

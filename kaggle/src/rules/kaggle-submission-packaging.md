@@ -1,7 +1,7 @@
 ---
 description: Code Competition submission rules — offline notebook, exact submission filename, runtime budget, dependencies staged as Kaggle inputs.
 paths:
-  - "**/notebook/**"
+  - "**/notebooks/**"
   - "**/docs/plans/submission-checklist.md"
 ---
 

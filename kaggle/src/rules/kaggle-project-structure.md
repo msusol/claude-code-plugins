@@ -3,7 +3,7 @@ description: Canonical folder layout and doc conventions for a Kaggle competitio
 paths:
   - "**/docs/plans/competition-overview.md"
   - "**/docs/plans/leaderboard.md"
-  - "**/notebook/kernel-metadata.json"
+  - "**/notebooks/kernel-metadata.json"
 ---
 
 # Kaggle competition project structure
@@ -27,7 +27,7 @@ docs/
   adr/                        NNNN-title.md decision records
   investigate/                investigation logs
 scripts/                      download_data.sh, push_notebook.sh, convert/train/infer helpers
-notebook/                     one .ipynb + one -kernel-metadata.json per version slug
+notebooks/                    one .ipynb + one -kernel-metadata.json per version slug
                               e.g. v0.1-tfidf-baseline.ipynb + v0.1-tfidf-baseline-kernel-metadata.json
 configs/                      training config (YAML)
 data/                         competition data (gitignored)
