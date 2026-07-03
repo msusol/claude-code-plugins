@@ -33,6 +33,27 @@ notebooks/
 - Keep an investigation doc in `docs/investigate/` tracking run results, errors, and
   fixes for each notebook — one `##` section per slug.
 
+## Editing notebooks with NotebookEdit — avoid stale cell-id corruption
+
+When a notebook's cells have no real nbformat `id` field (e.g. written directly via
+the `Write` tool rather than built up cell-by-cell in a live kernel), the `Read` tool
+displays synthetic positional placeholder ids (`cell-0`, `cell-1`, ...) that are
+**recomputed fresh on every Read** — they are not stable identifiers.
+
+This is a trap: after an `insert` operation shifts later cells to new positions, a
+placeholder id captured from an *earlier* Read (e.g. `cell-2`) may now resolve to a
+different cell than the one it originally labeled. A `replace` call using that stale
+id then silently edits or duplicates content into the wrong cell instead of erroring.
+This caused a real notebook corruption (duplicated cells, `ENGINEERED_FEATURES` used
+before it was defined) during this project's v0.4 development — see
+`docs/investigate/notebook-runs.md`.
+
+**Rule**: after any `insert` edit, re-`Read` the notebook before issuing further
+`NotebookEdit` calls, and use the ids from that fresh Read — never reuse ids/positions
+captured before the insert. If a notebook needs several inserts plus replacements in
+one pass, it is often simpler and safer to just rewrite the whole file with `Write`
+once all the content is known, rather than chaining several `NotebookEdit` calls.
+
 ## Push pattern
 
 The CLI requires the metadata file to be named exactly `kernel-metadata.json`. Use

@@ -34,3 +34,19 @@ tab — competitor write-ups, EDA findings, leaderboard chatter, rules clarifica
 data-leak reports. This applies during EDA, when investigating a plateaued
 leaderboard score, or whenever the user asks to check "what people are saying" about
 a competition.
+
+## Recording findings: always a dedicated docs/investigate entry
+
+When the user says `investigate: <kaggle discussion URL>` (or otherwise asks to look
+into a specific competition discussion thread), the findings always get their own
+dedicated file — `docs/investigate/YYYY-MM-DD-<topic-slug>.md` — following the
+structure in `planning-docs-investigate.md` (Context / Investigation Checklist /
+Findings / Actions Taken / Resolution / Follow-ups). One `##` heading per discussion
+thread if multiple threads are covered in one investigation pass.
+
+Do not fold external discussion-thread research into `docs/investigate/notebook-runs.md`
+or any other run-log file, even if the findings are directly relevant to interpreting
+a specific notebook run — cross-reference between the two files instead (a one-line
+pointer in each direction) so each file stays scoped to its own kind of content:
+`notebook-runs.md` tracks *our own* run results/errors, the dedicated discussion
+entry tracks *external* research.
