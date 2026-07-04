@@ -10,7 +10,7 @@ Personal collection of [Claude Code](https://claude.ai/code) plugins.
 
 | Plugin | Description |
 |--------|-------------|
-| [clinerules](clinerules/) | Deploys `planning-*` rules to `~/.cline/rules/` (Cline) and `~/.claude/CLAUDE.md` `@-imports` (Claude Code) — one rule file, both clients |
+| [docs](docs/) | Deploys `planning-*` rules to `~/.cline/rules/` (Cline) and `~/.claude/CLAUDE.md` `@-imports` (Claude Code) — one rule file, both clients |
 | [kaggle](kaggle/) | Light harness for Kaggle competitions: `kaggle-*` rules, a project-scaffold skill, and `/kaggle:new` + `/kaggle:preflight` commands |
 | [db-guard](db-guard/) | Two-layer guard against unauthorized `DROP TABLE`, `TRUNCATE`, `DROP DATABASE`, `DROP SCHEMA`, and `DROP COLUMN` |
 | [git-guard](git-guard/) | Three-layer protection against unauthorized `git commit` and `git push` |
@@ -24,7 +24,7 @@ Clone the repo, then run each plugin's installer:
 git clone https://github.com/msusol/claude-code-plugins.git
 cd claude-code-plugins
 
-./clinerules/deploy.zsh
+./docs/deploy.zsh
 ./kaggle/deploy.zsh
 ./db-guard/deploy.zsh
 ./git-guard/deploy.zsh
@@ -39,7 +39,7 @@ once and install any plugin directly:
 ```zsh
 claude plugin marketplace add msusol/claude-code-plugins
 claude plugin install kaggle@msusol
-claude plugin install clinerules@msusol
+claude plugin install docs@msusol
 ```
 
 (The repo name `claude-code-plugins` is a reserved marketplace name, so the marketplace
@@ -48,7 +48,7 @@ is named after the owner, `msusol`, instead.)
 All installers are idempotent — safe to re-run after pulling updates. To remove a plugin:
 
 ```zsh
-./clinerules/uninstall.zsh
+./docs/uninstall.zsh
 ./kaggle/uninstall.zsh
 ./db-guard/uninstall.zsh
 ./git-guard/uninstall.zsh
@@ -59,9 +59,9 @@ All installers are idempotent — safe to re-run after pulling updates. To remov
 
 Some plugins use only a rule file; others add a PreToolUse hook on top. The distinction is whether there is a runtime event worth intercepting.
 
-**clinerules — rule only, no hook**
+**docs — rule only, no hook**
 
-Clinerules is pure context injection. Rules are loaded into the model's context at session start via `~/.cline/rules/` (Cline, native) or `@-imports` in `~/.claude/CLAUDE.md` (Claude Code). There is no tool call to intercept — the rules are already present before any tool fires. A hook would have nothing to gate on; the rule file *is* the enforcement mechanism.
+The `docs` plugin is pure context injection. Rules are loaded into the model's context at session start via `~/.cline/rules/` (Cline, native) or `@-imports` in `~/.claude/CLAUDE.md` (Claude Code). There is no tool call to intercept — the rules are already present before any tool fires. A hook would have nothing to gate on; the rule file *is* the enforcement mechanism.
 
 **db-guard — rule + PreToolUse hook**
 
@@ -82,7 +82,7 @@ The pattern is: if the risk is a specific runtime Bash event, add a hook. If the
 
 ### Auto-memory + commit rule interaction
 
-When testing these plugins in a project that has active clinerules (especially
+When testing these plugins in a project that has active Cline project rules (especially
 `planning-commit-description.md`), you may see Claude spontaneously say something like
 "save a memory about the db-guard pattern and commit." This is not the plugin acting —
 it is two Claude Code behaviors colliding:

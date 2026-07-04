@@ -1,12 +1,12 @@
 #!/usr/bin/env zsh
-# clinerules installer — idempotent, safe to re-run.
+# docs installer — idempotent, safe to re-run.
 #
 # What this does:
 #   1. Copies src/rules/*.md to ~/.cline/rules/ (installs new, updates changed,
 #      removes legacy ##-prefixed files)
 #   2. Regenerates the @-import block in ~/.claude/CLAUDE.md so Claude Code
 #      also loads the same rules from ~/.cline/rules/
-#   3. Registers this repo as a Claude Code plugin marketplace and installs clinerules
+#   3. Registers this repo as a Claude Code plugin marketplace and installs docs
 #
 # Prerequisites:
 #   - Claude Code CLI (claude) installed
@@ -20,10 +20,10 @@ REPO_DIR="${0:A:h}"
 RULES_SRC="$REPO_DIR/src/rules"
 RULES_DEST="$HOME/.cline/rules"
 GLOBAL_CLAUDE="$HOME/.claude/CLAUDE.md"
-BEGIN_MARKER="<!-- BEGIN clinerules-imports (managed by deploy.zsh) -->"
-END_MARKER="<!-- END clinerules-imports -->"
+BEGIN_MARKER="<!-- BEGIN docs-imports (managed by deploy.zsh) -->"
+END_MARKER="<!-- END docs-imports -->"
 
-print "==> clinerules installer"
+print "==> docs installer"
 print ""
 
 # ── 1. Install rule files to ~/.cline/rules/ ─────────────────────────────────
@@ -89,16 +89,19 @@ EOF
     printf '%s\n' "$imports" > "$body_file"
     tmp="$(mktemp)"
 
-    if grep -qE "<!-- BEGIN clinerules-imports" "$GLOBAL_CLAUDE" && grep -qF "$END_MARKER" "$GLOBAL_CLAUDE"; then
-      # Sentinels present (any variant — old "link-clinerules.sh" or current "deploy.zsh").
-      # Replace everything between the markers and rewrite the begin marker to the current form.
+    if grep -qE "<!-- BEGIN (clinerules|docs)-imports" "$GLOBAL_CLAUDE" && grep -qE "<!-- END (clinerules|docs)-imports -->" "$GLOBAL_CLAUDE"; then
+      # Sentinels present (any variant — pre-rename "clinerules-imports" or current
+      # "docs-imports"). Replace everything between the markers and normalize both
+      # the begin and end marker text to the current form — this is what migrates a
+      # machine that already has the old sentinel deployed, in place, without
+      # duplicating the block.
       awk \
         -v begin="$BEGIN_MARKER" \
         -v end="$END_MARKER" \
         -v bf="$body_file" '
         BEGIN { while ((getline line < bf) > 0) body = (body == "" ? line : body "\n" line) }
-        /<!-- BEGIN clinerules-imports/ { print begin; print body; skip=1; next }
-        $0 == end   { skip=0; print; next }
+        /<!-- BEGIN (clinerules|docs)-imports/ { print begin; print body; skip=1; next }
+        /<!-- END (clinerules|docs)-imports -->/ { skip=0; print end; next }
         !skip       { print }
       ' "$GLOBAL_CLAUDE" > "$tmp"
       mv "$tmp" "$GLOBAL_CLAUDE"
@@ -147,14 +150,14 @@ fi
 # ── 3. Claude Code plugin registration ───────────────────────────────────────
 if command -v claude &>/dev/null; then
   claude plugin marketplace add "${REPO_DIR:h}" 2>/dev/null || true
-  claude plugin install clinerules@msusol 2>/dev/null || true
+  claude plugin install docs@msusol 2>/dev/null || true
   print "✓ Plugin registered with Claude Code"
 else
   print "⚠ claude CLI not found — skipping plugin registration"
-  print "  Run manually: claude plugin marketplace add ${REPO_DIR:h} && claude plugin install clinerules@msusol"
+  print "  Run manually: claude plugin marketplace add ${REPO_DIR:h} && claude plugin install docs@msusol"
 fi
 
 print ""
-print "==> clinerules installed."
+print "==> docs installed."
 print "    Rules → $RULES_DEST (Cline, native)"
 print "    Rules → $GLOBAL_CLAUDE (Claude Code, via @-imports)"

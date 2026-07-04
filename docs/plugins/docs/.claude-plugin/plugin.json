@@ -1,5 +1,5 @@
 {
-  "name": "clinerules",
+  "name": "docs",
   "version": "1.0.0",
   "description": "Deploys planning-* rules globally to ~/.cline/rules/ for Cline and regenerates the @-import block in ~/.claude/CLAUDE.md for Claude Code.",
   "author": {

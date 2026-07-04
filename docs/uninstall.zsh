@@ -1,5 +1,5 @@
 #!/usr/bin/env zsh
-# clinerules uninstaller
+# docs uninstaller
 
 set -euo pipefail
 
@@ -7,7 +7,7 @@ REPO_DIR="${0:A:h}"
 RULES_SRC="$REPO_DIR/src/rules"
 RULES_DEST="$HOME/.cline/rules"
 
-print "==> clinerules uninstaller"
+print "==> docs uninstaller"
 print ""
 
 # Remove rule files deployed by this plugin from ~/.cline/rules/
@@ -33,7 +33,7 @@ fi
 
 # Remove the managed @-import block from ~/.claude/CLAUDE.md
 GLOBAL_CLAUDE="$HOME/.claude/CLAUDE.md"
-if [[ -f "$GLOBAL_CLAUDE" ]] && grep -qE "<!-- BEGIN clinerules-imports" "$GLOBAL_CLAUDE"; then
+if [[ -f "$GLOBAL_CLAUDE" ]] && grep -qE "<!-- BEGIN (clinerules|docs)-imports" "$GLOBAL_CLAUDE"; then
   tmp="$(mktemp)"
   awk '
     /^## / {
@@ -44,8 +44,8 @@ if [[ -f "$GLOBAL_CLAUDE" ]] && grep -qE "<!-- BEGIN clinerules-imports" "$GLOBA
       if (hdr != "") { hdr = hdr "\n"; next }
       buf = buf "\n"; next
     }
-    /<!-- BEGIN clinerules-imports/ { hdr = ""; buf = ""; skip = 1; next }
-    /<!-- END clinerules-imports -->/ { skip = 0; next }
+    /<!-- BEGIN (clinerules|docs)-imports/ { hdr = ""; buf = ""; skip = 1; next }
+    /<!-- END (clinerules|docs)-imports -->/ { skip = 0; next }
     skip { next }
     {
       printf "%s%s", hdr, buf
@@ -64,9 +64,9 @@ else
 fi
 
 if command -v claude &>/dev/null; then
-  claude plugin uninstall clinerules 2>/dev/null || true
+  claude plugin uninstall docs 2>/dev/null || true
   print "✓ Plugin unregistered"
 fi
 
 print ""
-print "==> clinerules uninstalled."
+print "==> docs uninstalled."

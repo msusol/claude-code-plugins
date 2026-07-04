@@ -16,7 +16,7 @@
 #      that already scopes itself by matching Bash command content)
 #   4. Registers this repo as a Claude Code plugin marketplace and installs kaggle
 #
-# Owns the kaggle-* prefix only; the clinerules plugin (planning-*) and any other
+# Owns the kaggle-* prefix only; the docs plugin (planning-*) and any other
 # plugin manage their own files and their own sentinel blocks independently.
 
 set -euo pipefail

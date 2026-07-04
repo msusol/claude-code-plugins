@@ -1,4 +1,4 @@
-# clinerules
+# docs
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -74,8 +74,8 @@ everywhere with no further setup needed.
 ## Install
 
 ```zsh
-git clone <repo-url> clinerules
-cd clinerules
+git clone <repo-url> docs
+cd docs
 ./deploy.zsh
 ```
 
@@ -87,7 +87,7 @@ The installer is idempotent — safe to re-run after updates.
 2. Copies `src/rules/*.md` to `~/.cline/rules/` (installs new files, updates changed ones)
 3. Removes any legacy `##-prefixed` rule files left from a prior naming convention
 4. Regenerates the `@-import` block in `~/.claude/CLAUDE.md` to point at `~/.cline/rules/`
-5. Registers this repo as a Claude Code plugin marketplace and installs the `clinerules` plugin
+5. Registers this repo as a Claude Code plugin marketplace and installs the `docs` plugin
 
 ## Keeping rules in sync
 
@@ -127,15 +127,13 @@ how rules are applied.
 ## Package layout
 
 ```
-clinerules/
+docs/
 ├── README.md
 ├── collect.zsh                             # Pull ~/.cline/rules/ into src/rules/ for committing
 ├── deploy.zsh                              # Installer
 ├── uninstall.zsh                           # Uninstaller
-├── .claude-plugin/
-│   └── marketplace.json                    # Declares this repo as a plugin marketplace
 ├── plugins/
-│   └── clinerules/
+│   └── docs/
 │       └── .claude-plugin/
 │           └── plugin.json                 # Plugin manifest
 └── src/
@@ -143,3 +141,7 @@ clinerules/
         ├── planning-global.md
         └── ...
 ```
+
+The top-level `.claude-plugin/marketplace.json` (one directory up, shared by all 5
+plugins) declares this repo as a Claude Code plugin marketplace — it isn't nested inside
+`docs/` itself.

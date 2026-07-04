@@ -28,7 +28,7 @@ by directory.
 
 ## Requirements
 
-This plugin depends on the `clinerules` plugin (declared in `plugin.json`) — Claude Code
+This plugin depends on the `docs` plugin (declared in `plugin.json`) — Claude Code
 installs it automatically alongside `kaggle`. The `kaggle-*` rules this plugin deploys
 assume the `planning-*` rules (`docs/plans/` layout, TODO sync, etc.) are already in
 place; `kaggle-project-structure.md` builds directly on `planning-docs-plans.md`.
@@ -125,8 +125,8 @@ Kaggle workspace root, and every competition subdirectory beneath it inherits th
 Claude Code's directory walk-up (nearest `CLAUDE.md`) and Cline's project-rules resolution.
 
 This plugin owns the `kaggle-*` prefix and its own `kaggle-imports` sentinel block, so it
-coexists cleanly with the `clinerules` plugin (`planning-*`, which stays **global** — it's
-genuinely cross-project) and any others — and requires `clinerules` to be installed (see
+coexists cleanly with the `docs` plugin (`planning-*`, which stays **global** — it's
+genuinely cross-project) and any others — and requires `docs` to be installed (see
 `dependencies` in `plugins/kaggle/.claude-plugin/plugin.json`).
 
 ## Usage

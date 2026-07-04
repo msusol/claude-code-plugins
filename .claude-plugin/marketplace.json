@@ -8,11 +8,11 @@
   "license": "MIT",
   "plugins": [
     {
-      "name": "clinerules",
+      "name": "docs",
       "source": {
         "source": "git-subdir",
         "url": "msusol/claude-code-plugins",
-        "path": "clinerules/plugins/clinerules",
+        "path": "docs/plugins/docs",
         "ref": "main"
       },
       "description": "Deploys planning-* rules to ~/.cline/rules/ and @-imports them in ~/.claude/CLAUDE.md.",
