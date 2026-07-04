@@ -139,6 +139,31 @@ to migrate; it just reports that.
 | `uninstall.zsh <target-root>` | Removes rules and `@-import` block from `<target-root>`; removes the hook script and its `settings.json` entry (global) |
 | `migrate-legacy-global.zsh` | One-time cleanup for a pre-workspace-scoping install — removes the legacy global `~/.cline/rules/kaggle-*.md` and `~/.claude/CLAUDE.md` block that `uninstall.zsh` can't reach |
 
+## Keeping rules in sync
+
+`src/rules/` in **this plugin repo** is the committed source of truth — not the copies
+deployed into your Kaggle workspace. Unlike the `docs` plugin (always global, so
+`deploy.zsh`/`collect.zsh` default to `$HOME` with no path to think about), kaggle's
+workspace root is a **different directory** from this plugin repo, so both commands need
+the workspace-root argument regardless of which directory you're actually standing in:
+
+```zsh
+# 1. Edit a rule directly at the deployed location, e.g.:
+#    ~/LosusAI/Projects/Kaggle/.cline/rules/kaggle-notebook-workflow.md
+# 2. Pull the change back into this plugin repo for committing — run from anywhere,
+#    pointing at the workspace root:
+/path/to/claude-code-plugins/kaggle/collect.zsh ~/LosusAI/Projects/Kaggle
+# 3. Review the diff in kaggle/src/rules/, then commit + push from this repo.
+# 4. On another machine (or to pick up someone else's rule change): git pull, then
+/path/to/claude-code-plugins/kaggle/deploy.zsh ~/LosusAI/Projects/Kaggle
+```
+
+Or edit `src/rules/kaggle-*.md` directly in this repo, commit, then run `deploy.zsh
+<workspace-root>` to push the change out to the workspace.
+
+`collect.zsh` scopes to `kaggle-*.md` so it only ever syncs files owned by this plugin —
+rules from other plugins deployed into the same workspace (if any) are never touched.
+
 Everything except the `kaggle-guard` hook is scoped to `<target-root>` — point it at your
 Kaggle workspace root, and every competition subdirectory beneath it inherits the rules via
 Claude Code's directory walk-up (nearest `CLAUDE.md`) and Cline's project-rules resolution.
