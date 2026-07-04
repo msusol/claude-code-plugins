@@ -109,6 +109,24 @@ is always safe. To remove:
 ./kaggle/uninstall.zsh <workspace-root>
 ```
 
+### Upgrading from a pre-workspace-scoping install
+
+If you installed this plugin before workspace-scoping existed, you have a legacy global
+install: `kaggle-*.md` rules in `~/.cline/rules/` and a `kaggle-imports` block in the
+global `~/.claude/CLAUDE.md`. The new `uninstall.zsh` won't clean this up on its own — it
+looks for `<target-root>/CLAUDE.md` directly, not the legacy `~/.claude/CLAUDE.md` path.
+Retire the old global footprint once, then deploy fresh to your real workspace root:
+
+```zsh
+./kaggle/migrate-legacy-global.zsh   # add --dry-run to preview first
+./kaggle/deploy.zsh <workspace-root>
+```
+
+`migrate-legacy-global.zsh` only touches the legacy global rule files and CLAUDE.md
+block — it leaves the `kaggle-guard` hook and its `settings.json` registration alone
+(those stay global regardless of workspace scoping). Safe to run even if there's nothing
+to migrate; it just reports that.
+
 ## How it works
 
 | Component | Purpose |
@@ -119,6 +137,7 @@ is always safe. To remove:
 | `deploy.zsh <target-root>` | Copies rules → `<target-root>/.cline/rules/`; regenerates `@-import` block in `<target-root>/CLAUDE.md`; installs the hook (global); registers plugin |
 | `collect.zsh <target-root>` | Copies `<target-root>/.cline/rules/kaggle-*.md` → `src/rules/` for committing |
 | `uninstall.zsh <target-root>` | Removes rules and `@-import` block from `<target-root>`; removes the hook script and its `settings.json` entry (global) |
+| `migrate-legacy-global.zsh` | One-time cleanup for a pre-workspace-scoping install — removes the legacy global `~/.cline/rules/kaggle-*.md` and `~/.claude/CLAUDE.md` block that `uninstall.zsh` can't reach |
 
 Everything except the `kaggle-guard` hook is scoped to `<target-root>` — point it at your
 Kaggle workspace root, and every competition subdirectory beneath it inherits the rules via

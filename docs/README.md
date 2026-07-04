@@ -56,8 +56,9 @@ The model changes; the behavioral guardrails do not.
 | Component | Purpose |
 |---|---|
 | `src/rules/` | Committed source of truth for your global rule files |
-| `deploy.zsh` | Copies `src/rules/*.md` → `~/.cline/rules/`; regenerates `@-imports` in `~/.claude/CLAUDE.md` |
+| `deploy.zsh` | Copies `src/rules/*.md` → `~/.cline/rules/`; regenerates `@-imports` in `~/.claude/CLAUDE.md` (auto-migrates the old `clinerules-imports` sentinel in place if found) |
 | `collect.zsh` | Copies `~/.cline/rules/planning-*.md` → `src/rules/` for committing |
+| `migrate-legacy-clinerules.zsh` | One-time cleanup for a pre-rename install — removes the old `clinerules@msusol` plugin registration, an orphaned marketplace entry, and a stale plugin cache directory that `deploy.zsh` can't reach |
 
 ### Global rules — no per-project setup
 
@@ -112,6 +113,25 @@ Typical workflow after editing a rule:
 ```
 
 Removes the plugin's rule files from `~/.cline/rules/` and unregisters the plugin.
+
+### Upgrading from the old `clinerules` plugin id
+
+This plugin was renamed from `clinerules` to `docs`. `deploy.zsh`/`uninstall.zsh` already
+detect and rewrite the `~/.claude/CLAUDE.md` sentinel block in place (old
+`clinerules-imports` → current `docs-imports`) automatically, every time they run — no
+extra step needed for that.
+
+What they don't touch is Claude Code's own plugin-registration state, which doesn't
+auto-follow a marketplace rename: a still-installed `clinerules@msusol` plugin, an
+orphaned standalone `clinerules` marketplace entry, and a stale plugin cache directory.
+Clean those up once with:
+
+```zsh
+./migrate-legacy-clinerules.zsh   # add --dry-run to preview first
+./deploy.zsh                      # install docs@msusol and refresh the sentinel
+```
+
+Safe to run even if there's nothing to migrate — it just reports that.
 
 ## Rule naming and load order
 
