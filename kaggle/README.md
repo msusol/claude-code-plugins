@@ -4,18 +4,27 @@
 
 **Author:** Mark Susol
 
-A light, competition-agnostic harness for Kaggle projects. Deploys `kaggle-*` rules to
-`~/.cline/rules/` (and `@-imports` them into `~/.claude/CLAUDE.md`), and ships a
-project-scaffold skill plus helper commands — so each competition repo stays thin and
-inherits the same discipline.
+A light, competition-agnostic harness for Kaggle projects. Deploys `kaggle-*` rules once
+to your **Kaggle workspace root** — the parent directory holding all your competition
+projects (`<workspace-root>/.cline/rules/`, `@-imported` into `<workspace-root>/CLAUDE.md`)
+— and ships a project-scaffold skill plus helper commands, so every competition beneath
+that root inherits the same discipline without duplicating rules into each one.
 
 ## Why
 
 The hard-won conventions for running a Kaggle competition (notebook-via-CLI, offline
 submission packaging, run/leaderboard tracking, a `docs/plans` layout) are the same
-across competitions. This plugin packages that **Tier-2** layer once. Each project then
-carries only its **Tier-3** specifics (hardware, exact package script, competition slug)
-in its own `docs/plans/` — never a duplicated `CLAUDE.md` or `.clinerules/`.
+across competitions. This plugin packages that **Tier-2** layer once, at the workspace
+root — not globally (it would pollute unrelated, non-Kaggle projects) and not per
+competition (that would duplicate the same rules into every competition folder). Each
+competition project then carries only its **Tier-3** specifics (hardware, exact package
+script, competition slug) in its own `docs/plans/` — never a duplicated `CLAUDE.md` or
+`.cline/rules/`.
+
+The `kaggle-guard` PreToolUse hook is the one exception: it stays registered globally
+(`~/.claude/settings.json`), since it's cheap, project-agnostic guard logic that already
+scopes its effect by matching `Bash` command content (`kaggle kernels push`) rather than
+by directory.
 
 ## Requirements
 
@@ -50,8 +59,11 @@ Before running `/kaggle:new` or `/kaggle:preflight` against real Kaggle data:
 | `src/rules/kaggle-notebook-workflow.md` | `kaggle kernels push`, metadata as source of truth, no UI edits |
 | `src/rules/kaggle-submission-packaging.md` | Offline notebook, exact submission filename, runtime budget, staged deps |
 | `src/rules/kaggle-leaderboard.md` | Track every run's OOF / LB / takeaway |
+| `src/rules/kaggle-dgx-spark.md` | DGX Spark GB10 conventions — service pausing, `tmux`-only training sessions |
+| `src/rules/kaggle-discussions.md` | Read competition Discussion threads via the `kaggle` CLI, not browser automation |
+| `src/rules/kaggle-kernel-alerts.md` | SMS alert watcher pattern for long-running kernel completion |
 | `src/kaggle-guard-hook.zsh` | PreToolUse hook — blocks Claude from pushing notebooks directly |
-| `scripts/manage-settings.py` | Registers / removes the hook in `~/.claude/settings.json` |
+| `scripts/manage-settings.py` | Registers / removes the hook in `~/.claude/settings.json` (global) |
 | `skills/kaggle-project-scaffold` | Generate a barebones competition project skeleton |
 | `commands/new.md` → `/kaggle:new` | Scaffold a new competition project |
 | `commands/preflight.md` → `/kaggle:preflight` | Walk the submission checklist before pushing |
@@ -84,13 +96,17 @@ command shown to you before execution — any bypass is auditable.
 ## Install
 
 ```zsh
-./kaggle/deploy.zsh
+./kaggle/deploy.zsh <workspace-root>
 ```
 
-Idempotent — safe to re-run after pulling updates. To remove:
+`<workspace-root>` is the parent directory holding your Kaggle competition projects
+(e.g. `~/LosusAI/Projects/Kaggle/`) — defaults to `$PWD` if omitted. Run it once per
+workspace, not once per competition; it's idempotent, so re-running it later (e.g. after
+pulling rule updates, or before scaffolding another competition under the same workspace)
+is always safe. To remove:
 
 ```zsh
-./kaggle/uninstall.zsh
+./kaggle/uninstall.zsh <workspace-root>
 ```
 
 ## How it works
@@ -98,15 +114,20 @@ Idempotent — safe to re-run after pulling updates. To remove:
 | Component | Purpose |
 |---|---|
 | `src/rules/` | Committed source of truth for the `kaggle-*` rule files |
-| `src/kaggle-guard-hook.zsh` | Source for the PreToolUse hook installed to `~/.claude/scripts/` |
-| `scripts/manage-settings.py` | Idempotent installer/remover for the hook entry in `~/.claude/settings.json` |
-| `deploy.zsh` | Copies rules → `~/.cline/rules/`; regenerates `@-import` block in `~/.claude/CLAUDE.md`; installs hook; registers plugin |
-| `collect.zsh` | Copies `~/.cline/rules/kaggle-*.md` → `src/rules/` for committing |
-| `uninstall.zsh` | Removes rules, `@-import` block, hook script, and hook from `settings.json` |
+| `src/kaggle-guard-hook.zsh` | Source for the PreToolUse hook installed to `~/.claude/scripts/` (global) |
+| `scripts/manage-settings.py` | Idempotent installer/remover for the hook entry in `~/.claude/settings.json` (global) |
+| `deploy.zsh <target-root>` | Copies rules → `<target-root>/.cline/rules/`; regenerates `@-import` block in `<target-root>/CLAUDE.md`; installs the hook (global); registers plugin |
+| `collect.zsh <target-root>` | Copies `<target-root>/.cline/rules/kaggle-*.md` → `src/rules/` for committing |
+| `uninstall.zsh <target-root>` | Removes rules and `@-import` block from `<target-root>`; removes the hook script and its `settings.json` entry (global) |
+
+Everything except the `kaggle-guard` hook is scoped to `<target-root>` — point it at your
+Kaggle workspace root, and every competition subdirectory beneath it inherits the rules via
+Claude Code's directory walk-up (nearest `CLAUDE.md`) and Cline's project-rules resolution.
 
 This plugin owns the `kaggle-*` prefix and its own `kaggle-imports` sentinel block, so it
-coexists cleanly with the `clinerules` plugin (`planning-*`) and any others — and requires
-`clinerules` to be installed (see `dependencies` in `plugins/kaggle/.claude-plugin/plugin.json`).
+coexists cleanly with the `clinerules` plugin (`planning-*`, which stays **global** — it's
+genuinely cross-project) and any others — and requires `clinerules` to be installed (see
+`dependencies` in `plugins/kaggle/.claude-plugin/plugin.json`).
 
 ## Usage
 
@@ -128,7 +149,10 @@ zsh scripts/download_data.sh
 
 `/kaggle:new` fills `competition-overview.md` with real data, then tailors
 `implementation-plan.md`'s Rung 0-4 ladder to this competition's actual modality/task
-(tabular classification here) instead of leaving it as generic boilerplate.
+(tabular classification here) instead of leaving it as generic boilerplate. It also
+deploys the `kaggle-*` rules to the shared workspace root (the parent directory of the
+scaffolded project) the first time a competition is scaffolded there — later competitions
+under the same workspace inherit the rules automatically, with no repeated deploy step.
 
 `download_data.sh` enforces competition-rule acceptance as a hard prerequisite. If the
 rules haven't been accepted yet, it halts instead of failing on a raw API error:

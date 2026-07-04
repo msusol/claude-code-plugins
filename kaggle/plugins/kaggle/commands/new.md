@@ -19,8 +19,21 @@ Steps:
    whoever is actually running this. Determine it by running `git config user.name`
    (global, works even before the project directory is a repo); if that's unset, ask
    the user for a name before scaffolding.
-3. Do **not** create a per-project `CLAUDE.md` or `.clinerules/` — global rules load from
-   `~/.cline/rules/`.
+3. Kaggle rules deploy once to the shared **workspace root** — the parent directory that
+   holds many competition projects (e.g. `~/LosusAI/Projects/Kaggle/`) — not into each
+   competition subdirectory individually. Determine the workspace root as the parent
+   directory of the scaffolded project root. Check whether
+   `<workspace-root>/.cline/rules/kaggle-*.md` already exist:
+   - If they don't, run this plugin's `deploy.zsh <workspace-root>` (resolve the plugin's
+     own root the same way step 2 resolves it for `scaffold.py`) — this is idempotent, so
+     re-running it for later competitions under the same workspace is a safe no-op update.
+   - If they already exist, skip — the workspace is already covered.
+   - If the scaffolded project is standalone (no shared workspace directory — e.g. the
+     parent is just an arbitrary directory not meant to hold other competitions), run
+     `deploy.zsh <project-root>` directly against the project root instead.
+   Do **not** create a separate `.cline/rules/` or `CLAUDE.md` inside the individual
+   competition subdirectory when a shared workspace root is used — that duplication is
+   exactly what workspace-scoping avoids.
 4. After scaffolding, fetch the competition overview/rules and fill
    `docs/plans/competition-overview.md` (metric, data, deadlines, code-competition
    constraints), registering sources in `docs/plans/CITATIONS.md`.

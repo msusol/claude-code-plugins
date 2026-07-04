@@ -1,33 +1,42 @@
 #!/usr/bin/env zsh
-# collect.zsh — sync kaggle-*.md files from ~/.cline/rules/ back into src/rules/.
+# collect.zsh — sync kaggle-*.md files from <target-root>/.cline/rules/ back into src/rules/.
 #
 # Only collects this plugin's own prefix (kaggle-*), so foreign files from other
 # plugins are never touched.
 #
 # Usage:
-#   ./collect.zsh            copy from ~/.cline/rules/ (default)
-#   ./collect.zsh --dry-run  show what would change without writing
+#   ./collect.zsh [target-root]            copy from <target-root>/.cline/rules/ (default $PWD)
+#   ./collect.zsh [target-root] --dry-run  show what would change without writing
 
 set -euo pipefail
 
 REPO_DIR="${0:A:h}"
-SRC_DIR="$HOME/.cline/rules"
 DEST_DIR="$REPO_DIR/src/rules"
 DRY_RUN=0
+TARGET_ROOT=""
 
 for arg in "$@"; do
   case "$arg" in
     --dry-run|-n) DRY_RUN=1 ;;
-    *) print "unknown argument: $arg" >&2; exit 1 ;;
+    -*) print "unknown argument: $arg" >&2; exit 1 ;;
+    *)
+      if [[ -n "$TARGET_ROOT" ]]; then
+        print "unexpected extra argument: $arg" >&2; exit 1
+      fi
+      TARGET_ROOT="$arg"
+      ;;
   esac
 done
+: ${TARGET_ROOT:=$PWD}
+
+SRC_DIR="$TARGET_ROOT/.cline/rules"
 
 if [[ ! -d "$SRC_DIR" ]]; then
-  print "error: $SRC_DIR does not exist — run ./deploy.zsh first" >&2
+  print "error: $SRC_DIR does not exist — run ./deploy.zsh $TARGET_ROOT first" >&2
   exit 1
 fi
 if [[ -z "$(ls "$SRC_DIR"/kaggle-*.md(N) 2>/dev/null)" ]]; then
-  print "error: no kaggle-*.md files found in $SRC_DIR — run ./deploy.zsh first" >&2
+  print "error: no kaggle-*.md files found in $SRC_DIR — run ./deploy.zsh $TARGET_ROOT first" >&2
   exit 1
 fi
 
@@ -51,11 +60,13 @@ done
 for dest in "$DEST_DIR"/kaggle-*.md(N); do
   name="${dest:t}"
   if [[ ! -f "$SRC_DIR/$name" ]]; then
-    print "removed? $name  (in repo but not in ~/.cline/rules/ — delete manually if intentional)"
+    print "removed? $name  (in repo but not in $SRC_DIR — delete manually if intentional)"
     (( removed++ )) || true
   fi
 done
 
 print ""
 print "$added added, $updated updated, $unchanged unchanged${removed:+, $removed stale}"
-[[ $DRY_RUN -eq 0 ]] && print "Files written to $DEST_DIR"
+if [[ $DRY_RUN -eq 0 ]]; then
+  print "Files written to $DEST_DIR"
+fi

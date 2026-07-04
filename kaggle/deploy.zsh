@@ -1,12 +1,19 @@
 #!/usr/bin/env zsh
 # kaggle plugin installer — idempotent, safe to re-run.
 #
+# Usage: ./deploy.zsh [target-root]
+#   target-root defaults to $PWD. Point it at your Kaggle workspace root (the
+#   parent directory that holds many competition subdirectories) so a single
+#   deploy covers every competition beneath it — not at an individual
+#   competition directory.
+#
 # What this does:
-#   1. Copies src/rules/kaggle-*.md to ~/.cline/rules/ (installs new, updates changed)
-#   2. Regenerates the kaggle-imports @-import block in ~/.claude/CLAUDE.md so Claude
-#      Code also loads the same rules from ~/.cline/rules/
+#   1. Copies src/rules/kaggle-*.md to <target-root>/.cline/rules/ (installs new, updates changed)
+#   2. Regenerates the kaggle-imports @-import block in <target-root>/CLAUDE.md so
+#      Claude Code also loads the same rules from <target-root>/.cline/rules/
 #   3. Installs the kaggle-guard PreToolUse hook to ~/.claude/scripts/ and registers
-#      it in ~/.claude/settings.json — blocks Claude from pushing notebooks directly
+#      it in ~/.claude/settings.json (global — cheap, project-agnostic guard logic
+#      that already scopes itself by matching Bash command content)
 #   4. Registers this repo as a Claude Code plugin marketplace and installs kaggle
 #
 # Owns the kaggle-* prefix only; the clinerules plugin (planning-*) and any other
@@ -16,15 +23,24 @@ set -euo pipefail
 
 REPO_DIR="${0:A:h}"
 RULES_SRC="$REPO_DIR/src/rules"
-RULES_DEST="$HOME/.cline/rules"
-GLOBAL_CLAUDE="$HOME/.claude/CLAUDE.md"
+TARGET_ROOT="${1:-$PWD}"
+
+if [[ ! -d "$TARGET_ROOT" ]]; then
+  print "error: target root does not exist: $TARGET_ROOT" >&2
+  exit 1
+fi
+TARGET_ROOT="${TARGET_ROOT:A}"
+
+RULES_DEST="$TARGET_ROOT/.cline/rules"
+TARGET_CLAUDE="$TARGET_ROOT/CLAUDE.md"
 BEGIN_MARKER="<!-- BEGIN kaggle-imports (managed by deploy.zsh) -->"
 END_MARKER="<!-- END kaggle-imports -->"
 
 print "==> kaggle installer"
+print "    Target root: $TARGET_ROOT"
 print ""
 
-# ── 1. Install rule files to ~/.cline/rules/ ─────────────────────────────────
+# ── 1. Install rule files to <target-root>/.cline/rules/ ─────────────────────
 if [[ -d "$RULES_SRC" ]]; then
   mkdir -p "$RULES_DEST"
   installed=0; updated=0
@@ -42,22 +58,22 @@ else
   print "⚠ No src/rules/ found — skipping rule installation"
 fi
 
-# ── 2. Regenerate kaggle-imports block in ~/.claude/CLAUDE.md ─────────────────
+# ── 2. Regenerate kaggle-imports block in <target-root>/CLAUDE.md ────────────
 files=("$RULES_SRC"/kaggle-*.md(N))
 if (( ${#files[@]} > 0 )); then
   imports=""
   for f in "${files[@]}"; do
     name="${f:t}"
     [[ -n "$imports" ]] && imports+=$'\n'
-    imports+="@~/.cline/rules/$name"
+    imports+="@.cline/rules/$name"
   done
 
-  if [[ ! -f "$GLOBAL_CLAUDE" ]]; then
-    mkdir -p "${GLOBAL_CLAUDE:h}"
-    cat > "$GLOBAL_CLAUDE" <<EOF
-# Global Rules
+  if [[ ! -f "$TARGET_CLAUDE" ]]; then
+    mkdir -p "${TARGET_CLAUDE:h}"
+    cat > "$TARGET_CLAUDE" <<EOF
+# Kaggle Workspace Rules
 
-The following rules apply across all projects.
+The following rules apply to every competition under this workspace.
 
 ## Kaggle Rules
 
@@ -65,24 +81,24 @@ $BEGIN_MARKER
 $imports
 $END_MARKER
 EOF
-    print "✓ Created $GLOBAL_CLAUDE with kaggle-imports block"
+    print "✓ Created $TARGET_CLAUDE with kaggle-imports block"
   else
     body_file="$(mktemp)"; printf '%s\n' "$imports" > "$body_file"
     tmp="$(mktemp)"
-    if grep -qF "$BEGIN_MARKER" "$GLOBAL_CLAUDE" && grep -qF "$END_MARKER" "$GLOBAL_CLAUDE"; then
+    if grep -qF "$BEGIN_MARKER" "$TARGET_CLAUDE" && grep -qF "$END_MARKER" "$TARGET_CLAUDE"; then
       # Replace content between existing markers.
       awk -v begin="$BEGIN_MARKER" -v end="$END_MARKER" -v bf="$body_file" '
         BEGIN { while ((getline line < bf) > 0) body = (body == "" ? line : body "\n" line) }
         $0 == begin { print begin; print body; skip=1; next }
         $0 == end   { skip=0; print; next }
         !skip       { print }
-      ' "$GLOBAL_CLAUDE" > "$tmp"
-      mv "$tmp" "$GLOBAL_CLAUDE"
-      print "✓ Updated $GLOBAL_CLAUDE (kaggle-imports block)"
+      ' "$TARGET_CLAUDE" > "$tmp"
+      mv "$tmp" "$TARGET_CLAUDE"
+      print "✓ Updated $TARGET_CLAUDE (kaggle-imports block)"
     else
       # Append a fresh block at the end.
       {
-        cat "$GLOBAL_CLAUDE"
+        cat "$TARGET_CLAUDE"
         print ""
         print "## Kaggle Rules"
         print ""
@@ -90,8 +106,8 @@ EOF
         cat "$body_file"
         print "$END_MARKER"
       } > "$tmp"
-      mv "$tmp" "$GLOBAL_CLAUDE"
-      print "✓ Appended kaggle-imports block to $GLOBAL_CLAUDE"
+      mv "$tmp" "$TARGET_CLAUDE"
+      print "✓ Appended kaggle-imports block to $TARGET_CLAUDE"
     fi
     rm -f "$body_file"
   fi
@@ -99,7 +115,7 @@ else
   print "⚠ No kaggle-* rules found — skipping CLAUDE.md update"
 fi
 
-# ── 3. Install kaggle-guard PreToolUse hook ──────────────────────────────────
+# ── 3. Install kaggle-guard PreToolUse hook (global) ─────────────────────────
 HOOK_SRC="$REPO_DIR/src/kaggle-guard-hook.zsh"
 HOOK_DEST="$HOME/.claude/scripts/kaggle-guard-hook.zsh"
 if [[ -f "$HOOK_SRC" ]]; then
@@ -125,7 +141,7 @@ fi
 print ""
 print "==> kaggle installed."
 print "    Rules   → $RULES_DEST (Cline, native)"
-print "    Rules   → $GLOBAL_CLAUDE (Claude Code, via @-imports)"
-print "    Hook    → $HOOK_DEST (blocks Claude from pushing notebooks)"
+print "    Rules   → $TARGET_CLAUDE (Claude Code, via @-imports)"
+print "    Hook    → $HOOK_DEST (blocks Claude from pushing notebooks, global)"
 print "    Skill   → kaggle-project-scaffold"
 print "    Commands→ /kaggle:new, /kaggle:preflight"

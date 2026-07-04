@@ -45,6 +45,8 @@ data/                         competition data (gitignored)
   (see the kaggle-leaderboard and project citation rules; N = max existing + 1).
 - **Never use `model_*` identity columns as features** if they exist in train but not
   test — that is leakage. They are valid for CV stratification and analysis only.
-- Do **not** create a per-project `CLAUDE.md` or `.clinerules/`; global rules are loaded
-  from `~/.cline/rules/`. Project-specific facts (hardware, packaging quirks) go in
+- Do **not** create a per-competition `CLAUDE.md` or `.cline/rules/`; these rules are
+  deployed once at the shared workspace root (the parent directory holding all your
+  competition projects) via `deploy.zsh <workspace-root>`, and inherited by every
+  competition beneath it. Project-specific facts (hardware, packaging quirks) go in
   `docs/plans/` or an ADR, not in a duplicated rules file.

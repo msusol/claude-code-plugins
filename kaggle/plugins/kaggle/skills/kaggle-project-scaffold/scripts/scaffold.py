@@ -2,7 +2,8 @@
 """Scaffold a barebones Kaggle competition project.
 
 Derived from prior competition project layouts. Creates a docs/plans-centric
-skeleton. Does NOT create CLAUDE.md or .clinerules (a Claude Code plugin owns those).
+skeleton. Does NOT create a per-competition CLAUDE.md or .cline/rules/ — the kaggle
+plugin's deploy.zsh installs those once at the shared workspace root instead.
 
 Usage:
     python3 scaffold.py --root <dir> --slug <comp-slug> --author A [--title T] [--metric M]
