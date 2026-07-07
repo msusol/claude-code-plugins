@@ -17,6 +17,16 @@ Every project using the DGX for training should include a standard `scripts/serv
 ## Persistent Sessions
 Always execute training under `tmux` on the DGX host. Never background long-running training jobs (`nohup ... &`) without `tmux`, as broken pipes or session disconnects can kill the training job unexpectedly.
 
+## Progress Reporting
 
-## Persistent Sessions
-Always execute training under tmux on the DGX host. Never background long-running training jobs (nohup ... &) without tmux, as broken pipes or session disconnects can kill the training job unexpectedly.
+Any DGX script expected to run for more than a couple of minutes (training,
+inference, calibration/grid-search fitting, batch scoring) must report progress
+incrementally — wrap batch/row loops in `tqdm`, or add a periodic `print` every N
+items/batches. A script that prints one line at the start of a long loop and nothing
+until it's fully done is unmonitorable: there's no way to distinguish "still working
+normally" from "hung" short of inspecting GPU utilization as a proxy, and no way to
+estimate remaining time.
+
+This applies to one-off/investigation scripts, not just training entrypoints — e.g. a
+calibration-fitting script doing full-dataset inference deserves the same treatment as
+`train_v03b.py`'s per-step logging.
