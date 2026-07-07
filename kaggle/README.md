@@ -165,8 +165,25 @@ Or edit `src/rules/kaggle-*.md` directly in this repo, commit, then run `deploy.
 rules from other plugins deployed into the same workspace (if any) are never touched.
 
 Everything except the `kaggle-guard` hook is scoped to `<target-root>` — point it at your
-Kaggle workspace root, and every competition subdirectory beneath it inherits the rules via
-Claude Code's directory walk-up (nearest `CLAUDE.md`) and Cline's project-rules resolution.
+Kaggle workspace root. **This only reliably reaches Claude Code, not Cline:**
+
+- **Claude Code** is expected to inherit the rules in every competition subdirectory via
+  its directory walk-up (loading the nearest `CLAUDE.md` toward `/`, not stopped by git
+  boundaries) — based on documented behavior, though not independently re-confirmed in a
+  live session.
+- **Cline does NOT inherit these automatically** if each competition directory is its own
+  git repo (as it is in this project's real workspace layout) — confirmed live: opening
+  Cline inside a competition subdirectory and checking Workspace Rules (the scale icon)
+  does not show the workspace-root `.cline/rules/` files. Cline's project-rules resolution
+  appears to scope to the nearest repo root, and stops at the competition folder's own
+  `.git` boundary rather than walking further up into the shared workspace. Asking Cline
+  directly "what rules apply" can surface them anyway, since the assistant will go read
+  the filesystem on request — but that's not the same as automatic context loading.
+
+If you need Cline to load these automatically, either open Cline from the workspace root
+itself (not from inside a competition subdirectory), or duplicate/symlink the rule files
+into each competition's own `.cline/rules/` — the latter reintroduces the per-competition
+duplication this design was meant to avoid, so it's a real tradeoff, not a clean fix.
 
 This plugin owns the `kaggle-*` prefix and its own `kaggle-imports` sentinel block, so it
 coexists cleanly with the `docs` plugin (`planning-*`, which stays **global** — it's

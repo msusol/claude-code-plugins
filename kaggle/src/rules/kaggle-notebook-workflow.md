@@ -33,6 +33,28 @@ notebooks/
 - Keep an investigation doc in `docs/investigate/` tracking run results, errors, and
   fixes for each notebook — one `##` section per slug.
 
+## EDA notebooks
+
+EDA gets the same treatment as modeling notebooks — a versioned notebook + metadata
+pair, pushed to Kaggle via `kaggle kernels push` like any other kernel, even though
+the data is already available locally. Use the `-eda` suffix on the slug instead of a
+method description:
+
+```
+notebooks/
+  v0.1-eda.ipynb
+  v0.1-eda-kernel-metadata.json
+```
+
+- Do not do EDA via ad hoc `python3 -c "..."` one-liners or scratch scripts in `/tmp` —
+  those findings are not reproducible or shareable. Put exploration directly into the
+  versioned EDA notebook's cells.
+- Findings still get written up in `docs/investigate/` (see
+  `planning-docs-investigate.md`); the notebook is the reproducible artifact, the
+  investigate doc is the narrative summary of what was found and why it matters.
+- `enable_internet: false` and no GPU needed for most EDA — set `"enable_gpu": false`
+  in the metadata unless a specific analysis needs it.
+
 ## Editing notebooks with NotebookEdit — avoid stale cell-id corruption
 
 When a notebook's cells have no real nbformat `id` field (e.g. written directly via
@@ -65,6 +87,63 @@ cp notebooks/<slug>.ipynb "$STAGE/"
 cp notebooks/<slug>-kernel-metadata.json "$STAGE/kernel-metadata.json"
 kaggle kernels push -p "$STAGE"
 ```
+
+## Submitting to Code Competitions
+
+Code Competitions (scoring notebook runs on Kaggle's infra, internet off) do **not**
+accept a plain CSV upload via `kaggle competitions submit -c <comp> -f <file>` — this
+returns a bare `400 Client Error: Bad Request` with no actionable message. Submit the
+kernel instead:
+
+```zsh
+kaggle competitions submit <comp-slug> \
+  -f <output-filename-produced-by-notebook> \
+  -k <kernel-owner>/<kernel-slug> \
+  -v <kernel-version-number> \
+  -m "<message>"
+```
+
+- `-f` here is the **name of the file the notebook wrote** (e.g. `submission.csv`),
+  not a local path — some competitions reject the call with `This competition
+  requires an output FileName for Notebook Submissions` if `-f` is omitted, even
+  though `-k`/`-v` alone look sufficient from the CLI help text.
+- Get `<kernel-version-number>` from the `kaggle kernels push` output ("Kernel
+  version N successfully pushed") or `kaggle kernels status <kernel>`.
+- Verify registration with `kaggle competitions submissions -c <comp-slug>` — status
+  starts `PENDING` and flips to a scored state once Kaggle finishes grading.
+
+### Debugging opaque 400 errors from the Kaggle API
+
+The `kaggle` CLI and the underlying `kagglesdk` swallow the response body on HTTP
+errors, so `400 Client Error: Bad Request` alone gives no diagnosis. To see the real
+`{"error": {...}}` payload, monkeypatch the SDK's response handler and call the API
+directly in Python instead of via the CLI:
+
+```python
+from kaggle.api.kaggle_api_extended import KaggleApi
+import kagglesdk.kaggle_http_client as khc
+
+orig = khc.KaggleHttpClient._prepare_response
+def patched(self, response_type, http_response):
+    if http_response.status_code >= 400:
+        print("BODY:", http_response.text)
+    return orig(self, response_type, http_response)
+khc.KaggleHttpClient._prepare_response = patched
+
+api = KaggleApi()
+api.authenticate()
+api.competition_submit_cli(
+    file_name=None,
+    message="...",
+    competition="<comp-slug>",
+    kernel="<owner>/<kernel-slug>",
+    version="<N>",
+)
+```
+
+This is how the "requires an output FileName" message above was actually discovered —
+reach for this whenever a Kaggle CLI call fails with a bare 400 and the fix isn't
+obvious from the CLI's own error text.
 
 ## Metadata is the single source of truth
 
