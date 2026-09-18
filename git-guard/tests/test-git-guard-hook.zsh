@@ -93,6 +93,28 @@ print "=== boundary: sentinel without required trailing space"
 # check still fires and the call is blocked.
 t "sentinel no space"        "$(cmd 'GIT_GUARD_SANCTIONED=1git commit -m x')"     2
 
+print "=== blocked: branch names that don't match GitFlow (Lite)"
+t "checkout -b no ticket"    "$(cmd 'git checkout -b my-quick-branch')"                       2
+t "switch -c underscore"     "$(cmd 'git switch -c bad_name')"                                2
+t "branch bare word"         "$(cmd 'git branch weirdname')"                                  2
+t "release without patch"    "$(cmd 'git checkout -b release/2.4')"                           2
+t "feature missing slug"     "$(cmd 'git checkout -b feature/WCP-1234')"                       2
+
+print "=== allowed: branch names that match GitFlow (Lite)"
+t "feature ticket+slug"      "$(cmd 'git checkout -b feature/WCP-1234-bulk-export')"                          0
+t "feature with start-point" "$(cmd 'git checkout -b feature/WCP-1234-bulk-export develop')"                  0
+t "bugfix via switch"        "$(cmd 'git switch -c bugfix/WCP-1301-null-pointer-on-save')"                     0
+t "chore via branch"         "$(cmd 'git branch chore/WCP-1310-bump-node-20')"                                 0
+t "release semver"           "$(cmd 'git checkout -b release/2.4.0')"                                          0
+t "hotfix semver"            "$(cmd 'git checkout -b hotfix/2.3.1')"                                            0
+t "checkout existing develop" "$(cmd 'git checkout develop')"                                                   0
+t "checkout -b main"         "$(cmd 'git checkout -b main')"                                                    0
+t "branch -d not name check" "$(cmd 'git branch -d old-feature')"                                                0
+t "branch --show-current"    "$(cmd 'git branch --show-current')"                                                0
+t "branch -a not name check" "$(cmd 'git branch -a')"                                                            0
+t "branch no args (list)"    "$(cmd 'git branch')"                                                               0
+t "sentinel bypasses branch check" "$(cmd 'GIT_GUARD_SANCTIONED=1 git checkout -b my-quick-branch')"            0
+
 print "=== fallback: grep/sed extraction when jq is unavailable"
 nojq_info=("${(f)$(_make_nojq_path)}")
 nojq_path="${nojq_info[1]}"

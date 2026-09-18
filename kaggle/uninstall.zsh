@@ -17,7 +17,7 @@ if [[ ! -d "$TARGET_ROOT" ]]; then
 fi
 TARGET_ROOT="${TARGET_ROOT:A}"
 
-RULES_DEST="$TARGET_ROOT/.cline/rules"
+RULES_DEST="$TARGET_ROOT/.claude/rules"
 TARGET_CLAUDE="$TARGET_ROOT/CLAUDE.md"
 BEGIN_MARKER="<!-- BEGIN kaggle-imports (managed by deploy.zsh) -->"
 END_MARKER="<!-- END kaggle-imports -->"
@@ -26,7 +26,7 @@ print "==> kaggle uninstaller"
 print "    Target root: $TARGET_ROOT"
 print ""
 
-# Remove kaggle-* rules from <target-root>/.cline/rules/
+# Remove kaggle-* rules from <target-root>/.claude/rules/
 if [[ -d "$RULES_DEST" && -d "$RULES_SRC" ]]; then
   removed=0
   for src in "$RULES_SRC"/kaggle-*.md(N); do

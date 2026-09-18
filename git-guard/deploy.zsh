@@ -100,11 +100,11 @@ if ! command -v claude >/dev/null 2>&1; then
 else
   # Register the marketplace. Idempotent: 'add' on an already-registered
   # source is a no-op error we swallow.
-  if claude plugin marketplace list 2>/dev/null | grep -qw "msusol"; then
-    ok "Marketplace 'msusol' already registered"
+  if claude plugin marketplace list 2>/dev/null | grep -qw "losus-ai"; then
+    ok "Marketplace 'losus-ai' already registered"
   else
     if claude plugin marketplace add "${SCRIPT_DIR:h}" >/dev/null 2>&1; then
-      ok "Registered marketplace 'msusol' from ${SCRIPT_DIR:h}"
+      ok "Registered marketplace 'losus-ai' from ${SCRIPT_DIR:h}"
     else
       warn "Failed to register marketplace via claude plugin marketplace add."
       warn "Run it yourself: claude plugin marketplace add ${SCRIPT_DIR:h}"
@@ -115,11 +115,11 @@ else
   if claude plugin list 2>/dev/null | grep -qw "git-guard"; then
     ok "Plugin 'git-guard' already installed"
   else
-    if claude plugin install "git-guard@msusol" >/dev/null 2>&1; then
-      ok "Installed plugin 'git-guard@msusol'"
+    if claude plugin install "git-guard@losus-ai" >/dev/null 2>&1; then
+      ok "Installed plugin 'git-guard@losus-ai'"
     else
       warn "Failed to install plugin via claude plugin install."
-      warn "Run it yourself: claude plugin install git-guard@msusol"
+      warn "Run it yourself: claude plugin install git-guard@losus-ai"
     fi
   fi
 fi
@@ -128,12 +128,59 @@ fi
 step "Merging ~/.claude/settings.json..."
 python3 "$SCRIPT_DIR/scripts/manage-settings.py" install
 
+# ── 8. Install branch-naming rule + @-import in ~/.claude/CLAUDE.md ──────────
+# Rule-only content (the "cognitive" half of branch-naming enforcement — the
+# hook installed in step 4 is the runtime-blocking half). Claude Code-native
+# only: installs to ~/.claude/rules/ (same directory the docs plugin uses) but
+# under its own sentinel block in CLAUDE.md so the two plugins never clobber
+# each other's imports.
+step "Installing branch-naming rule..."
+RULES_DEST="$HOME/.claude/rules"
+GLOBAL_CLAUDE="$HOME/.claude/CLAUDE.md"
+RULE_NAME="git-branch-naming.md"
+BEGIN_MARKER="<!-- BEGIN git-guard-imports (managed by deploy.zsh) -->"
+END_MARKER="<!-- END git-guard-imports -->"
+
+mkdir -p "$RULES_DEST"
+if [[ ! -f "$RULES_DEST/$RULE_NAME" ]]; then
+  cp "$SCRIPT_DIR/src/rules/$RULE_NAME" "$RULES_DEST/$RULE_NAME"
+  ok "Installed $RULES_DEST/$RULE_NAME"
+elif ! diff -q "$SCRIPT_DIR/src/rules/$RULE_NAME" "$RULES_DEST/$RULE_NAME" &>/dev/null; then
+  cp "$SCRIPT_DIR/src/rules/$RULE_NAME" "$RULES_DEST/$RULE_NAME"
+  ok "Updated $RULES_DEST/$RULE_NAME"
+else
+  ok "$RULES_DEST/$RULE_NAME already up to date"
+fi
+
+import_line="@~/.claude/rules/$RULE_NAME"
+if [[ ! -f "$GLOBAL_CLAUDE" ]]; then
+  mkdir -p "${GLOBAL_CLAUDE:h}"
+  cat > "$GLOBAL_CLAUDE" <<EOF
+# Global Rules
+
+The following rules apply across all projects.
+
+$BEGIN_MARKER
+$import_line
+$END_MARKER
+EOF
+  ok "Created $GLOBAL_CLAUDE with git-guard @-import block"
+elif grep -qF "$BEGIN_MARKER" "$GLOBAL_CLAUDE"; then
+  ok "git-guard @-import block already present in $GLOBAL_CLAUDE"
+else
+  printf '\n%s\n%s\n%s\n' "$BEGIN_MARKER" "$import_line" "$END_MARKER" >> "$GLOBAL_CLAUDE"
+  ok "Appended git-guard @-import block to $GLOBAL_CLAUDE"
+fi
+
 # ── Done ─────────────────────────────────────────────────────────────────────
 echo ""
 echo "${GREEN}Installation complete.${NC}"
 echo ""
 echo "Next steps:"
 echo "  1. Edit ~/.config/git-guard/allowlist — add your approved remote URL patterns"
-echo "  2. Restart Claude Code to pick up the new hook and skill"
+echo "  2. Restart Claude Code to pick up the new hook, skills, and branch-naming rule"
 echo "  3. Use /git-commit (or say 'commit my changes') to commit, /git-push (or"
 echo "     'push this') to push — each requires its own explicit confirmation"
+echo "  4. Branch creation (git checkout -b / git switch -c / git branch <name>) is"
+echo "     now checked against the GitFlow (Lite) naming convention — see"
+echo "     src/rules/git-branch-naming.md"

@@ -5,12 +5,12 @@ set -euo pipefail
 
 REPO_DIR="${0:A:h}"
 RULES_SRC="$REPO_DIR/src/rules"
-RULES_DEST="$HOME/.cline/rules"
+RULES_DEST="$HOME/.claude/rules"
 
 print "==> docs uninstaller"
 print ""
 
-# Remove rule files deployed by this plugin from ~/.cline/rules/
+# Remove rule files deployed by this plugin from ~/.claude/rules/
 if [[ -d "$RULES_DEST" && -d "$RULES_SRC" ]]; then
   removed=0
   for src in "$RULES_SRC"/*.md(N); do
@@ -33,29 +33,12 @@ fi
 
 # Remove the managed @-import block from ~/.claude/CLAUDE.md
 GLOBAL_CLAUDE="$HOME/.claude/CLAUDE.md"
-if [[ -f "$GLOBAL_CLAUDE" ]] && grep -qE "<!-- BEGIN (clinerules|docs)-imports" "$GLOBAL_CLAUDE"; then
+if [[ -f "$GLOBAL_CLAUDE" ]] && grep -qF "BEGIN docs-imports" "$GLOBAL_CLAUDE"; then
   tmp="$(mktemp)"
   awk '
-    /^## / {
-      if (hdr != "") { printf "%s%s", buf, hdr; buf = ""; hdr = "" }
-      hdr = buf $0 "\n"; buf = ""; next
-    }
-    /^[[:space:]]*$/ {
-      if (hdr != "") { hdr = hdr "\n"; next }
-      buf = buf "\n"; next
-    }
-    /<!-- BEGIN (clinerules|docs)-imports/ { hdr = ""; buf = ""; skip = 1; next }
-    /<!-- END (clinerules|docs)-imports -->/ { skip = 0; next }
-    skip { next }
-    {
-      printf "%s%s", hdr, buf
-      hdr = ""; buf = ""
-      print
-    }
-    END {
-      if (hdr != "") printf "%s", hdr
-      printf "%s", buf
-    }
+    /<!-- BEGIN docs-imports/ { skip=1; next }
+    /<!-- END docs-imports -->/ { skip=0; next }
+    !skip { print }
   ' "$GLOBAL_CLAUDE" > "$tmp"
   mv "$tmp" "$GLOBAL_CLAUDE"
   print "✓ Removed @-import block from $GLOBAL_CLAUDE"

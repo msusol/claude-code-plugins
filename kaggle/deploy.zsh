@@ -8,9 +8,9 @@
 #   competition directory.
 #
 # What this does:
-#   1. Copies src/rules/kaggle-*.md to <target-root>/.cline/rules/ (installs new, updates changed)
+#   1. Copies src/rules/kaggle-*.md to <target-root>/.claude/rules/ (installs new, updates changed)
 #   2. Regenerates the kaggle-imports @-import block in <target-root>/CLAUDE.md so
-#      Claude Code also loads the same rules from <target-root>/.cline/rules/
+#      Claude Code also loads the same rules from <target-root>/.claude/rules/
 #   3. Installs the kaggle-guard PreToolUse hook to ~/.claude/scripts/ and registers
 #      it in ~/.claude/settings.json (global — cheap, project-agnostic guard logic
 #      that already scopes itself by matching Bash command content)
@@ -31,7 +31,7 @@ if [[ ! -d "$TARGET_ROOT" ]]; then
 fi
 TARGET_ROOT="${TARGET_ROOT:A}"
 
-RULES_DEST="$TARGET_ROOT/.cline/rules"
+RULES_DEST="$TARGET_ROOT/.claude/rules"
 TARGET_CLAUDE="$TARGET_ROOT/CLAUDE.md"
 BEGIN_MARKER="<!-- BEGIN kaggle-imports (managed by deploy.zsh) -->"
 END_MARKER="<!-- END kaggle-imports -->"
@@ -40,7 +40,7 @@ print "==> kaggle installer"
 print "    Target root: $TARGET_ROOT"
 print ""
 
-# ── 1. Install rule files to <target-root>/.cline/rules/ ─────────────────────
+# ── 1. Install rule files to <target-root>/.claude/rules/ ─────────────────────
 if [[ -d "$RULES_SRC" ]]; then
   mkdir -p "$RULES_DEST"
   installed=0; updated=0
@@ -65,7 +65,7 @@ if (( ${#files[@]} > 0 )); then
   for f in "${files[@]}"; do
     name="${f:t}"
     [[ -n "$imports" ]] && imports+=$'\n'
-    imports+="@.cline/rules/$name"
+    imports+="@.claude/rules/$name"
   done
 
   if [[ ! -f "$TARGET_CLAUDE" ]]; then
@@ -131,16 +131,16 @@ fi
 # ── 4. Claude Code plugin registration ───────────────────────────────────────
 if command -v claude &>/dev/null; then
   claude plugin marketplace add "${REPO_DIR:h}" 2>/dev/null || true
-  claude plugin install kaggle@msusol 2>/dev/null || true
+  claude plugin install kaggle@losus-ai 2>/dev/null || true
   print "✓ Plugin registered with Claude Code"
 else
   print "⚠ claude CLI not found — skipping plugin registration"
-  print "  Run manually: claude plugin marketplace add ${REPO_DIR:h} && claude plugin install kaggle@msusol"
+  print "  Run manually: claude plugin marketplace add ${REPO_DIR:h} && claude plugin install kaggle@losus-ai"
 fi
 
 print ""
 print "==> kaggle installed."
-print "    Rules   → $RULES_DEST (Cline, native)"
+print "    Rules   → $RULES_DEST"
 print "    Rules   → $TARGET_CLAUDE (Claude Code, via @-imports)"
 print "    Hook    → $HOOK_DEST (blocks Claude from pushing notebooks, global)"
 print "    Skill   → kaggle-project-scaffold"

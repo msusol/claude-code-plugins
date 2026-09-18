@@ -23,7 +23,7 @@ Steps:
    holds many competition projects (e.g. `~/LosusAI/Projects/Kaggle/`) — not into each
    competition subdirectory individually. Determine the workspace root as the parent
    directory of the scaffolded project root. Check whether
-   `<workspace-root>/.cline/rules/kaggle-*.md` already exist:
+   `<workspace-root>/.claude/rules/kaggle-*.md` already exist:
    - If they don't, run this plugin's `deploy.zsh <workspace-root>` (resolve the plugin's
      own root the same way step 2 resolves it for `scaffold.py`) — this is idempotent, so
      re-running it for later competitions under the same workspace is a safe no-op update.
@@ -31,7 +31,7 @@ Steps:
    - If the scaffolded project is standalone (no shared workspace directory — e.g. the
      parent is just an arbitrary directory not meant to hold other competitions), run
      `deploy.zsh <project-root>` directly against the project root instead.
-   Do **not** create a separate `.cline/rules/` or `CLAUDE.md` inside the individual
+   Do **not** create a separate `.claude/rules/` or `CLAUDE.md` inside the individual
    competition subdirectory when a shared workspace root is used — that duplication is
    exactly what workspace-scoping avoids.
 4. After scaffolding, fetch the competition overview/rules and fill

@@ -47,11 +47,11 @@ if command -v claude >/dev/null 2>&1; then
   else
     skip "claude plugin 'git-guard'"
   fi
-  # The 'msusol' marketplace is shared by every plugin in this repo, so we do
+  # The 'losus-ai' marketplace is shared by every plugin in this repo, so we do
   # NOT remove it when uninstalling a single plugin (that would drop the others
   # too). Remove it by hand only when removing the whole collection:
-  #   claude plugin marketplace remove msusol
-  skip "shared marketplace 'msusol' (left registered for other plugins)"
+  #   claude plugin marketplace remove losus-ai
+  skip "shared marketplace 'losus-ai' (left registered for other plugins)"
 else
   warn "claude CLI not found on PATH — skipping plugin + marketplace removal."
 fi
@@ -80,6 +80,29 @@ if [[ -f "$HOME/.claude/settings.json" ]]; then
   python3 "$SCRIPT_DIR/scripts/manage-settings.py" uninstall
 else
   skip "~/.claude/settings.json"
+fi
+
+# ── Branch-naming rule + CLAUDE.md import ─────────────────────────────────────
+RULE_NAME="git-branch-naming.md"
+if [[ -f "$HOME/.claude/rules/$RULE_NAME" ]]; then
+  rm "$HOME/.claude/rules/$RULE_NAME"
+  ok "Removed ~/.claude/rules/$RULE_NAME"
+else
+  skip "~/.claude/rules/$RULE_NAME"
+fi
+
+GLOBAL_CLAUDE="$HOME/.claude/CLAUDE.md"
+if [[ -f "$GLOBAL_CLAUDE" ]] && grep -qF "BEGIN git-guard-imports" "$GLOBAL_CLAUDE"; then
+  tmp="$(mktemp)"
+  awk '
+    /<!-- BEGIN git-guard-imports/ { skip=1; next }
+    /<!-- END git-guard-imports -->/ { skip=0; next }
+    !skip { print }
+  ' "$GLOBAL_CLAUDE" > "$tmp"
+  mv "$tmp" "$GLOBAL_CLAUDE"
+  ok "Removed git-guard @-import block from $GLOBAL_CLAUDE"
+else
+  skip "git-guard @-import block in $GLOBAL_CLAUDE"
 fi
 
 echo ""

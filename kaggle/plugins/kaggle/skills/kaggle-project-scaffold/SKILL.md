@@ -1,6 +1,6 @@
 ---
 name: kaggle-project-scaffold
-description: Scaffold a barebones Kaggle competition project folder with a docs/plans structure (competition-overview, implementation-plan, versioned vX.Y plans, TODO, leaderboard, CITATIONS, submission-checklist), docs/adr + docs/investigate, scripts/, notebooks/ with Kaggle kernel metadata, configs/, data/, README, requirements, and .gitignore. Use when the user wants to "start", "set up", "scaffold", or "bootstrap" a new Kaggle competition project, or asks for a barebones project skeleton for a competition. Does NOT generate a per-competition CLAUDE.md or .cline/rules/ (a separate Claude Code plugin deploys those once at the shared workspace root instead).
+description: Scaffold a barebones Kaggle competition project folder with a docs/plans structure (competition-overview, implementation-plan, versioned vX.Y plans, TODO, leaderboard, CITATIONS, submission-checklist), docs/adr + docs/investigate, scripts/, notebooks/ with Kaggle kernel metadata, configs/, data/, README, requirements, and .gitignore. Use when the user wants to "start", "set up", "scaffold", or "bootstrap" a new Kaggle competition project, or asks for a barebones project skeleton for a competition. Does NOT generate a per-competition CLAUDE.md or .claude/rules/ (a separate Claude Code plugin deploys those once at the shared workspace root instead).
 ---
 
 # Kaggle Project Scaffold
@@ -51,7 +51,7 @@ Conventions carried over from prior projects:
 - **`leaderboard.md`** updated after every completed run + validation pass.
 - Kaggle Code-Competition assumptions baked into templates: offline notebook,
   `submission.csv`, runtime cap.
-- **Excluded on purpose:** a per-competition `CLAUDE.md` and `.cline/rules/`. The
+- **Excluded on purpose:** a per-competition `CLAUDE.md` and `.claude/rules/`. The
   `kaggle` plugin's `deploy.zsh` installs these once at the shared workspace root (the
   parent directory holding all your competition projects, e.g. `Projects/Kaggle/`) —
   not duplicated into each competition folder this script creates.

@@ -1,11 +1,11 @@
 #!/usr/bin/env zsh
-# collect.zsh — sync kaggle-*.md files from <target-root>/.cline/rules/ back into src/rules/.
+# collect.zsh — sync kaggle-*.md files from <target-root>/.claude/rules/ back into src/rules/.
 #
 # Only collects this plugin's own prefix (kaggle-*), so foreign files from other
 # plugins are never touched.
 #
 # Usage:
-#   ./collect.zsh [target-root]            copy from <target-root>/.cline/rules/ (default $PWD)
+#   ./collect.zsh [target-root]            copy from <target-root>/.claude/rules/ (default $PWD)
 #   ./collect.zsh [target-root] --dry-run  show what would change without writing
 
 set -euo pipefail
@@ -29,7 +29,7 @@ for arg in "$@"; do
 done
 : ${TARGET_ROOT:=$PWD}
 
-SRC_DIR="$TARGET_ROOT/.cline/rules"
+SRC_DIR="$TARGET_ROOT/.claude/rules"
 
 if [[ ! -d "$SRC_DIR" ]]; then
   print "error: $SRC_DIR does not exist — run ./deploy.zsh $TARGET_ROOT first" >&2

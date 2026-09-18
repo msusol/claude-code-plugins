@@ -6,7 +6,7 @@
 
 A light, competition-agnostic harness for Kaggle projects. Deploys `kaggle-*` rules once
 to your **Kaggle workspace root** — the parent directory holding all your competition
-projects (`<workspace-root>/.cline/rules/`, `@-imported` into `<workspace-root>/CLAUDE.md`)
+projects (`<workspace-root>/.claude/rules/`, `@-imported` into `<workspace-root>/CLAUDE.md`)
 — and ships a project-scaffold skill plus helper commands, so every competition beneath
 that root inherits the same discipline without duplicating rules into each one.
 
@@ -19,7 +19,7 @@ root — not globally (it would pollute unrelated, non-Kaggle projects) and not 
 competition (that would duplicate the same rules into every competition folder). Each
 competition project then carries only its **Tier-3** specifics (hardware, exact package
 script, competition slug) in its own `docs/plans/` — never a duplicated `CLAUDE.md` or
-`.cline/rules/`.
+`.claude/rules/`.
 
 The `kaggle-guard` PreToolUse hook is the one exception: it stays registered globally
 (`~/.claude/settings.json`), since it's cheap, project-agnostic guard logic that already
@@ -112,7 +112,7 @@ is always safe. To remove:
 ### Upgrading from a pre-workspace-scoping install
 
 If you installed this plugin before workspace-scoping existed, you have a legacy global
-install: `kaggle-*.md` rules in `~/.cline/rules/` and a `kaggle-imports` block in the
+install: `kaggle-*.md` rules in `~/.claude/rules/` and a `kaggle-imports` block in the
 global `~/.claude/CLAUDE.md`. The new `uninstall.zsh` won't clean this up on its own — it
 looks for `<target-root>/CLAUDE.md` directly, not the legacy `~/.claude/CLAUDE.md` path.
 Retire the old global footprint once, then deploy fresh to your real workspace root:
@@ -134,10 +134,10 @@ to migrate; it just reports that.
 | `src/rules/` | Committed source of truth for the `kaggle-*` rule files |
 | `src/kaggle-guard-hook.zsh` | Source for the PreToolUse hook installed to `~/.claude/scripts/` (global) |
 | `scripts/manage-settings.py` | Idempotent installer/remover for the hook entry in `~/.claude/settings.json` (global) |
-| `deploy.zsh <target-root>` | Copies rules → `<target-root>/.cline/rules/`; regenerates `@-import` block in `<target-root>/CLAUDE.md`; installs the hook (global); registers plugin |
-| `collect.zsh <target-root>` | Copies `<target-root>/.cline/rules/kaggle-*.md` → `src/rules/` for committing |
+| `deploy.zsh <target-root>` | Copies rules → `<target-root>/.claude/rules/`; regenerates `@-import` block in `<target-root>/CLAUDE.md`; installs the hook (global); registers plugin |
+| `collect.zsh <target-root>` | Copies `<target-root>/.claude/rules/kaggle-*.md` → `src/rules/` for committing |
 | `uninstall.zsh <target-root>` | Removes rules and `@-import` block from `<target-root>`; removes the hook script and its `settings.json` entry (global) |
-| `migrate-legacy-global.zsh` | One-time cleanup for a pre-workspace-scoping install — removes the legacy global `~/.cline/rules/kaggle-*.md` and `~/.claude/CLAUDE.md` block that `uninstall.zsh` can't reach |
+| `migrate-legacy-global.zsh` | One-time cleanup for a pre-workspace-scoping install — removes the legacy global `~/.claude/rules/kaggle-*.md` and `~/.claude/CLAUDE.md` block that `uninstall.zsh` can't reach |
 
 ## Keeping rules in sync
 
@@ -149,7 +149,7 @@ the workspace-root argument regardless of which directory you're actually standi
 
 ```zsh
 # 1. Edit a rule directly at the deployed location, e.g.:
-#    ~/LosusAI/Projects/Kaggle/.cline/rules/kaggle-notebook-workflow.md
+#    ~/LosusAI/Projects/Kaggle/.claude/rules/kaggle-notebook-workflow.md
 # 2. Pull the change back into this plugin repo for committing — run from anywhere,
 #    pointing at the workspace root:
 /path/to/claude-code-plugins/kaggle/collect.zsh ~/LosusAI/Projects/Kaggle
@@ -165,25 +165,11 @@ Or edit `src/rules/kaggle-*.md` directly in this repo, commit, then run `deploy.
 rules from other plugins deployed into the same workspace (if any) are never touched.
 
 Everything except the `kaggle-guard` hook is scoped to `<target-root>` — point it at your
-Kaggle workspace root. **This only reliably reaches Claude Code, not Cline:**
-
-- **Claude Code** is expected to inherit the rules in every competition subdirectory via
-  its directory walk-up (loading the nearest `CLAUDE.md` toward `/`, not stopped by git
-  boundaries) — based on documented behavior, though not independently re-confirmed in a
-  live session.
-- **Cline does NOT inherit these automatically** if each competition directory is its own
-  git repo (as it is in this project's real workspace layout) — confirmed live: opening
-  Cline inside a competition subdirectory and checking Workspace Rules (the scale icon)
-  does not show the workspace-root `.cline/rules/` files. Cline's project-rules resolution
-  appears to scope to the nearest repo root, and stops at the competition folder's own
-  `.git` boundary rather than walking further up into the shared workspace. Asking Cline
-  directly "what rules apply" can surface them anyway, since the assistant will go read
-  the filesystem on request — but that's not the same as automatic context loading.
-
-If you need Cline to load these automatically, either open Cline from the workspace root
-itself (not from inside a competition subdirectory), or duplicate/symlink the rule files
-into each competition's own `.cline/rules/` — the latter reintroduces the per-competition
-duplication this design was meant to avoid, so it's a real tradeoff, not a clean fix.
+Kaggle workspace root. Claude Code-native only — this plugin does not support Cline.
+Claude Code is expected to inherit the rules in every competition subdirectory via its
+directory walk-up (loading the nearest `CLAUDE.md` toward `/`, not stopped by git
+boundaries) — based on documented behavior, though not independently re-confirmed in a
+live session.
 
 This plugin owns the `kaggle-*` prefix and its own `kaggle-imports` sentinel block, so it
 coexists cleanly with the `docs` plugin (`planning-*`, which stays **global** — it's

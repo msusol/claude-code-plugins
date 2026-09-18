@@ -4,13 +4,18 @@
 
 **Author:** Mark Susol
 
-Three-layer protection against unauthorized `git commit` and `git push` by Claude Code.
+Three-layer protection against unauthorized `git commit` and `git push` by Claude Code,
+plus PreToolUse enforcement of the GitFlow (Lite) branch-naming convention on branch creation.
 
 ## Why
 
 Claude Code can commit and push autonomously — sometimes without explicit permission,
 especially with `skipAutoPermissionPrompt: true` in settings. This package closes those gaps
-using defenses at three independent levels, so no single failure opens the door.
+using defenses at three independent levels, so no single failure opens the door. The same
+PreToolUse hook also catches a different failure mode: branches created with names that
+don't follow the org's GitFlow (Lite) convention, which breaks CI/deploy automation that
+keys off branch prefixes (`feature/`, `release/`, etc.) and loses the ticket-key traceability
+the convention exists for.
 
 | Layer | Mechanism | Bypassed by |
 |---|---|---|
@@ -19,6 +24,7 @@ using defenses at three independent levels, so no single failure opens the door.
 | Deny rules | Absolute floor on dangerous patterns | Nothing — enforced by Claude Code runtime |
 | `/git-commit` skill | Sanctioned path for commits | All guards, by design — with per-step confirmation |
 | `/git-push` skill | Sanctioned path for pushes, gated separately from commit | All guards, by design — a fresh confirmation every single push |
+| Branch-naming rule + hook | `~/.claude/rules/git-branch-naming.md` (cognitive) + the same PreToolUse hook (runtime) | `GIT_GUARD_SANCTIONED=1` prefix, same as commit/push — visible in the rendered command |
 
 ## How it works
 
@@ -50,6 +56,21 @@ to execute regardless of context:
 - Build artifacts, logs, vendor directories, IDE configs
 
 These rules are enforced by the Claude Code runtime itself.
+
+### Layer 2b — Branch-naming convention (same hook)
+
+The PreToolUse hook also parses `git checkout -b <name>`, `git switch -c <name>`, and
+`git branch <name>` (creation form only — `git branch -d`, `--show-current`, `-a`, etc.
+pass through untouched). If `<name>` isn't `main`/`develop` and doesn't match:
+
+- `(feature|bugfix|chore)/<TICKET>-<slug>` — e.g. `feature/WCP-1234-bulk-export`
+- `(release|hotfix)/<major.minor.patch>` — e.g. `release/2.4.0`
+
+the hook blocks with exit 2 and prints the convention. This is the GitFlow (Lite)
+branching convention; the full rationale (cut-from/merge-into mapping, merge strategy,
+release vs. hotfix process) lives in `src/rules/git-branch-naming.md`, installed to
+`~/.claude/rules/git-branch-naming.md` and @-imported into `~/.claude/CLAUDE.md` so Claude
+follows it proactively instead of only getting blocked reactively.
 
 ### `/git-commit` skill — the sanctioned path for commits
 
@@ -121,14 +142,16 @@ The installer is idempotent — safe to re-run if you update the package.
 2. Installs the wrapper to `~/.local/bin/git` with the correct real git path substituted
 3. Installs the PreToolUse hook to `~/.claude/scripts/git-guard-hook.zsh`
 4. Creates `~/.config/git-guard/allowlist` from the template (skips if it already exists)
-5. Registers the shared `msusol` marketplace (`claude plugin marketplace add <repo-parent-dir>`) and installs the `git-guard` plugin from it (`claude plugin install git-guard@msusol`). This auto-enables `/git-commit` and `/git-push` in every new Claude Code session — no manual `/plugin enable` step.
+5. Registers the shared `losus-ai` marketplace (`claude plugin marketplace add <repo-parent-dir>`) and installs the `git-guard` plugin from it (`claude plugin install git-guard@losus-ai`). This auto-enables `/git-commit` and `/git-push` in every new Claude Code session — no manual `/plugin enable` step.
 6. Merges hooks + deny rules into `~/.claude/settings.json` without clobbering existing settings.
 7. Best-effort removes any earlier-style installs (skill dropped inside the official marketplace, or copied into the user-skills dir) so the plugin is the single canonical source of `/git-commit` and `/git-push`.
+8. Installs `src/rules/git-branch-naming.md` to `~/.claude/rules/` and @-imports it into `~/.claude/CLAUDE.md` under its own `git-guard-imports` sentinel block (independent of the `docs` plugin's block).
 
 ### After install
 
 1. **Edit the allowlist** — `~/.config/git-guard/allowlist` is empty by default. Add your approved remote URL patterns before making any commits.
-2. **Restart Claude Code** to load the new hook and pick up the plugin's `/git-commit` and `/git-push` skills. Installing/enabling the plugin mid-session does not refresh an already-running conversation's skill list — a restart (or invoking the skill by its explicit slash form) is required.
+2. **Restart Claude Code** to load the new hook, skills, and branch-naming rule. Installing/enabling the plugin mid-session does not refresh an already-running conversation's skill list — a restart (or invoking the skill by its explicit slash form) is required.
+3. Branch creation (`git checkout -b` / `git switch -c` / `git branch <name>`) is now checked against the GitFlow (Lite) naming convention — see `src/rules/git-branch-naming.md`.
 
 ### Updating after pulling changes
 
@@ -227,6 +250,10 @@ The suite covers:
 - Read-only commands (`git status`, `git add`, `git diff`, `git log`, etc.) — allowed
 - Malformed / empty JSON input — allowed (no false positives)
 - Sentinel without required trailing space — still blocked
+- Branch creation with a non-conforming name (`checkout -b`, `switch -c`, `branch <name>`) — blocked (exit 2)
+- Branch creation matching the convention, `main`/`develop`, or a start-point argument after the name — allowed
+- Non-creation `git branch` invocations (`-d`, `-a`, `--show-current`, bare `branch`) — never treated as a name to validate
+- Sentinel bypasses the branch-naming check the same way it bypasses commit/push
 
 The grep/sed fallback path (used when `jq` is unavailable) is tested automatically
 when `jq` lives in an isolated directory (e.g. MacPorts at `/opt/local/bin`). It is
@@ -247,9 +274,11 @@ The allowlist (`~/.config/git-guard/allowlist`) is preserved.
 | Path | Purpose |
 |---|---|
 | `~/.local/bin/git` | Shell wrapper |
-| `~/.claude/scripts/git-guard-hook.zsh` | PreToolUse hook |
+| `~/.claude/scripts/git-guard-hook.zsh` | PreToolUse hook (commit/push/tag guard + branch-naming check) |
 | `~/.config/git-guard/allowlist` | Allowlist (not removed on uninstall) |
 | `~/.claude/settings.json` | Modified in place (hooks + deny rules merged) |
+| `~/.claude/rules/git-branch-naming.md` | Branch-naming rule (installed by deploy.zsh) |
+| `~/.claude/CLAUDE.md` | Modified in place — `git-guard-imports` sentinel block added/removed |
 | Claude Code plugin registry | `git-guard` marketplace + plugin registered via the `claude plugin` CLI; files stay in this repo |
 
 ## Package layout
@@ -270,8 +299,11 @@ git-guard/
 │               └── SKILL.md       # Claude push skill definition (own confirmation gate)
 ├── src/
 │   ├── git-wrapper.zsh            # Shell wrapper source (REAL_GIT substituted at install)
-│   ├── git-guard-hook.zsh         # PreToolUse hook
-│   └── allowlist.template         # Blank allowlist template
+│   ├── git-guard-hook.zsh         # PreToolUse hook (commit/push/tag guard + branch-naming check)
+│   ├── allowlist.template         # Blank allowlist template
+│   └── rules/
+│       └── git-branch-naming.md   # GitFlow (Lite) convention — installed to ~/.claude/rules/,
+│                                   # @-imported into ~/.claude/CLAUDE.md
 ├── tests/
 │   └── test-git-guard-hook.zsh    # Unit tests for the PreToolUse hook
 └── scripts/

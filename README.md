@@ -10,20 +10,32 @@ Personal collection of [Claude Code](https://claude.ai/code) plugins.
 
 | Plugin | Description |
 |--------|-------------|
-| [docs](docs/) | Deploys `planning-*` rules to `~/.cline/rules/` (Cline) and `~/.claude/CLAUDE.md` `@-imports` (Claude Code) — one rule file, both clients |
+| [docs](docs/) | Deploys `planning-*` rules to `~/.claude/rules/` and @-imports them in `~/.claude/CLAUDE.md` — Claude Code-native only |
 | [kaggle](kaggle/) | Light harness for Kaggle competitions: `kaggle-*` rules, a project-scaffold skill, and `/kaggle:new` + `/kaggle:preflight` commands |
 | [db-guard](db-guard/) | Two-layer guard against unauthorized `DROP TABLE`, `TRUNCATE`, `DROP DATABASE`, `DROP SCHEMA`, and `DROP COLUMN` |
-| [git-guard](git-guard/) | Three-layer protection against unauthorized `git commit` and `git push` |
+| [git-guard](git-guard/) | Three-layer protection against unauthorized `git commit` and `git push`, plus branch-naming enforcement (GitFlow Lite) |
 | [usage-statusline](usage-statusline/) | Status line showing model, context %, and subscription rate limits |
 
 ## Usage
 
-Clone the repo, then run each plugin's installer:
+Clone the repo, then deploy every plugin in one shot:
 
 ```zsh
 git clone https://github.com/msusol/claude-code-plugins.git
 cd claude-code-plugins
+./deploy-all.zsh
+```
 
+Or deploy just one or a few by name (matching each plugin's top-level directory):
+
+```zsh
+./deploy-all.zsh docs
+./deploy-all.zsh docs git-guard
+```
+
+Or run each plugin's own installer directly:
+
+```zsh
 ./docs/deploy.zsh
 ./kaggle/deploy.zsh
 ./db-guard/deploy.zsh
@@ -31,21 +43,25 @@ cd claude-code-plugins
 ./usage-statusline/deploy.zsh
 ```
 
-All plugins are published under a single marketplace named **`msusol`** (defined in the
+All plugins are published under a single marketplace named **`losus-ai`** (defined in the
 repo-root `.claude-plugin/marketplace.json`). Each `deploy.zsh` registers that one
-marketplace and installs its plugin as `<name>@msusol`. You can also add the marketplace
+marketplace and installs its plugin as `<name>@losus-ai`. You can also add the marketplace
 once and install any plugin directly:
 
 ```zsh
 claude plugin marketplace add msusol/claude-code-plugins
-claude plugin install kaggle@msusol
-claude plugin install docs@msusol
+claude plugin install kaggle@losus-ai
+claude plugin install docs@losus-ai
+claude plugin install git-guard@losus-ai
 ```
 
 (The repo name `claude-code-plugins` is a reserved marketplace name, so the marketplace
-is named after the owner, `msusol`, instead.)
+is named `losus-ai` instead. Note the marketplace name and the GitHub source path are
+independent: `msusol/claude-code-plugins` above is the actual GitHub owner/repo, while
+`losus-ai` is just the local marketplace identifier — it's not a real GitHub org.)
 
-All installers are idempotent — safe to re-run after pulling updates. To remove a plugin:
+All installers (including `deploy-all.zsh` itself) are idempotent — safe to re-run after
+pulling updates. To remove a plugin:
 
 ```zsh
 ./docs/uninstall.zsh
@@ -61,7 +77,7 @@ Some plugins use only a rule file; others add a PreToolUse hook on top. The dist
 
 **docs — rule only, no hook**
 
-The `docs` plugin is pure context injection. Rules are loaded into the model's context at session start via `~/.cline/rules/` (Cline, native) or `@-imports` in `~/.claude/CLAUDE.md` (Claude Code). There is no tool call to intercept — the rules are already present before any tool fires. A hook would have nothing to gate on; the rule file *is* the enforcement mechanism.
+The `docs` plugin is pure context injection. Rules are loaded into the model's context at session start via `@-imports` in `~/.claude/CLAUDE.md`, pointing at files installed under `~/.claude/rules/`. There is no tool call to intercept — the rules are already present before any tool fires. A hook would have nothing to gate on; the rule file *is* the enforcement mechanism. Claude Code-native only — this plugin does not support Cline.
 
 **db-guard — rule + PreToolUse hook**
 
@@ -72,20 +88,23 @@ Db-guard needs two layers because there are two distinct threat surfaces:
 
 The hook blocks the first class; the rule handles the second. Neither layer covers both cases alone.
 
-**git-guard — the same pattern as db-guard**
+**git-guard — rule + PreToolUse hook**
 
-Git-guard adds a hook for the same reason: `git commit` and `git push` are specific, interceptable Bash events. The hook blocks them at tool-use time; the rule file defines the sanctioned commit workflow.
+Git-guard needs both layers for the same reason:
 
-The pattern is: if the risk is a specific runtime Bash event, add a hook. If the risk is a reasoning failure (wrong workflow, wrong sequence, missing verification), a rule is sufficient.
+- Specific, interceptable Bash events — `git commit`, `git push`, `git tag`, and `git checkout -b` / `git switch -c` / `git branch <name>` — caught by the PreToolUse hook at tool-use time, before execution.
+- Reasoning failures — picking the wrong workflow, wrong branch source, or a non-conforming name without a hard block in front of it — addressed by the rule file, `git-guard/src/rules/git-branch-naming.md`, which documents the GitFlow (Lite) convention so Claude follows it proactively instead of only getting blocked reactively.
+
+The pattern is: if the risk is a specific runtime Bash event, add a hook. If the risk is a reasoning failure (wrong workflow, wrong sequence, missing verification), a rule is sufficient. If both apply, use both — the hook is the floor, the rule is what keeps Claude from hitting it in the first place.
 
 ## Known Behaviors
 
 ### Auto-memory + commit rule interaction
 
-When testing these plugins in a project that has active Cline project rules (especially
-`planning-commit-description.md`), you may see Claude spontaneously say something like
-"save a memory about the db-guard pattern and commit." This is not the plugin acting —
-it is two Claude Code behaviors colliding:
+When testing these plugins in a project that has the `docs` plugin's global planning
+rules active (especially `planning-commit-description.md`), you may see Claude
+spontaneously say something like "save a memory about the db-guard pattern and commit."
+This is not the plugin acting — it is two Claude Code behaviors colliding:
 
 1. **Auto-memory** — Claude Code's built-in memory system writes `.md` files to
    `~/.claude/projects/.../memory/` when it encounters something it considers significant
@@ -122,7 +141,7 @@ dropping a table with 8 FK references).
 
 **Layers:**
 - PreToolUse hook: `~/.claude/scripts/db-guard-hook.zsh`
-- Rule: `~/.cline/rules/dbguard-destructive-ops.md` — cognitive enforcement for Python-driven SQL
+- Rule: `~/.claude/rules/dbguard-destructive-ops.md` — cognitive enforcement for Python-driven SQL
      (installed by db-guard/deploy.zsh; see db-guard/src/rules/dbguard-destructive-ops.md)
 - Skill: `/db-drop` — the sanctioned investigation-first path
 

@@ -3,7 +3,7 @@
 # workspace-scoping.
 #
 # Before the workspace-scoped rewrite, deploy.zsh wrote kaggle-*.md rules to the
-# GLOBAL ~/.cline/rules/ and a kaggle-imports block to the GLOBAL ~/.claude/CLAUDE.md
+# GLOBAL ~/.claude/rules/ and a kaggle-imports block to the GLOBAL ~/.claude/CLAUDE.md
 # (same pattern the docs plugin still uses today). That global install is not
 # automatically retired by switching to the new workspace-scoped deploy.zsh — the two
 # live at different paths, so running the new uninstall.zsh against $HOME does not
@@ -11,7 +11,7 @@
 # directly, not nested under .claude/).
 #
 # This script removes ONLY that legacy global footprint:
-#   1. kaggle-*.md files in ~/.cline/rules/ (matching this plugin's src/rules/ names)
+#   1. kaggle-*.md files in ~/.claude/rules/ (matching this plugin's src/rules/ names)
 #   2. the kaggle-imports sentinel block in ~/.claude/CLAUDE.md
 #
 # It does NOT touch the kaggle-guard hook or its ~/.claude/settings.json registration —
@@ -30,7 +30,7 @@ set -euo pipefail
 
 REPO_DIR="${0:A:h}"
 RULES_SRC="$REPO_DIR/src/rules"
-RULES_DEST="$HOME/.cline/rules"
+RULES_DEST="$HOME/.claude/rules"
 GLOBAL_CLAUDE="$HOME/.claude/CLAUDE.md"
 BEGIN_MARKER="<!-- BEGIN kaggle-imports (managed by deploy.zsh) -->"
 END_MARKER="<!-- END kaggle-imports -->"
@@ -47,7 +47,7 @@ print "==> kaggle legacy-global migration"
 [[ $DRY_RUN -eq 1 ]] && print "(dry run — no files written)"
 print ""
 
-# ── 1. Remove kaggle-*.md rule files from the global ~/.cline/rules/ ─────────
+# ── 1. Remove kaggle-*.md rule files from the global ~/.claude/rules/ ─────────
 if [[ -d "$RULES_DEST" && -d "$RULES_SRC" ]]; then
   removed=0
   for src in "$RULES_SRC"/kaggle-*.md(N); do

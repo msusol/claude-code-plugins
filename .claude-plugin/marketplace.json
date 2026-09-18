@@ -1,6 +1,6 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
-  "name": "msusol",
+  "name": "losus-ai",
   "description": "Mark Susol's personal Claude Code plugins — planning rules, a Kaggle competition harness, git/db guards, and a usage status line.",
   "owner": {
     "name": "Mark Susol"
@@ -15,7 +15,7 @@
         "path": "docs/plugins/docs",
         "ref": "main"
       },
-      "description": "Deploys planning-* rules to ~/.cline/rules/ and @-imports them in ~/.claude/CLAUDE.md.",
+      "description": "Deploys planning-* rules to ~/.claude/rules/ and @-imports them in ~/.claude/CLAUDE.md.",
       "category": "development"
     },
     {
@@ -48,7 +48,7 @@
         "path": "git-guard/plugins/git-guard",
         "ref": "main"
       },
-      "description": "Three-layer protection against unauthorized git commit and git push.",
+      "description": "Three-layer protection against unauthorized git commit and git push, plus PreToolUse enforcement of the GitFlow (Lite) branch-naming convention.",
       "category": "development"
     },
     {

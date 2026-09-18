@@ -1,17 +1,18 @@
 #!/usr/bin/env zsh
-# collect.zsh — sync planning-*.md files from ~/.cline/rules/ back into src/rules/.
+# collect.zsh — sync planning-*.md files from ~/.claude/rules/ back into src/rules/.
 #
 # Only collects files matching this plugin's own prefix (planning-*), so no
-# blocklist is needed — foreign files from other plugins are never touched.
+# blocklist is needed — files owned by other plugins in this repo (e.g.
+# git-guard's git-branch-naming.md) are never touched.
 #
 # Usage:
-#   ./collect.zsh          copy from ~/.cline/rules/ (default)
+#   ./collect.zsh          copy from ~/.claude/rules/ (default)
 #   ./collect.zsh --dry-run  show what would change without writing
 
 set -euo pipefail
 
 REPO_DIR="${0:A:h}"
-SRC_DIR="$HOME/.cline/rules"
+SRC_DIR="$HOME/.claude/rules"
 DEST_DIR="$REPO_DIR/src/rules"
 DRY_RUN=0
 
@@ -41,7 +42,7 @@ mkdir -p "$DEST_DIR"
 
 added=0; updated=0; unchanged=0; removed=0
 
-# Sync owned files from ~/.cline/rules/planning-*.md → src/rules/
+# Sync owned files from ~/.claude/rules/planning-*.md → src/rules/
 for src in "$SRC_DIR"/planning-*.md(N); do
   name="${src:t}"
   dest="$DEST_DIR/$name"
@@ -59,11 +60,11 @@ for src in "$SRC_DIR"/planning-*.md(N); do
   fi
 done
 
-# Flag owned files in src/rules/ that no longer exist in ~/.cline/rules/
+# Flag owned files in src/rules/ that no longer exist in ~/.claude/rules/
 for dest in "$DEST_DIR"/planning-*.md(N); do
   name="${dest:t}"
   if [[ ! -f "$SRC_DIR/$name" ]]; then
-    print "removed? $name  (in repo but not in ~/.cline/rules/ — delete manually if intentional)"
+    print "removed? $name  (in repo but not in ~/.claude/rules/ — delete manually if intentional)"
     (( removed++ )) || true
   fi
 done

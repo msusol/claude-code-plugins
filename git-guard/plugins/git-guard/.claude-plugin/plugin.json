@@ -1,7 +1,7 @@
 {
   "name": "git-guard",
-  "version": "1.0.0",
-  "description": "The /git-commit and /git-push skills — the sanctioned path through git-guard's shell wrapper + PreToolUse hook + deny rules. Each walks its own stages with explicit confirmation at every step; push always requires its own separate confirmation.",
+  "version": "1.1.0",
+  "description": "The /git-commit and /git-push skills — the sanctioned path through git-guard's shell wrapper + PreToolUse hook + deny rules. Each walks its own stages with explicit confirmation at every step; push always requires its own separate confirmation. The same PreToolUse hook also enforces the GitFlow (Lite) branch-naming convention on branch creation (git checkout -b / git switch -c / git branch <name>).",
   "author": {
     "name": "Mark Susol"
   },

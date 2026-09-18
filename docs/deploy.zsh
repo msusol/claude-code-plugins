@@ -2,23 +2,23 @@
 # docs installer — idempotent, safe to re-run.
 #
 # What this does:
-#   1. Copies src/rules/*.md to ~/.cline/rules/ (installs new, updates changed,
-#      removes legacy ##-prefixed files)
+#   1. Copies src/rules/*.md to ~/.claude/rules/ (installs new, updates changed)
 #   2. Regenerates the @-import block in ~/.claude/CLAUDE.md so Claude Code
-#      also loads the same rules from ~/.cline/rules/
+#      loads those same rules in every session, in every project
 #   3. Registers this repo as a Claude Code plugin marketplace and installs docs
 #
 # Prerequisites:
 #   - Claude Code CLI (claude) installed
 #
-# Single-source strategy: rules live in ~/.cline/rules/ and are consumed by
-# both Cline (natively) and Claude Code (via @-imports in ~/.claude/CLAUDE.md).
+# Claude Code-native only — this plugin does not support Cline. Rules live in
+# ~/.claude/rules/ (Claude Code's own rules directory) and are pulled into every
+# session via @-imports in ~/.claude/CLAUDE.md.
 
 set -euo pipefail
 
 REPO_DIR="${0:A:h}"
 RULES_SRC="$REPO_DIR/src/rules"
-RULES_DEST="$HOME/.cline/rules"
+RULES_DEST="$HOME/.claude/rules"
 GLOBAL_CLAUDE="$HOME/.claude/CLAUDE.md"
 BEGIN_MARKER="<!-- BEGIN docs-imports (managed by deploy.zsh) -->"
 END_MARKER="<!-- END docs-imports -->"
@@ -26,7 +26,7 @@ END_MARKER="<!-- END docs-imports -->"
 print "==> docs installer"
 print ""
 
-# ── 1. Install rule files to ~/.cline/rules/ ─────────────────────────────────
+# ── 1. Install rule files to ~/.claude/rules/ ─────────────────────────────────
 if [[ -d "$RULES_SRC" ]]; then
   mkdir -p "$RULES_DEST"
   installed=0; updated=0
@@ -42,122 +42,71 @@ if [[ -d "$RULES_SRC" ]]; then
     fi
   done
   print "✓ Rules: $installed installed, $updated updated → $RULES_DEST"
-
-  # Remove legacy files: ##-prefixed names and old clinerules-* prefix.
-  removed=0
-  for legacy in "$RULES_DEST"/[0-9][0-9]-*.md(N) "$RULES_DEST"/clinerules-*.md(N); do
-    name="${legacy:t}"
-    rm "$legacy"
-    print "✓ Removed legacy rule: $name"
-    (( removed++ )) || true
-  done
-  (( removed > 0 )) && print "✓ Removed $removed legacy rules"
 else
   print "⚠ No src/rules/ found — skipping rule installation"
-  print "  Run ./collect.zsh to populate src/rules/ from ~/.cline/rules/"
+  print "  Run ./collect.zsh to populate src/rules/ from ~/.claude/rules/"
 fi
 
 # ── 2. Regenerate @-import block in ~/.claude/CLAUDE.md ──────────────────────
 # Builds @-imports for files owned by this plugin only (src/rules/).
-# Other plugins manage their own sentinel blocks independently.
+# Other plugins in this repo (e.g. git-guard) manage their own sentinel block
+# independently — see git-guard/deploy.zsh's git-guard-imports block.
 files=("$RULES_SRC"/*.md(N))
 if (( ${#files[@]} > 0 )); then
   imports=""
   for f in "${files[@]}"; do
     name="${f:t}"
     [[ -n "$imports" ]] && imports+=$'\n'
-    imports+="@~/.cline/rules/$name"
+    imports+="@~/.claude/rules/$name"
   done
 
   if [[ ! -f "$GLOBAL_CLAUDE" ]]; then
-    # First-time creation.
     mkdir -p "${GLOBAL_CLAUDE:h}"
     cat > "$GLOBAL_CLAUDE" <<EOF
 # Global Rules
 
 The following rules apply across all projects.
 
-## Cline Project Rules
-
 $BEGIN_MARKER
 $imports
 $END_MARKER
 EOF
     print "✓ Created $GLOBAL_CLAUDE with @-import block"
-  else
+  elif grep -qF "$BEGIN_MARKER" "$GLOBAL_CLAUDE"; then
     body_file="$(mktemp)"
     printf '%s\n' "$imports" > "$body_file"
     tmp="$(mktemp)"
-
-    if grep -qE "<!-- BEGIN (clinerules|docs)-imports" "$GLOBAL_CLAUDE" && grep -qE "<!-- END (clinerules|docs)-imports -->" "$GLOBAL_CLAUDE"; then
-      # Sentinels present (any variant — pre-rename "clinerules-imports" or current
-      # "docs-imports"). Replace everything between the markers and normalize both
-      # the begin and end marker text to the current form — this is what migrates a
-      # machine that already has the old sentinel deployed, in place, without
-      # duplicating the block.
-      awk \
-        -v begin="$BEGIN_MARKER" \
-        -v end="$END_MARKER" \
-        -v bf="$body_file" '
-        BEGIN { while ((getline line < bf) > 0) body = (body == "" ? line : body "\n" line) }
-        /<!-- BEGIN (clinerules|docs)-imports/ { print begin; print body; skip=1; next }
-        /<!-- END (clinerules|docs)-imports -->/ { skip=0; print end; next }
-        !skip       { print }
-      ' "$GLOBAL_CLAUDE" > "$tmp"
-      mv "$tmp" "$GLOBAL_CLAUDE"
-      print "✓ Updated $GLOBAL_CLAUDE (@-import block)"
-    else
-      # No sentinels found: wrap any existing bare @~/.clinerules/ or @~/.cline/rules/
-      # lines with sentinels and replace their content. If none found, append the block.
-      if grep -qE "## Cline Project Rules" "$GLOBAL_CLAUDE"; then
-        header_line=""
-      else
-        header_line="## Cline Project Rules"
-      fi
-      awk \
-        -v begin="$BEGIN_MARKER" \
-        -v end="$END_MARKER" \
-        -v bf="$body_file" \
-        -v header="$header_line" '
-        BEGIN { while ((getline line < bf) > 0) body = (body == "" ? line : body "\n" line) }
-        /<!-- BEGIN / { in_foreign=1 }
-        /<!-- END /   { in_foreign=0; last_blank=0; print; next }
-        /^@~\/(\.clinerules|\.cline\/rules)\// && !seen && !in_foreign {
-          if (header != "") { print header; print "" }
-          print begin; print body; print end
-          seen=1; in_block=1; next
-        }
-        /^@~\/(\.clinerules|\.cline\/rules)\// && in_block { next }
-        { in_block=0; last_blank = ($0 == ""); print }
-        END {
-          if (!seen) {
-            if (!last_blank) print ""
-            if (header != "") { print header; print "" }
-            print begin; print body; print end
-          }
-        }
-      ' "$GLOBAL_CLAUDE" > "$tmp"
-      mv "$tmp" "$GLOBAL_CLAUDE"
-      print "✓ Migrated $GLOBAL_CLAUDE (wrapped @-imports with sentinels)"
-    fi
-
+    awk \
+      -v begin="$BEGIN_MARKER" \
+      -v end="$END_MARKER" \
+      -v bf="$body_file" '
+      BEGIN { while ((getline line < bf) > 0) body = (body == "" ? line : body "\n" line) }
+      /<!-- BEGIN docs-imports/ { print begin; print body; skip=1; next }
+      /<!-- END docs-imports -->/ { skip=0; print end; next }
+      !skip { print }
+    ' "$GLOBAL_CLAUDE" > "$tmp"
+    mv "$tmp" "$GLOBAL_CLAUDE"
     rm -f "$body_file"
+    print "✓ Updated $GLOBAL_CLAUDE (@-import block)"
+  else
+    printf '\n%s\n%s\n%s\n' "$BEGIN_MARKER" "$imports" "$END_MARKER" >> "$GLOBAL_CLAUDE"
+    print "✓ Appended docs @-import block to $GLOBAL_CLAUDE"
   fi
 else
-  print "⚠ No rules found in $RULES_DEST — skipping CLAUDE.md update"
+  print "⚠ No rules found in $RULES_SRC — skipping CLAUDE.md update"
 fi
 
 # ── 3. Claude Code plugin registration ───────────────────────────────────────
 if command -v claude &>/dev/null; then
   claude plugin marketplace add "${REPO_DIR:h}" 2>/dev/null || true
-  claude plugin install docs@msusol 2>/dev/null || true
+  claude plugin install docs@losus-ai 2>/dev/null || true
   print "✓ Plugin registered with Claude Code"
 else
   print "⚠ claude CLI not found — skipping plugin registration"
-  print "  Run manually: claude plugin marketplace add ${REPO_DIR:h} && claude plugin install docs@msusol"
+  print "  Run manually: claude plugin marketplace add ${REPO_DIR:h} && claude plugin install docs@losus-ai"
 fi
 
 print ""
 print "==> docs installed."
-print "    Rules → $RULES_DEST (Cline, native)"
-print "    Rules → $GLOBAL_CLAUDE (Claude Code, via @-imports)"
+print "    Rules → $RULES_DEST"
+print "    Rules → $GLOBAL_CLAUDE (via @-imports)"

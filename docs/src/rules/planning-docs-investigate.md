@@ -82,6 +82,27 @@ Use `### Follow-ups` for:
 - additional validation needed
 - next steps
 
+## Skill-level gaps vs. infra bugs
+
+When an investigation's root cause is a miss in an AI agent's skill or
+capability — not infrastructure, not a plain code bug — do not let the
+finding stop at this file.
+
+- In `### Findings`, name the gap precisely: not "the skill is buggy" or
+  "orchestration needs work," but the specific input shape that breaks
+  it (e.g. "misses freight-surcharge lines when invoice layouts vary,"
+  not "bad at invoices"). A vague gap can't be turned into a fixture or
+  an eval.
+- Check whether this repo has a skill-structure or capability-contract
+  plan (e.g. a `docs/plans/*skill*.md` covering `SKILL.md`/`schemas/`/
+  `fixtures/`/`evals/`-style contracts). If one exists, add a link to
+  it in `### Follow-ups` and restate the named gap there as a candidate
+  pilot/rollout target — don't leave it only in this investigation
+  file.
+- If no such plan exists yet, still name the gap precisely in
+  `### Follow-ups`. Don't create a new plan file just to hold one line;
+  wait until there's a real plan to file it under.
+
 ## Verify the premise first
 
 When an `investigate:` task is based on a quoted claim, a prior session's output, a

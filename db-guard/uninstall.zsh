@@ -5,7 +5,7 @@ set -euo pipefail
 
 REPO_DIR="${0:A:h}"
 HOOK_DEST="$HOME/.claude/scripts/db-guard-hook.zsh"
-RULE_DEST="$HOME/.cline/rules/dbguard-destructive-ops.md"
+RULE_DEST="$HOME/.claude/rules/dbguard-destructive-ops.md"
 GLOBAL_CLAUDE="$HOME/.claude/CLAUDE.md"
 
 echo "==> db-guard uninstaller"

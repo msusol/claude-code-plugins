@@ -2,7 +2,7 @@
 """Scaffold a barebones Kaggle competition project.
 
 Derived from prior competition project layouts. Creates a docs/plans-centric
-skeleton. Does NOT create a per-competition CLAUDE.md or .cline/rules/ — the kaggle
+skeleton. Does NOT create a per-competition CLAUDE.md or .claude/rules/ — the kaggle
 plugin's deploy.zsh installs those once at the shared workspace root instead.
 
 Usage:
