@@ -19,6 +19,37 @@ PR at all, for three related failure modes seen in practice:
    task, merged much later describing something far broader, with the
    title/body never updated to match.
 
+## Single-branch repos: no PR ceremony at all
+
+This entire rule assumes a repo where work happens on a branch and lands
+via a reviewed PR. **Before applying any of it, check whether the repo
+actually has more than one permanent branch** (`git branch -a` — look for
+`develop` alongside `main`/`master`, or any prior `feature/*`/`bugfix/*`
+branches in its history). If the repo only has `main`/`master`, and
+commits have always gone straight to it:
+
+- There is no PR to batch commits toward — commit directly to
+  `main`/`master`, same as the repo's own existing history.
+- Do not propose creating a branch or opening a PR to "do this properly"
+  unless the user explicitly asks for that workflow.
+- The batching discipline still applies in spirit, just at the
+  **push** level instead of the PR level: don't push to `origin` after
+  every single commit. Commit locally as each unit of work completes,
+  and only push when the user asks, or when a natural batch boundary is
+  reached (a checklist item fully resolved, the user says "wrap this
+  up"/"push this") — the same triggers this rule uses for opening a PR,
+  just applied to `git push` instead of `gh pr create`.
+- `docs/plans/TODO.md`/plan-file sync (per `planning-plan-sync.md`)
+  still applies fully — that discipline isn't PR-dependent, it's about
+  keeping the record accurate as work lands, which happens at commit
+  time either way.
+
+This is about branch *topology*, not project identity — the same person
+may work across both multi-branch repos (this rule's PR discipline
+applies in full) and single-branch personal/other repos (only the
+push-batching analog applies) — re-check per repo, don't assume from a
+prior session in a different repo.
+
 ## Trigger: before proposing to open a PR at all
 
 Don't ask "should I open a PR for this?" (or open one unprompted) right
@@ -97,3 +128,7 @@ body and the final diff grows the longest:
 - Independent of `planning-jira-ticket-transitions.md` (Jira status) and
   `planning-slack-wcp-updates.md` (Slack posts) — a PR can be accurate
   here without either of those changing, and vice versa.
+- `git-branch-naming.md` has the matching single-branch exemption for
+  branch-naming enforcement — the two exemptions describe the same
+  repo-topology check, applied to different concerns (branch naming vs.
+  PR/push discipline).
