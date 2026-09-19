@@ -38,7 +38,7 @@ if echo "$cmd" | grep -qE 'git[[:space:]]+(commit|tag)\b'; then
   exit 2
 fi
 
-# --- Branch naming convention (GitFlow Lite for ARIES/WCP) ---
+# --- Branch naming convention (GitFlow Lite) ---
 # Extract a candidate branch name from a creation command. Each pattern
 # below matches exactly one token after the flag/keyword, so a start-point
 # argument (e.g. `checkout -b <name> <start-point>`) or a rename's second
@@ -58,12 +58,12 @@ if [[ -n "$branch_name" && "$branch_name" != "main" && "$branch_name" != "develo
   if ! echo "$branch_name" | grep -qE '^(feature|bugfix|chore)/[A-Z][A-Z0-9]+-[0-9]+-[a-z0-9]+(-[a-z0-9]+)*$' \
      && ! echo "$branch_name" | grep -qE '^(release|hotfix)/[0-9]+\.[0-9]+\.[0-9]+$'; then
     echo "git-guard: branch name '$branch_name' doesn't match the GitFlow (Lite) naming convention." >&2
-    echo "  feature/<TICKET>-<slug>      e.g. feature/WCP-1234-bulk-export" >&2
-    echo "  bugfix/<TICKET>-<slug>       e.g. bugfix/WCP-1301-null-pointer-on-save" >&2
-    echo "  chore/<TICKET>-<slug>        e.g. chore/WCP-1310-bump-node-20" >&2
+    echo "  feature/<TICKET>-<slug>      e.g. feature/PROJ-1234-bulk-export" >&2
+    echo "  bugfix/<TICKET>-<slug>       e.g. bugfix/PROJ-1301-null-pointer-on-save" >&2
+    echo "  chore/<TICKET>-<slug>        e.g. chore/PROJ-1310-bump-node-20" >&2
     echo "  release/<major.minor.patch>  e.g. release/2.4.0" >&2
     echo "  hotfix/<major.minor.patch>   e.g. hotfix/2.3.1" >&2
-    echo "See the git-branch-naming rule, or the GitFlow (Lite) page in the WCPW Confluence space." >&2
+    echo "See the git-branch-naming rule for the full GitFlow (Lite) convention." >&2
     echo "Deliberate, explained exception: prefix with GIT_GUARD_SANCTIONED=1." >&2
     exit 2
   fi

@@ -1,13 +1,42 @@
 ---
-description: GitFlow (Lite) branch naming convention for ARIES/WCP — cut branches from the right base and name them so the PreToolUse hook doesn't block them
+description: GitFlow (Lite) branch naming convention — cut branches from the right base and name them so the PreToolUse hook doesn't block them
 globs: "**/*"
 ---
 
-# Git branch naming — GitFlow (Lite) for ARIES/WCP
+# Git branch naming — GitFlow (Lite)
 
-Source of truth: [GitFlow (Lite) — Branching & Release Process for ARIES/WCP](https://mitratechdev.atlassian.net/wiki/spaces/WCPW/pages/25939410979/GitFlow+Lite+Branching+Release+Process+for+ARIES+WCP)
-(Confluence, space `WCPW`). This rule is the day-to-day summary; treat the
-Confluence page as canonical if the two ever disagree.
+A day-to-day summary of a GitFlow (Lite) branching model: `main`/`develop`
+as permanent branches, short-lived `feature`/`bugfix`/`chore`/`release`/
+`hotfix` branches cut from and merged back into the right base. Adapt the
+`<TICKET>` prefix and any project-specific naming details below to
+whatever issue tracker the target repo actually uses — treat this file as
+a template, not a fixed standard.
+
+## Single-branch repos are exempt
+
+This whole model assumes a repo that actually has a permanent `develop`
+branch and ticket-keyed work. **Before applying any of this, check
+`git branch -a` (or equivalent) for a `develop` branch.** If the repo has
+only `main`/`master` — no `develop`, no prior
+`feature/*`/`bugfix/*`/`chore/*` branches in its history — this rule does
+not apply at all:
+
+- Commit and push directly to `main`/`master`, same as the repo's own
+  existing history already does.
+- Do not propose creating a `develop` branch, feature branches, or PRs to
+  introduce this workflow unless the user explicitly asks for it.
+- Do not enforce the `<type>/<TICKET>-<description>` naming pattern
+  below, since there's no ticket-key convention in a repo that was never
+  using one in the first place.
+- The git-guard branch-creation hook still technically only blocks
+  non-conforming *branch creation* commands — a single-branch repo that
+  never creates branches never triggers it, so no bypass sentinel is
+  needed either.
+
+This exemption is about the *branch topology* (single branch vs.
+main+develop), not the project — re-check per repo, since one person may
+work across both multi-branch repos (this model applies) and single-branch
+personal/other repos (it doesn't).
 
 ## Branch types
 
@@ -26,13 +55,14 @@ Confluence page as canonical if the two ever disagree.
 `feature/*`, `bugfix/*`, `chore/*` are named `<type>/<TICKET>-<short-kebab-description>`:
 
 ```
-feature/WCP-1234-bulk-export
-bugfix/WCP-1301-null-pointer-on-save
-chore/WCP-1310-bump-node-20
+feature/PROJ-1234-bulk-export
+bugfix/PROJ-1301-null-pointer-on-save
+chore/PROJ-1310-bump-node-20
 ```
 
-- `<TICKET>` is a Jira key (`WCP`, `WCPCO`, `WCPAC`/`AIRESAC`, etc. — see the
-  target repo's own CLAUDE.md for which project key applies), uppercase, e.g. `WCP-1234`.
+- `<TICKET>` is the issue-tracker key for the target repo/project (e.g.
+  a Jira project key) — check the target repo's own CLAUDE.md or issue
+  tracker for which prefix applies, uppercase, e.g. `PROJ-1234`.
 - `<short-kebab-description>` is lowercase, hyphen-separated, no ticket text duplication.
 
 `release/*` and `hotfix/*` are named after the semantic version they produce
@@ -46,11 +76,11 @@ hotfix/2.3.1
 `main` and `develop` are the two permanent branches — never invent a
 ticket-suffixed variant of either.
 
-**Open question inherited from the source doc:** whether `chore/*` should be
-exempt from the ticket-key requirement is explicitly unresolved in the
-Confluence page (§11). Until that's decided, `chore/*` is enforced the same
-as `feature/*`/`bugfix/*` — flag it back to Engineering if it's causing
-friction rather than quietly dropping the ticket key.
+**Whether `chore/*` should be exempt from the ticket-key requirement** is
+a real open question for many teams adopting this model. Until the team
+decides, enforce `chore/*` the same as `feature/*`/`bugfix/*` — flag it
+back to the team if it's causing friction rather than quietly dropping
+the ticket key.
 
 ## What the git-guard hook actually blocks
 

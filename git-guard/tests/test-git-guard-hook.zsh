@@ -98,13 +98,13 @@ t "checkout -b no ticket"    "$(cmd 'git checkout -b my-quick-branch')"         
 t "switch -c underscore"     "$(cmd 'git switch -c bad_name')"                                2
 t "branch bare word"         "$(cmd 'git branch weirdname')"                                  2
 t "release without patch"    "$(cmd 'git checkout -b release/2.4')"                           2
-t "feature missing slug"     "$(cmd 'git checkout -b feature/WCP-1234')"                       2
+t "feature missing slug"     "$(cmd 'git checkout -b feature/PROJ-1234')"                       2
 
 print "=== allowed: branch names that match GitFlow (Lite)"
-t "feature ticket+slug"      "$(cmd 'git checkout -b feature/WCP-1234-bulk-export')"                          0
-t "feature with start-point" "$(cmd 'git checkout -b feature/WCP-1234-bulk-export develop')"                  0
-t "bugfix via switch"        "$(cmd 'git switch -c bugfix/WCP-1301-null-pointer-on-save')"                     0
-t "chore via branch"         "$(cmd 'git branch chore/WCP-1310-bump-node-20')"                                 0
+t "feature ticket+slug"      "$(cmd 'git checkout -b feature/PROJ-1234-bulk-export')"                          0
+t "feature with start-point" "$(cmd 'git checkout -b feature/PROJ-1234-bulk-export develop')"                  0
+t "bugfix via switch"        "$(cmd 'git switch -c bugfix/PROJ-1301-null-pointer-on-save')"                     0
+t "chore via branch"         "$(cmd 'git branch chore/PROJ-1310-bump-node-20')"                                 0
 t "release semver"           "$(cmd 'git checkout -b release/2.4.0')"                                          0
 t "hotfix semver"            "$(cmd 'git checkout -b hotfix/2.3.1')"                                            0
 t "checkout existing develop" "$(cmd 'git checkout develop')"                                                   0

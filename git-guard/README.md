@@ -63,7 +63,7 @@ The PreToolUse hook also parses `git checkout -b <name>`, `git switch -c <name>`
 `git branch <name>` (creation form only — `git branch -d`, `--show-current`, `-a`, etc.
 pass through untouched). If `<name>` isn't `main`/`develop` and doesn't match:
 
-- `(feature|bugfix|chore)/<TICKET>-<slug>` — e.g. `feature/WCP-1234-bulk-export`
+- `(feature|bugfix|chore)/<TICKET>-<slug>` — e.g. `feature/PROJ-1234-bulk-export`
 - `(release|hotfix)/<major.minor.patch>` — e.g. `release/2.4.0`
 
 the hook blocks with exit 2 and prints the convention. This is the GitFlow (Lite)
