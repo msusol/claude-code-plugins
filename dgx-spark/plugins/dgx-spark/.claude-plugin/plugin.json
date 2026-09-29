@@ -1,0 +1,9 @@
+{
+  "name": "dgx-spark",
+  "version": "1.0.0",
+  "description": "Deploys dgx-spark-* rules globally to ~/.claude/rules/ and regenerates the @-import block in ~/.claude/CLAUDE.md so every Claude Code session on spark-db62 loads them — hardware/host gotchas that apply across every project touching this machine, not one workspace.",
+  "author": {
+    "name": "Mark Susol"
+  },
+  "license": "MIT"
+}

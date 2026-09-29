@@ -1,21 +1,28 @@
 ---
-description: Environment conventions for training heavy LLM tasks on the DGX Spark GB10 workstation.
+description: Kaggle-specific conventions for training heavy LLM tasks on the DGX Spark GB10 workstation.
 ---
 
-# DGX Spark Environment Conventions
+# DGX Spark: Kaggle training conventions
 
-The DGX Spark GB10 is a single-socket workstation with 120 GB of VRAM. It is used to run heavy LLM fine-tuning tasks (e.g. 5-fold cross-validation or 27B+ parameter model distillation) that exceed Kaggle limits.
+The DGX Spark GB10 is used to run heavy LLM fine-tuning tasks for Kaggle
+competitions (e.g. 5-fold cross-validation or 27B+ parameter model
+distillation) that exceed Kaggle's own notebook compute limits.
 
-Because the DGX is a shared workstation running background Docker services, training runs must actively manage system memory to prevent Linux OOM kills of critical daemons (sshd, systemd-networkd).
+For the host-level facts and conventions that apply to *any* heavy job on this
+shared machine — the OOM risk, pausing background Docker services, running
+under `tmux` — see the `dgx-spark` plugin's
+`dgx-spark-heavy-compute-jobs.md` (deployed globally to
+`~/.claude/rules/`, not duplicated here). This rule only covers what's
+specific to a *Kaggle* project's training runs.
 
-## Service Pausing
+## Service pausing automation
 
-Always pause non-essential background Docker containers before running a heavy training script, and resume them after the script finishes (even if it fails). 
-
-Every project using the DGX for training should include a standard `scripts/services.sh` script to automate pausing and resuming containers with `always` or `unless-stopped` restart policies. The state is saved to `.paused_containers`.
-
-## Persistent Sessions
-Always execute training under `tmux` on the DGX host. Never background long-running training jobs (`nohup ... &`) without `tmux`, as broken pipes or session disconnects can kill the training job unexpectedly.
+Every Kaggle project using the DGX for training should include a standard
+`scripts/services.sh` script implementing the pause/resume convention from
+`dgx-spark-heavy-compute-jobs.md`: pause non-essential background Docker
+containers with `always` or `unless-stopped` restart policies before a
+training run, and resume them after (even if the run fails). Save the paused
+set to `.paused_containers` so resume knows exactly what to bring back.
 
 ## Progress Reporting
 

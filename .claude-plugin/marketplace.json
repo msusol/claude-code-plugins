@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "losus-ai",
-  "description": "Mark Susol's personal Claude Code plugins — planning rules, a Kaggle competition harness, git/db guards, and a usage status line.",
+  "description": "Mark Susol's personal Claude Code plugins — planning rules, a Kaggle competition harness, git/db guards, a DGX Spark host-facts rule set, and a usage status line.",
   "owner": {
     "name": "Mark Susol"
   },
@@ -27,6 +27,17 @@
         "ref": "main"
       },
       "description": "Light harness for Kaggle competitions — kaggle-* rules, a project-scaffold skill, and /kaggle:new + /kaggle:preflight commands.",
+      "category": "development"
+    },
+    {
+      "name": "dgx-spark",
+      "source": {
+        "source": "git-subdir",
+        "url": "msusol/claude-code-plugins",
+        "path": "dgx-spark/plugins/dgx-spark",
+        "ref": "main"
+      },
+      "description": "Global dgx-spark-* rules for spark-db62 — Docker context/daemon gotchas and other host-level facts that apply across every project on the machine.",
       "category": "development"
     },
     {
