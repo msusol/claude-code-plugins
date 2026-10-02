@@ -16,6 +16,10 @@
 #      that already scopes itself by matching Bash command content)
 #   4. Registers this repo as a Claude Code plugin marketplace and installs kaggle
 #
+# If target-root is the claude-code-plugins repo itself (for example deploy-all.zsh run from this
+# checkout), steps 1 and 2 are skipped with a warning, because kaggle rules and a CLAUDE.md written
+# into the plugin repo load into every session started there. Steps 3 and 4 are global and still run.
+#
 # Owns the kaggle-* prefix only; the docs plugin (planning-*) and any other
 # plugin manage their own files and their own sentinel blocks independently.
 
@@ -31,6 +35,12 @@ if [[ ! -d "$TARGET_ROOT" ]]; then
 fi
 TARGET_ROOT="${TARGET_ROOT:A}"
 
+source "$REPO_DIR/src/target-root-guard.zsh"
+SKIP_WORKSPACE=0
+if target_is_plugin_repo "$TARGET_ROOT" "${REPO_DIR:h}"; then
+  SKIP_WORKSPACE=1
+fi
+
 RULES_DEST="$TARGET_ROOT/.claude/rules"
 TARGET_CLAUDE="$TARGET_ROOT/CLAUDE.md"
 BEGIN_MARKER="<!-- BEGIN kaggle-imports (managed by deploy.zsh) -->"
@@ -38,7 +48,14 @@ END_MARKER="<!-- END kaggle-imports -->"
 
 print "==> kaggle installer"
 print "    Target root: $TARGET_ROOT"
+if (( SKIP_WORKSPACE )); then
+  print "⚠ Target root is the claude-code-plugins repo itself: skipping steps 1 and 2 (rules and CLAUDE.md)."
+  print "  Kaggle rules belong in your Kaggle workspace root. To install them there, run:"
+  print "    ./kaggle/deploy.zsh <kaggle-workspace-root>"
+fi
 print ""
+
+if (( ! SKIP_WORKSPACE )); then  # steps 1 and 2 write into the target root; not re-indented (heredoc below)
 
 # ── 1. Install rule files to <target-root>/.claude/rules/ ─────────────────────
 if [[ -d "$RULES_SRC" ]]; then
@@ -115,6 +132,8 @@ else
   print "⚠ No kaggle-* rules found — skipping CLAUDE.md update"
 fi
 
+fi  # end of the steps that write into the target root (SKIP_WORKSPACE)
+
 # ── 3. Install kaggle-guard PreToolUse hook (global) ─────────────────────────
 HOOK_SRC="$REPO_DIR/src/kaggle-guard-hook.zsh"
 HOOK_DEST="$HOME/.claude/scripts/kaggle-guard-hook.zsh"
@@ -140,8 +159,12 @@ fi
 
 print ""
 print "==> kaggle installed."
-print "    Rules   → $RULES_DEST"
-print "    Rules   → $TARGET_CLAUDE (Claude Code, via @-imports)"
+if (( SKIP_WORKSPACE )); then
+  print "    Rules   → not installed (target root is the plugin repo; see the warning above)"
+else
+  print "    Rules   → $RULES_DEST"
+  print "    Rules   → $TARGET_CLAUDE (Claude Code, via @-imports)"
+fi
 print "    Hook    → $HOOK_DEST (blocks Claude from pushing notebooks, global)"
 print "    Skill   → kaggle-project-scaffold"
 print "    Commands→ /kaggle:new, /kaggle:preflight"

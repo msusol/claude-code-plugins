@@ -100,7 +100,11 @@ command shown to you before execution — any bypass is auditable.
 ```
 
 `<workspace-root>` is the parent directory holding your Kaggle competition projects
-(e.g. `~/LosusAI/Projects/Kaggle/`) — defaults to `$PWD` if omitted. Run it once per
+(e.g. `~/LosusAI/Projects/Kaggle/`) — defaults to `$PWD` if omitted. If the target turns out
+to be this `claude-code-plugins` checkout itself (for example `deploy-all.zsh` run from here),
+the rules and `CLAUDE.md` step is skipped with a warning, because rules written into the
+plugin repo would load into every session started there; the global hook and plugin
+registration still run. Run it once per
 workspace, not once per competition; it's idempotent, so re-running it later (e.g. after
 pulling rule updates, or before scaffolding another competition under the same workspace)
 is always safe. To remove:
