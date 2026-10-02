@@ -111,17 +111,41 @@ else
     fi
   fi
 
-  # Install (= enable) the plugin from that marketplace. Idempotent.
-  if claude plugin list 2>/dev/null | grep -qw "git-guard"; then
-    ok "Plugin 'git-guard' already installed"
-  else
-    if claude plugin install "git-guard@losus-ai" >/dev/null 2>&1; then
-      ok "Installed plugin 'git-guard@losus-ai'"
-    else
-      warn "Failed to install plugin via claude plugin install."
-      warn "Run it yourself: claude plugin install git-guard@losus-ai"
-    fi
-  fi
+  # Install (= enable) the plugin from that marketplace. Idempotent. The check is for
+  # git-guard@losus-ai specifically: matching the bare name "git-guard" also matched a stale
+  # git-guard@<old marketplace> and made this step skip, leaving an old skill installed.
+  source "$SCRIPT_DIR/src/plugin-install-check.zsh"
+  plugin_state="$(claude plugin list 2>/dev/null | plugin_install_state git-guard losus-ai)"
+  case "$plugin_state" in
+    present)
+      ok "Plugin 'git-guard@losus-ai' already installed"
+      ;;
+    present,other:*)
+      other_marketplaces="${plugin_state#present,other:}"
+      ok "Plugin 'git-guard@losus-ai' already installed"
+      warn "git-guard is ALSO installed from: $other_marketplaces — two copies means duplicate skills."
+      for other in ${(s:,:)other_marketplaces}; do
+        warn "  Remove the extra copy: claude plugin uninstall git-guard@$other"
+      done
+      ;;
+    other:*)
+      other_marketplaces="${plugin_state#other:}"
+      warn "git-guard is installed from: $other_marketplaces — not from 'losus-ai', so it will not"
+      warn "receive updates from this checkout. Leaving it alone; to switch (install first, then remove):"
+      warn "  claude plugin install git-guard@losus-ai"
+      for other in ${(s:,:)other_marketplaces}; do
+        warn "  claude plugin uninstall git-guard@$other"
+      done
+      ;;
+    *)
+      if claude plugin install "git-guard@losus-ai" >/dev/null 2>&1; then
+        ok "Installed plugin 'git-guard@losus-ai'"
+      else
+        warn "Failed to install plugin via claude plugin install."
+        warn "Run it yourself: claude plugin install git-guard@losus-ai"
+      fi
+      ;;
+  esac
 fi
 
 # ── 7. Merge settings.json ────────────────────────────────────────────────────
