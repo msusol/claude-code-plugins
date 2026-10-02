@@ -2,4 +2,6 @@ blocklist.json
 known_marketplaces.json
 .idea/
 .DS_Store
-docs/dist/
+# docs/dist/ is kept in the repo by a .keep file; only the built zips are ignored.
+# (Ignoring the whole directory would stop .keep from being tracked.)
+docs/dist/*.zip
