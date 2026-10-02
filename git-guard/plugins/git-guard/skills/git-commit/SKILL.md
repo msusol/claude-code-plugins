@@ -7,7 +7,7 @@ description: >
   This is the ONLY sanctioned path for git commit/tag operations — it bypasses the shell
   wrapper that blocks unguided calls, because it enforces explicit per-step confirmation.
   Does NOT push — pushing is a separate action; use the git-push skill for that.
-version: 2.0.0
+version: 2.1.0
 ---
 
 # Safe Commit Workflow
@@ -59,15 +59,32 @@ $REAL_GIT diff
 
 Present a clear summary: what is staged, what is unstaged, what is untracked.
 
-## Step 2 — Stage files (if nothing is staged)
+## Step 2 — Verify the change (before anything is staged)
 
-If `git diff --staged` is empty, ask the user which files to stage.
+A confirmation prompt is not verification. Before staging, name the check that proves *this* change works and what a pass looks
+like (see the `planning-commit-verification` rule for which check fits which change). Then hand it to the user as an explicit step:
+
+> Run this before I commit: `<command>`. Paste the result.
+
+- Checks only the user can run (restarting a production service, running a chat in a UI, applying to production, anything needing
+  their credentials) always go to them. Wait for the output; do not draft the commit before it arrives.
+- Checks you can run safely (unit tests, read-only checks, dry runs) are run and shown, and still stated as the verification step.
+- Record the evidence as a short file or section **in the same commit** as the change: the command, date and time, result, and what
+  it shows. Use the repo's artifact convention; if it has none, the commit message body is the record. Stage the evidence file with
+  the change in Step 3.
+- If the check fails or cannot be run, say so and stop. Commit nothing until the user decides. If they choose to proceed, the
+  message must say `Not verified: <reason>`.
+- Never offer a follow-up commit as the place to record the result.
+
+## Step 3 — Stage files (if nothing is staged)
+
+If `git diff --staged` is empty, ask the user which files to stage, including any evidence file from Step 2.
 Offer specific choices based on the `git status` output — do not stage everything blindly with `git add .`.
 Wait for explicit confirmation before running any `git add` commands.
 
 Use `$REAL_GIT add <file>` for each file the user approves. The sentinel is not needed here — the hook does not intercept `git add`.
 
-## Step 3 — Allowlist check
+## Step 4 — Allowlist check
 
 Run:
 
@@ -84,7 +101,7 @@ If it does not match — or if there is no remote — stop and tell the user:
 
 Do NOT proceed past this step if the remote is not in the allowlist.
 
-## Step 4 — Confirm attribution
+## Step 5 — Confirm attribution
 
 Run:
 
@@ -96,7 +113,7 @@ $REAL_GIT config user.email
 Show the name and email. Ask the user to confirm this attribution is correct before continuing.
 If they want to change it, help them update the git config before proceeding.
 
-## Step 5 — Commit message
+## Step 6 — Commit message
 
 Ask the user for a commit message. Suggest one based on the staged diff if helpful.
 
@@ -104,13 +121,15 @@ Follow Conventional Commits format:
 - Format: `type(optional scope): description`
 - Types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`
 - Body: optional bullet points explaining the main changes and why
+- `Verified:` section at the end of the body (required): the command(s) from Step 2, the result, and the path of any evidence file
+  committed with the change. If the user chose to proceed without a passing check: `Not verified: <reason>`.
 - Footer: issue/PR references (e.g. `Closes #123`)
 
 Append the Co-Authored-By trailer with the current Claude model version.
 
-Show the full commit message to the user and ask for explicit confirmation before committing.
+Show the full commit message to the user, including the `Verified:` section, and ask for explicit confirmation before committing.
 
-## Step 6 — Execute the commit
+## Step 7 — Execute the commit
 
 Only after the user explicitly confirms, pass the message via heredoc to preserve formatting:
 

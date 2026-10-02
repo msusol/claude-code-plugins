@@ -18,6 +18,12 @@ Optional body:
 - bullet points explaining the main changes
 - brief explanation of why the change was made
 
+Verified (required; see `planning-commit-verification.md`):
+
+- a `Verified:` section at the end of the body: the command(s) run, the result (pass or fail, counts), and the path of any evidence
+  file committed with the change
+- if the check could not be run or failed and the user chose to proceed: `Not verified: <reason>`
+
 Optional footer:
 
 - references to issues or PRs, for example `Closes #123`

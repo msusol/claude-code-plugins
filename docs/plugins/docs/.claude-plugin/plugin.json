@@ -1,6 +1,6 @@
 {
   "name": "docs",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Deploys planning-* rules globally to ~/.claude/rules/ and regenerates the @-import block in ~/.claude/CLAUDE.md so every Claude Code session loads them.",
   "author": {
     "name": "Mark Susol"

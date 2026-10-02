@@ -80,12 +80,16 @@ once the commit is made.
 
 Workflow at each step — all with explicit confirmation before any write:
 
-1. Show `git status` + `git diff --staged`; offer to stage files if nothing is staged
-2. Check remote URL against `~/.config/git-guard/allowlist` — stop if not approved
-3. Show `git config user.name` + `user.email` — confirm attribution
-4. Prompt for commit message (Conventional Commits format)
-5. Show the full message and ask for confirmation before committing
-6. Show the commit result and stop — pushing is a separate skill (below)
+1. Show `git status` + `git diff --staged`
+2. Name the check that proves the change works and hand it to the user: "Run this before I
+   commit: `<command>`. Paste the result." Wait for it; record the evidence in the same commit
+   (see the docs plugin's `planning-commit-verification` rule)
+3. Offer to stage files if nothing is staged, including the evidence file
+4. Check remote URL against `~/.config/git-guard/allowlist` — stop if not approved
+5. Show `git config user.name` + `user.email` — confirm attribution
+6. Prompt for commit message (Conventional Commits format, with a `Verified:` section)
+7. Show the full message and ask for confirmation before committing
+8. Show the commit result and stop — pushing is a separate skill (below)
 
 ### `/git-push` skill — the sanctioned path for pushes
 
