@@ -5,7 +5,11 @@
 # src/rules/ stays the single source of truth: rules are copied into
 # references/ at build time with their Claude Code frontmatter stripped.
 #
+# docs-plan-handoff has no references/: its SKILL.md is the whole skill, so it is
+# packaged as-is.
+#
 # Usage: ./build-skill.zsh        writes dist/planning-docs.zip
+#                                 and dist/docs-plan-handoff.zip
 
 set -euo pipefail
 
@@ -43,3 +47,13 @@ done
 rm -f "$OUT_DIR/$SKILL_NAME.zip"
 (cd "${STAGE:h}" && zip -rq "$OUT_DIR/$SKILL_NAME.zip" "$SKILL_NAME")
 print "✓ Built $OUT_DIR/$SKILL_NAME.zip (${#RULES[@]} references)"
+
+# docs-plan-handoff: SKILL.md only, no references.
+HANDOFF_NAME="docs-plan-handoff"
+HANDOFF_STAGE="$(mktemp -d)/$HANDOFF_NAME"
+mkdir -p "$HANDOFF_STAGE"
+cp "$REPO_DIR/skill/$HANDOFF_NAME/SKILL.md" "$HANDOFF_STAGE/SKILL.md"
+
+rm -f "$OUT_DIR/$HANDOFF_NAME.zip"
+(cd "${HANDOFF_STAGE:h}" && zip -rq "$OUT_DIR/$HANDOFF_NAME.zip" "$HANDOFF_NAME")
+print "✓ Built $OUT_DIR/$HANDOFF_NAME.zip"
