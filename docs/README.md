@@ -109,11 +109,31 @@ When adding a new rule to this plugin, use the `planning-` prefix.
 Claude Code loads all `@`-imported files in `~/.claude/CLAUDE.md` as a combined context —
 order does not affect how rules are applied.
 
+## Skill packages
+
+`build-skill.zsh` packages the skills under `skill/` into uploadable zips in `dist/`
+(Claude Settings → Capabilities → Skills → Upload). The zips are git-ignored; only the
+sources under `skill/` are committed.
+
+| Skill | What it does |
+|---|---|
+| `planning-docs` | Writes a project's `docs/` tree in the canonical layout. The rules in `src/rules/` are copied into its `references/` at build time. |
+| `docs-plan-handoff` | For planning done away from the repo: drafts a `docs_TOPIC/` folder, zips it, and prints the scp, unzip, and merge-prompt steps for getting it into the repo. |
+
+```zsh
+./build-skill.zsh        # writes dist/planning-docs.zip and dist/docs-plan-handoff.zip
+```
+
+`docs-plan-handoff` is a standalone `SKILL.md` and assumes an SSH host alias (`spark-db62`) for
+the Spark. Edit the skill source here, rebuild, and re-upload; the committed copy is the
+source of truth, not the copy saved in a Claude account.
+
 ## Package layout
 
 ```
 docs/
 ├── README.md
+├── build-skill.zsh                         # Build dist/ skill zips from skill/ (and src/rules/)
 ├── collect.zsh                             # Pull ~/.claude/rules/ into src/rules/ for committing
 ├── deploy.zsh                              # Installer
 ├── uninstall.zsh                           # Uninstaller
@@ -121,6 +141,10 @@ docs/
 │   └── docs/
 │       └── .claude-plugin/
 │           └── plugin.json                 # Plugin manifest
+├── skill/
+│   ├── planning-docs/SKILL.md              # Skill source; references come from src/rules/ at build time
+│   └── docs-plan-handoff/SKILL.md          # Standalone skill source
+├── dist/                                   # Built skill zips (git-ignored; .keep holds the folder)
 └── src/
     └── rules/                              # Committed rule files (source of truth)
         ├── planning-global.md
