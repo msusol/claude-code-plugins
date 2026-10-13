@@ -72,6 +72,17 @@ print "=== allowed: sentinel with leading whitespace"
 t "one leading space"        "$(cmd ' GIT_GUARD_SANCTIONED=1 git commit -m t')"   0
 t "two leading spaces"       "$(cmd '  GIT_GUARD_SANCTIONED=1 git commit -m t')"  0
 
+print "=== allowed: sentinel after leading cd prefixes"
+t "cd then sentinel push"    "$(cmd 'cd /tmp/repo && GIT_GUARD_SANCTIONED=1 git push')"              0
+t "two cds then commit"      "$(cmd 'cd /tmp/a && cd sub && GIT_GUARD_SANCTIONED=1 git commit -m x')" 0
+t "cd then sentinel -C push" "$(cmd 'cd /tmp/repo && GIT_GUARD_SANCTIONED=1 git -C . push')"          0
+
+print "=== blocked: sentinel not at the start (only cd may precede it)"
+t "cd then bare push"        "$(cmd 'cd /tmp/repo && git push')"                                     2
+t "echo then sentinel push"  "$(cmd 'echo hi && GIT_GUARD_SANCTIONED=1 git push')"                   2
+t "cd, echo, sentinel push"  "$(cmd 'cd /tmp/repo && echo x && GIT_GUARD_SANCTIONED=1 git push')"    2
+t "semicolon then sentinel"  "$(cmd 'cd /tmp/repo; GIT_GUARD_SANCTIONED=1 git push')"                2
+
 print "=== allowed: read-only and non-write commands"
 t "git status"               "$(cmd 'git status')"              0
 t "git add"                  "$(cmd 'git add file.py')"         0

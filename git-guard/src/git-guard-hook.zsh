@@ -19,8 +19,11 @@ else
   cmd=$(echo "$input" | grep -o '"command":"[^"]*"' | sed 's/"command":"//;s/"$//')
 fi
 
-# Sanctioned-path bypass — let the skill through.
-if echo "$cmd" | grep -qE '^[[:space:]]*GIT_GUARD_SANCTIONED=1[[:space:]]+'; then
+# Sanctioned-path bypass — let the skill through. The sentinel must lead the
+# command, optionally after plain `cd <dir> &&` prefixes (only cd — any other
+# command before it still fails the check).
+stripped=$(echo "$cmd" | sed -E 's/^[[:space:]]*(cd[[:space:]]+[^&;|]+&&[[:space:]]*)+//')
+if echo "$stripped" | grep -qE '^[[:space:]]*GIT_GUARD_SANCTIONED=1[[:space:]]+'; then
   exit 0
 fi
 

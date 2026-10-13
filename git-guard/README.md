@@ -251,6 +251,7 @@ The suite covers:
 - `GIT_GUARD_SANCTIONED=1 git commit / push / tag` — sentinel bypasses hook (exit 0)
 - Sentinel with leading whitespace — still bypasses
 - Heredoc commit message with sentinel — still bypasses
+- Sentinel after leading `cd <dir> &&` prefixes — bypasses; anything else (`echo`, `;`) before it — still blocked
 - Read-only commands (`git status`, `git add`, `git diff`, `git log`, etc.) — allowed
 - Malformed / empty JSON input — allowed (no false positives)
 - Sentinel without required trailing space — still blocked
