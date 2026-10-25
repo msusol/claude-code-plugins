@@ -1,0 +1,9 @@
+{
+  "name": "bug-bash",
+  "version": "1.0.0",
+  "description": "The /bug-bash skill — given a ticket number, sweeps docs/plans/*.md and docs/plans/TODO.md for stale entries tied to that ticket and archives what's actually done.",
+  "author": {
+    "name": "Mark Susol"
+  },
+  "license": "MIT"
+}
