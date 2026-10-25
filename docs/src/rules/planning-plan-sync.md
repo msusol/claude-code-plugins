@@ -21,14 +21,17 @@ Each plan file in `docs/plans/` can map to its own section in `TODO.md`.
 
 Plan file | TODO.md section
 --- | ---
-`docs/plans/search-rollout.md` | `Search rollout`
-`docs/plans/pre-ga-hardening.md` | `Pre-GA hardening`
+`docs/plans/007-search-rollout.md` | `007 Search rollout`
+`docs/plans/012-pre-ga-hardening.md` | `012 Pre-GA hardening`
+`docs/plans/search-rollout.md` (legacy, no number) | `Search rollout`
 
 Rules:
 
-- New implementation plans go in `docs/plans/` and get a new named section in `TODO.md` when a live checklist is useful.
+- A numbered plan's `TODO.md` section title starts with its plan number (`007 Search rollout`), so the section and the file stay unambiguous. Legacy plans without a number keep their plain title.
+- New implementation plans go in `docs/plans/` (named `###-title.md`, see `planning-docs-plans.md`) and get a new named section in `TODO.md` when a live checklist is useful.
 - Each plan has its own top-level section in `TODO.md`. Do not merge tasks across sections.
 - When a task is completed, mark it complete only in the section that owns it.
+- When you check off or add tasks in a plan that has front matter, bump the plan's `date`.
 - When adding tasks derived from a plan file, place them under the correct section.
 
 ## Deriving tasks from plans

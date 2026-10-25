@@ -33,10 +33,27 @@ Do not create a spec for:
 
 See `planning-docs-artifacts.md` for the full artifact co-location rule.
 
+## Front matter
+
+New specs start with this front matter:
+
+```yaml
+---
+status: draft
+date: YYYY-MM-DD
+---
+```
+
+- `status` is required. Values: `draft` (being designed), `accepted` (design agreed, being built), `shipped` (built and stable; the spec describes as-built reality), `superseded`.
+- `superseded` is set with a one-line note in the spec body linking the spec that replaces it.
+- `date` is required. It is the date the spec was last updated, in `YYYY-MM-DD` form. Update it whenever you change the spec.
+- Existing specs without front matter are not retrofitted. Add it when you next edit them, if the user wants it.
+
 ## Default (minimal) spec mode
 
 For new or small specs, start minimal. The minimal format should usually include:
 
+- front matter (see above)
 - `# <Feature or subsystem name> Specification`
 - `## Summary`
 - `## Goals`

@@ -10,12 +10,50 @@ Treat files under `docs/plans/` as implementation planning documents.
 
 They are execution-oriented docs that explain how work should be carried out, broken down, and sequenced.
 
+## File naming and location
+
+- Place plans directly under `docs/plans/`. Archived plans live in `docs/plans/archive/`.
+- Name new plan files `###-kebab-case-title.md`, where `###` is a zero-padded three-digit sequential plan number, for example `007-search-rollout.md`.
+- Allocate the next unused number by scanning **both** `docs/plans/` and `docs/plans/archive/`.
+- Do not reuse numbers, even when a plan is archived, superseded, or dropped. Gaps are fine.
+- Numbers are per repo: each repo's `docs/plans/` starts at `001`.
+- The number appears only in the filename. Do not repeat it in the H1. Refer to a plan as "plan 007" in chat, commits, and other docs.
+- The number stays the same when the plan is archived. Archiving moves the file; it never renames it.
+- `docs/plans/TODO.md` is not a plan and stays unnumbered.
+- Plans that already exist without a `###-` prefix (unprefixed or date-prefixed) are not renamed unless the user asks. Renaming breaks links in other docs and repos.
+
+## Front matter
+
+New plans start with this front matter:
+
+```yaml
+---
+status: active
+date: YYYY-MM-DD
+tickets: [PROJ-123]
+specs: [specs/feature-name/spec.md]
+adr: [adr/0007-decision-title.md]
+---
+```
+
+- `status` is required. Values: `active`, `blocked`, `done`, `superseded`, `archived`.
+  - When writing or editing a plan, set only `active` or `blocked`.
+  - `done` and `archived` are set only after the tasks are checked against live state and the user has confirmed (see "Archiving completed plans", and the `plan-bash` skill when installed).
+  - `superseded` is set with a one-line note in the plan body naming the plan that replaces it.
+- `date` is required. It is the date the plan was last updated, in `YYYY-MM-DD` form. Update it whenever you change the plan or archive it.
+- `tickets` is optional. List issue-tracker keys when the plan is tied to tickets. Omit it otherwise.
+- `specs` and `adr` are optional. List paths relative to `docs/`.
+- Do not put the plan number in the front matter; the filename is the single source of truth.
+- If `status` disagrees with the checkboxes, trust the checkboxes after verifying live state, and fix `status`.
+- Existing plans without front matter are not retrofitted. Add it when you next edit them, if the user wants it.
+
 ## Default (minimal) planning mode
 
 For new or simple work, start with a minimal plan.
 
 The minimal format should usually include:
 
+- front matter (see above)
 - `# <Feature Name> Implementation Plan`
 - `## Goal`
 - `## Context`
@@ -104,8 +142,8 @@ deferred to another plan or doc.
 ### How to archive
 
 1. Mark any remaining deferred tasks with a note: `- [ ] ~~Task~~ — deferred to <other-plan.md>`
-2. Move the file: `mv docs/plans/<name>.md docs/plans/archive/<name>.md`
-   (create `docs/plans/archive/` if it does not exist)
+2. Set `status: archived` and bump `date` in the front matter (if the plan has it), then move the file: `mv docs/plans/<name>.md docs/plans/archive/<name>.md`
+   (create `docs/plans/archive/` if it does not exist). Keep the filename, including its `###-` prefix, unchanged.
 3. Remove or update any `TODO.md` section that referenced the plan — add a one-line note
    such as `_Archived 2026-06-28 — see docs/plans/archive/<name>.md_`
 4. Update `docs/index.md` if it linked to the plan (change the link or remove the entry).
