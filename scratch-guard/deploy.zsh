@@ -48,6 +48,10 @@ else
       warn "Run it yourself: claude plugin install scratch-guard@losus-ai"
     fi
   fi
+
+  # install is a no-op when already installed; update pulls a bumped version.
+  claude plugin marketplace update losus-ai >/dev/null 2>&1 || true
+  claude plugin update scratch-guard@losus-ai >/dev/null 2>&1 || true
 fi
 
 # ── 3. Merge settings.json ────────────────────────────────────────────────────

@@ -151,6 +151,9 @@ fi
 if command -v claude &>/dev/null; then
   claude plugin marketplace add "${REPO_DIR:h}" 2>/dev/null || true
   claude plugin install kaggle@losus-ai 2>/dev/null || true
+  # install is a no-op when already installed; update pulls a bumped version
+  claude plugin marketplace update losus-ai 2>/dev/null || true
+  claude plugin update kaggle@losus-ai 2>/dev/null || true
   print "✓ Plugin registered with Claude Code"
 else
   print "⚠ claude CLI not found — skipping plugin registration"

@@ -146,6 +146,10 @@ else
       fi
       ;;
   esac
+
+  # install is a no-op when already installed; update pulls a bumped version.
+  claude plugin marketplace update losus-ai >/dev/null 2>&1 || true
+  claude plugin update git-guard@losus-ai >/dev/null 2>&1 || true
 fi
 
 # ── 7. Merge settings.json ────────────────────────────────────────────────────
