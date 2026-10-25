@@ -62,7 +62,7 @@ scoped to just this ticket's hits instead of the whole repo.
 - **Whole plan file fully resolved for this ticket, and the plan file is
   only about this ticket**: archive it per `planning-docs-plans.md`'s
   "Archiving completed plans" section (`mv` to `docs/plans/archive/`,
-  update `TODO.md` and `docs/index.md`). The file keeps its `###-` prefix, and its front matter `status`/`date` are updated as that section describes. `plan-bash <###>` runs the same archive by plan number.
+  update `TODO.md` and `docs/index.md`). The file keeps its `NNNN-` prefix, and its front matter `status`/`date` are updated as that section describes. `plan-bash <NNNN>` runs the same archive by plan number.
 - **Plan file partially resolved, or a plan covers more than one ticket**:
   do not move the file. Instead:
   - Check off the ticket's own tasks in both the plan file and its

@@ -18,7 +18,7 @@ Personal collection of [Claude Code](https://claude.ai/code) plugins.
 | [jira-tickets](jira-tickets/) | The `/jira-describe` skill: a living Current Status + append-only History layout for Jira ticket descriptions, and which Atlassian tool path renders real Markdown/ADF |
 | [scratch-guard](scratch-guard/) | PreToolUse hook that blocks scratch/test scripts from being written as standalone files in a shared system temp directory outside the session scratchpad |
 | [bug-bash](bug-bash/) | The `/bug-bash` skill: given a ticket key, sweeps `docs/plans/` and `TODO.md` for stale entries tied to that ticket and archives what is done |
-| [plan-bash](plan-bash/) | The `/plan-bash` skill: given a plan number (`plan-bash 007`), checks that one numbered plan against live state and archives it with its number intact |
+| [plan-bash](plan-bash/) | The `/plan-bash` skill: given a plan number (`plan-bash 0007`), checks that one numbered plan against live state and archives it with its number intact |
 | [usage-statusline](usage-statusline/) | Status line showing model, context %, and subscription rate limits |
 
 ## Usage
@@ -90,12 +90,12 @@ with `claude plugin uninstall <name>@losus-ai`.
 
 ## Numbered plans, `bug-bash`, and `plan-bash`
 
-The `docs` plugin's rules name new plans `docs/plans/###-title.md` (three digits, per repo, never
+The `docs` plugin's rules name new plans `docs/plans/NNNN-title.md` (four digits, per repo, never
 reused) and give plans and specs `status` and `date` front matter. Two skills clean up finished work:
 
 | You have | Use |
 |---|---|
-| A plan number (`007`) | `plan-bash 007` |
+| A plan number (`0007`) | `plan-bash 0007` |
 | A ticket key (`PROJ-1234`) | `bug-bash PROJ-1234` |
 
 Both check the work against live state, report, and ask before moving anything to `docs/plans/archive/`.

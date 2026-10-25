@@ -13,14 +13,14 @@ They are execution-oriented docs that explain how work should be carried out, br
 ## File naming and location
 
 - Place plans directly under `docs/plans/`. Archived plans live in `docs/plans/archive/`.
-- Name new plan files `###-kebab-case-title.md`, where `###` is a zero-padded three-digit sequential plan number, for example `007-search-rollout.md`.
+- Name new plan files `NNNN-kebab-case-title.md`, where `NNNN` is a zero-padded four-digit sequential plan number, for example `0007-search-rollout.md`.
 - Allocate the next unused number by scanning **both** `docs/plans/` and `docs/plans/archive/`.
 - Do not reuse numbers, even when a plan is archived, superseded, or dropped. Gaps are fine.
-- Numbers are per repo: each repo's `docs/plans/` starts at `001`.
-- The number appears only in the filename. Do not repeat it in the H1. Refer to a plan as "plan 007" in chat, commits, and other docs.
+- Numbers are per repo: each repo's `docs/plans/` starts at `0001`.
+- The number appears only in the filename. Do not repeat it in the H1. Refer to a plan as "plan 0007" in chat, commits, and other docs.
 - The number stays the same when the plan is archived. Archiving moves the file; it never renames it.
 - `docs/plans/TODO.md` is not a plan and stays unnumbered.
-- Plans that already exist without a `###-` prefix (unprefixed or date-prefixed) are not renamed unless the user asks. Renaming breaks links in other docs and repos.
+- Plans that already exist without a `NNNN-` prefix (unprefixed or date-prefixed) are not renamed unless the user asks. Renaming breaks links in other docs and repos.
 
 ## Front matter
 
@@ -143,7 +143,7 @@ deferred to another plan or doc.
 
 1. Mark any remaining deferred tasks with a note: `- [ ] ~~Task~~ — deferred to <other-plan.md>`
 2. Set `status: archived` and bump `date` in the front matter (if the plan has it), then move the file: `mv docs/plans/<name>.md docs/plans/archive/<name>.md`
-   (create `docs/plans/archive/` if it does not exist). Keep the filename, including its `###-` prefix, unchanged.
+   (create `docs/plans/archive/` if it does not exist). Keep the filename, including its `NNNN-` prefix, unchanged.
 3. Remove or update any `TODO.md` section that referenced the plan — add a one-line note
    such as `_Archived 2026-06-28 — see docs/plans/archive/<name>.md_`
 4. Update `docs/index.md` if it linked to the plan (change the link or remove the entry).

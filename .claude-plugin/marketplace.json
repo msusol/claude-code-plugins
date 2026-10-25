@@ -114,7 +114,7 @@
         "path": "plan-bash/plugins/plan-bash",
         "ref": "main"
       },
-      "description": "The /plan-bash skill — given a plan number (plan-bash 007), checks that one docs/plans/###-*.md plan against live state and archives it with its number intact, after confirmation.",
+      "description": "The /plan-bash skill — given a plan number (plan-bash 0007), checks that one docs/plans/NNNN-*.md plan against live state and archives it with its number intact, after confirmation.",
       "category": "development"
     }
   ]

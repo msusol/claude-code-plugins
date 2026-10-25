@@ -29,4 +29,4 @@ unrelated), confirming before archiving, the archive mechanics for a
 fully-resolved plan file vs. a partially-resolved one, and when to escalate
 to the broader `planning-desync-cleanup.md` workflow instead.
 
-For the same cleanup keyed by plan number instead of ticket key ("plan bash 007"), use the `plan-bash` skill.
+For the same cleanup keyed by plan number instead of ticket key ("plan bash 0007"), use the `plan-bash` skill.

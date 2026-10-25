@@ -54,7 +54,7 @@ Use the following roles under `docs/`:
 | Folder | File name | Front matter |
 |---|---|---|
 | `docs/adr/` | `NNNN-kebab-title.md` (four digits, MADR 4.x template) | `status`, `date`, `decision-makers` (required) |
-| `docs/plans/` | `###-kebab-title.md` (three digits, per repo, kept when archived) | `status`, `date` (required); `tickets`, `specs`, `adr` (optional) |
+| `docs/plans/` | `NNNN-kebab-title.md` (four digits, per repo, kept when archived) | `status`, `date` (required); `tickets`, `specs`, `adr` (optional) |
 | `docs/specs/` | `feature-name.md` or `feature-name/spec.md` | `status`, `date` |
 | `docs/investigate/`, `docs/process/`, `docs/roadmap/` | see their own rules | none |
 

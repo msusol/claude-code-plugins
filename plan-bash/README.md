@@ -4,13 +4,13 @@
 
 **Author:** Mark Susol
 
-The `/plan-bash` skill — given a plan number (`plan-bash 007`), checks that
-one `docs/plans/###-*.md` plan against live state and archives it to
+The `/plan-bash` skill — given a plan number (`plan-bash 0007`), checks that
+one `docs/plans/NNNN-*.md` plan against live state and archives it to
 `docs/plans/archive/` with its number intact, after you confirm.
 
 ## Why
 
-Plans are numbered (`docs/plans/###-title.md`, see the `docs` plugin's
+Plans are numbered (`docs/plans/NNNN-title.md`, see the `docs` plugin's
 `planning-docs-plans.md`), so a plan can be addressed by number the way an
 ADR can. Finished plans pile up in `docs/plans/` as noise, and archiving
 them by hand skips steps: checking the work actually shipped, fixing
@@ -22,7 +22,7 @@ by ticket key and sweeps every plan that mentions the ticket.
 
 | You have | Use |
 |---|---|
-| A plan number (`007`) | `plan-bash 007` |
+| A plan number (`0007`) | `plan-bash 0007` |
 | A ticket key (`PROJ-1234`) | `bug-bash PROJ-1234` |
 | A whole `TODO.md` that has drifted | `planning-desync-cleanup.md` (in the `docs` plugin) |
 

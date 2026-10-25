@@ -52,7 +52,7 @@ If the user chooses a conservative merge:
 When performing a sync cleanup after user confirmation:
 
 - Enumerate all plan files under `docs/plans/**/*.md`.
-- Match each plan to its `TODO.md` section by plan number when the file has a `###-` prefix (section title `007 Title`), otherwise by title.
+- Match each plan to its `TODO.md` section by plan number when the file has a `NNNN-` prefix (section title `0007 Title`), otherwise by title.
 - If a plan has front matter, check `status` against its checkboxes and fix `status` to match verified reality.
 - Collect their task lists.
 - Enumerate all sections and checkbox items in `TODO.md`.

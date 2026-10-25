@@ -1,5 +1,5 @@
 ---
-description: Plan-number-driven check and archive of a single docs/plans/###-*.md plan (verify tasks, confirm, archive with its number intact)
+description: Plan-number-driven check and archive of a single docs/plans/NNNN-*.md plan (verify tasks, confirm, archive with its number intact)
 paths:
   - docs/plans/**/*.md
   - docs/plans/TODO.md
@@ -7,26 +7,26 @@ paths:
 
 # Plan-bash plan archiving
 
-When the user gives a plan number and asks for a "plan bash" (for example `plan-bash 007`, "plan bash 7", "archive plan 007", "is plan 007 done?"), check that one plan against reality and archive it if it is genuinely finished.
+When the user gives a plan number and asks for a "plan bash" (for example `plan-bash 0007`, "plan bash 7", "archive plan 0007", "is plan 0007 done?"), check that one plan against reality and archive it if it is genuinely finished.
 
 This is the plan-number sibling of `planning-bug-bash-ticket-cleanup.md` (keyed by ticket key, sweeps every plan that mentions the ticket) and a narrower sibling of `planning-desync-cleanup.md` (repo-wide). It reuses the archive mechanics in `planning-docs-plans.md` ("Archiving completed plans") and the numbering and front matter rules defined there. Reach for this rule when the scope is "plan N".
 
 ## 1. Resolve the plan
 
-- Normalize the argument to three digits (`7` becomes `007`).
-- Find files matching `<###>-*.md` in `docs/plans/` and in `docs/plans/archive/`.
+- Normalize the argument to four digits (`7` becomes `0007`).
+- Find files matching `<NNNN>-*.md` in `docs/plans/` and in `docs/plans/archive/`.
   - Exactly one match in `docs/plans/`: proceed.
   - Match only in `docs/plans/archive/`: say it is already archived and stop. Do not re-process it.
-  - No match: list the plans that exist, including archived ones marked as archived, with number, title, `status`, and open/total task counts for the ones in `docs/plans/`. Ask which one was meant. Never guess a nearby number.
+  - No match: list the plans that exist, including archived ones marked as archived, with number, title, and `status` for every plan, plus open/total task counts for the ones in `docs/plans/` (archived plans get no counts). If a number appears twice, list both rows. Ask which one was meant. Never guess a nearby number.
   - More than one match (a duplicated number): stop and report both files. Do not pick one, and do not propose a renumbering unless asked. Duplicate numbers need the user's decision.
 - No argument given: list the plans in `docs/plans/` with number, title, `status`, and open/total task counts, and ask which to check.
 - A ticket key instead of a number: find numbered plans whose `tickets:` front matter lists it. One match: confirm the plan number with the user and proceed. Several: list them and ask. If the user wants every plan tied to the ticket swept, use `planning-bug-bash-ticket-cleanup.md`.
-- A legacy plan with no `###-` prefix cannot be addressed by number. Tell the user, and offer to run the same steps by file name. Do not rename it.
+- A legacy plan with no `NNNN-` prefix cannot be addressed by number. Tell the user, and offer to run the same steps by file name. Do not rename it.
 
 ## 2. Read everything about the plan
 
 - Read the whole plan file, including front matter, `Notes`, `Open questions`, and `Exit criteria` sections if present.
-- Read the plan's section in `docs/plans/TODO.md` (a numbered plan's section title starts with its number, for example `007 Search rollout`; a legacy plan uses its plain title).
+- Read the plan's top-level section in `docs/plans/TODO.md`, and any matching subsection under `Next steps` (a numbered plan's section title starts with its number, for example `0007 Search rollout`; a legacy plan uses its plain title).
 - Check `specs:` and `adr:` front matter links and any ADR or spec that links back to this plan.
 
 ## 3. Classify every task
@@ -37,7 +37,7 @@ For each task in the plan and in its `TODO.md` section:
 - **Deferred** — `- [ ] ~~Task~~ — deferred to <other-plan>`, with the target plan named and existing.
 - **Dropped** — marked dropped with a reason.
 - **Open** — unchecked with no deferral or drop note.
-- **Unverifiable** — checked, but nothing in the repo, PRs, or running system confirms it.
+- **Unverifiable** — checked, but nothing in the repo, PRs, or running system confirms it. This includes a checked task whose named file, function, or behavior does not exist; say that it is missing, not just unconfirmed.
 
 ## 4. Verify "done" against live state
 
@@ -77,10 +77,10 @@ Follow "Archiving completed plans" in `planning-docs-plans.md`, with these speci
 
 1. Mark remaining deferred tasks with `- [ ] ~~Task~~ — deferred to <other-plan>`.
 2. In the plan's front matter, set `status: archived` and bump `date` to today. If the plan has no front matter, do not add it; move the file as is. If the user only wants to close the plan without moving it, set `status: done` and bump `date` instead, then skip the move and the link fixes (steps 3 to 7 below) but still update the plan's `TODO.md` section.
-3. Move the file to `docs/plans/archive/` with the **same filename**. The `###-` prefix never changes. Use `git mv` when the file is tracked.
-4. In `docs/plans/TODO.md`, keep the plan's section heading and replace its contents with one line, for example `_Archived 2026-10-25 — see docs/plans/archive/007-search-rollout.md_`, and remove it from `Next steps`.
+3. Move the file to `docs/plans/archive/` with the **same filename**. The `NNNN-` prefix never changes. Use `git mv` when the file is tracked.
+4. In `docs/plans/TODO.md`, keep the plan's section heading and replace its contents with one line, for example `_Archived 2026-10-25 — see docs/plans/archive/0007-search-rollout.md_`, and remove it from `Next steps`.
 5. Update `docs/index.md` if it linked to the plan.
-6. Search the repo for links to the old path (`docs/plans/<###>-...`, relative `plans/<###>-...`, and `../plans/...`) and for bare mentions of the file name (for example `007-search-rollout.md`) in specs, ADRs, process docs, investigations, other plans, and `CLAUDE.md` files. Fix each to the archive path in the same change.
+6. Search the repo for links to the old path (`docs/plans/<NNNN>-...`, relative `plans/<NNNN>-...`, and `../plans/...`) and for bare mentions of the file name (for example `0007-search-rollout.md`) in specs, ADRs, process docs, investigations, other plans, and `CLAUDE.md` files. Fix each to the archive path in the same change.
 7. If an accepted ADR links to the plan, only the broken link may be fixed (see the immutability rule in `planning-docs-adr.md`).
 
 ## 7. Finish
