@@ -1,5 +1,5 @@
 ---
-description: Authoring rules for Architecture Decision Records under docs/adr/ (numbering, required sections, immutability, superseding)
+description: Authoring rules for Architecture Decision Records under docs/adr/ using the MADR 4.x template (front matter, required sections, immutability, superseding)
 paths:
   - docs/adr/**/*.md
 ---
@@ -8,7 +8,7 @@ paths:
 
 Treat files under `docs/adr/` as Architecture Decision Records.
 
-ADRs capture a single architectural decision, the context that forced it, the alternatives considered, and the consequences of choosing it. They are append-only history, not living design docs.
+ADRs follow the [MADR](https://adr.github.io/madr/) 4.x template, with the local additions listed under "Local additions to MADR" below. An ADR captures a single architectural decision, the context that forced it, the options considered, and the consequences of choosing it. ADRs are append-only history, not living design docs.
 
 ## When to create an ADR
 
@@ -29,83 +29,134 @@ Do not create an ADR for:
 
 ## File naming and location
 
-- Place ADRs directly under `docs/adr/`.
+- Place ADRs directly under `docs/adr/`. This is a deliberate deviation from MADR's default folder, `docs/decisions/`; keep `docs/adr/` so existing repos and links stay valid.
 - Name files `NNNN-kebab-case-title.md`, where `NNNN` is a zero-padded sequential number, for example `0007-adopt-oci-queue-for-ingestion.md`.
 - Allocate the next unused number by scanning existing files in `docs/adr/`.
 - Do not reuse numbers, even when an ADR is superseded or rejected.
+- The number appears only in the filename. Do not repeat it in the H1.
 
-## Required structure
+## Template
 
-Every ADR must include these top-level sections in this order:
+Start every ADR from this template. Delete optional sections that add no value; never leave placeholder text behind.
 
-- `# NNNN. <Decision title>`
-- `## Status`
-- `## Context`
-- `## Decision`
-- `## Consequences`
+```markdown
+---
+status: proposed
+date: YYYY-MM-DD
+decision-makers: name, name
+consulted: name (role)
+informed: team or name
+---
 
-Optional sections, added only when they add real value:
+# Short title naming the problem and the chosen solution
 
-- `## Alternatives considered`
-- `## Related decisions`
-- `## References`
+## Context and Problem Statement
 
-### Status
+## Decision Drivers
 
-`## Status` must contain one of these values on its own line:
+* driver
 
-- `Proposed`
-- `Accepted`
-- `Superseded by ADR-NNNN`
-- `Deprecated`
-- `Rejected`
+## Considered Options
 
-When superseding, link to the superseding ADR by number and title.
+* Option 1
+* Option 2
 
-### Context
+## Decision Outcome
 
-`## Context` describes:
-
-- the forces, constraints, and requirements that motivated the decision
-- relevant prior state, prior ADRs, or external drivers
-- the problem being solved, in terms that will still make sense in 6 months
-
-Do not record the decision itself here.
-
-### Decision
-
-`## Decision` states:
-
-- what was decided
-- in active voice and present tense, for example "We will use OCI Queue for ingestion."
-
-Keep this section short and unambiguous.
+Chosen option: "Option 1", because ...
 
 ### Consequences
 
-`## Consequences` records:
+* Good, because ...
+* Bad, because ...
+* Neutral, because ...
 
-- positive consequences and capabilities unlocked
-- negative consequences, costs, and risks accepted
-- follow-on work or constraints imposed on future decisions
+### Confirmation
 
-### Alternatives considered
+## Pros and Cons of the Options
 
-When included, list each alternative with a brief reason it was not chosen.
+### Option 1
+
+* Good, because ...
+* Bad, because ...
+
+## More Information
+```
+
+## Front matter
+
+- `status` is required. Use one of: `proposed`, `accepted`, `rejected`, `deprecated`, or `superseded by ADR-NNNN`.
+- `date` is required. It is the date the ADR was last updated, in `YYYY-MM-DD` form. Update it when `status` changes.
+- `decision-makers` is required (a local addition; MADR treats it as optional). List everyone involved in the decision.
+- `consulted` is optional. List subject-matter experts whose opinion was sought (two-way communication).
+- `informed` is optional. List people kept up to date (one-way communication).
+- Do not add `parent`, `nav_order`, or `title`. They are Jekyll theme settings from the MADR template and have no use here.
+
+## Sections
+
+### Title
+
+A short title that reflects both the problem and the chosen solution. Do not prefix it with the ADR number.
+
+### Context and Problem Statement (required)
+
+- Describe the forces, constraints, requirements, and prior state that motivated the decision, in terms that will still make sense in 6 months.
+- Two or three sentences is enough for a small decision. Longer decisions may use a story, a table of current behavior, or a numbered list of constraints.
+- It may be phrased as a question.
+- Do not record the decision itself here.
+
+### Decision Drivers (optional)
+
+The forces and concerns that weigh on the choice, as a list. Use this when the drivers are not already obvious from the problem statement.
+
+### Considered Options (required)
+
+A list of the options that were seriously considered, including the chosen one. A single-option ADR is not an ADR; if there was no alternative, the decision probably belongs in a spec or plan.
+
+### Decision Outcome (required)
+
+- State the chosen option and why, in the form: `Chosen option: "<option>", because <justification>.`
+- Add sub-sections for detail when the decision is more than a sentence. For example: how it works, phasing, key management.
+- Keep the opening statement short and unambiguous, in active voice.
+
+#### Consequences (optional, but expected)
+
+List `Good, because ...`, `Bad, because ...`, and `Neutral, because ...` items. Include costs, risks accepted, and follow-on work or constraints on future decisions. Treat this section as expected for any ADR with real tradeoffs.
+
+#### Confirmation (optional)
+
+How compliance with the decision will be verified. Examples: a code review checklist item, an architecture test, a CI check, a revisit trigger or date.
+
+### Pros and Cons of the Options (optional)
+
+One sub-section per option with `Good`, `Bad`, or `Neutral` arguments. For a rejected option, state the reason it lost.
+
+### More Information (optional)
+
+Anything else a future reader needs: evidence, links to related ADRs, specs, plans, tickets, and commits, notes on retroactive capture, and when the decision should be revisited.
+
+## Local additions to MADR
+
+- ADRs are immutable once accepted (see "Editing discipline").
+- `decision-makers` is required.
+- The folder is `docs/adr/`.
+- Related ADRs, tickets, commits, and external references go in `More Information`, one bullet each.
+- A retroactive ADR (a decision already implemented before it was written down) must say so in `More Information`, name who needs to confirm it, and stay `proposed` until they do.
 
 ## Editing discipline
 
-ADRs are immutable once their status is `Accepted`. Specifically:
+ADRs are immutable once their `status` is `accepted`. Specifically:
 
-- Do not rewrite `Context`, `Decision`, or `Consequences` of an accepted ADR.
+- Do not rewrite `Context and Problem Statement`, `Decision Outcome`, or `Consequences` of an accepted ADR.
 - Fix only typographical errors and broken links in accepted ADRs.
-- To change a decision, write a new ADR that supersedes the old one and update the old ADR's `Status` to `Superseded by ADR-NNNN`.
-- To retire a decision without replacement, set `Status` to `Deprecated` and add a short note explaining why.
-- `Proposed` ADRs may be edited freely until they reach `Accepted` or `Rejected`.
+- A one-time mechanical format migration (for example, moving an old-format ADR into the MADR template) is allowed, provided the substance of Context, Decision, and Consequences is unchanged. Say so in the commit message.
+- To change a decision, write a new ADR that supersedes the old one and set the old ADR's `status` to `superseded by ADR-NNNN`.
+- To retire a decision without replacement, set `status` to `deprecated` and add a short note in `More Information` explaining why.
+- `proposed` ADRs may be edited freely until they reach `accepted` or `rejected`.
 
 ## Index and navigation
 
-- When an ADR is added or its status changes, update `docs/index.md` if it links to ADRs.
+- When an ADR is added or its status changes, update `docs/index.md` if it links to ADRs. Show the title and, for any status other than `accepted`, the status in parentheses.
 - Optionally maintain `docs/adr/README.md` as an ADR index listing each ADR by number, title, and status.
 
 ## Relationship to other docs

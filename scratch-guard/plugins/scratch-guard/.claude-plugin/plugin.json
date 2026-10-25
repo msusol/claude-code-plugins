@@ -1,0 +1,9 @@
+{
+  "name": "scratch-guard",
+  "version": "1.0.0",
+  "description": "PreToolUse hook that blocks scratch/test scripts from being materialized as standalone files in a shared system temp directory (/tmp, /private/tmp, /var/folders) outside a Claude Code session's own scratchpad subdirectory — either because the file looks executable (.sh/.py/etc.) or because its content embeds a base64 decode-into-exec pattern, both of which read as obfuscation to endpoint security. Plain non-executable drafts (e.g. the dm-pbcopy workflow's /tmp/<name>.txt files) are left alone.",
+  "author": {
+    "name": "Mark Susol"
+  },
+  "license": "MIT"
+}

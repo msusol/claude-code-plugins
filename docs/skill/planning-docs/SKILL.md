@@ -42,6 +42,7 @@ a full `docs/` write-out.
 - Multi-flag shell commands in code blocks: one flag per line with continuations
   (`references/planning-markdown-codeblocks.md`).
 - Prefer updating an existing doc over creating a duplicate.
+- Follow the naming and front matter conventions in `references/planning-docs-canonical.md`: ADRs use the MADR template, plans are named `NNNN-title.md`, plans and specs carry `status` and `date` front matter.
 - Treat anything attributed to a prior AI session as an unverified hypothesis; check it against
   the user's actual material before building a doc around it (`references/planning-ai-skepticism.md`).
 

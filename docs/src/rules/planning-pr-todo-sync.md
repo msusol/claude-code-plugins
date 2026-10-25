@@ -54,9 +54,9 @@ prior session in a different repo.
 
 Don't ask "should I open a PR for this?" (or open one unprompted) right
 after a single commit. Default to committing related work onto the same
-branch and let it accumulate, the same way this session's own
-`aries-agent-evals` PR #28 collected 12 commits across two full work
-phases before being proposed for merge — that was the right shape, not an
+branch and let it accumulate, the same way a PR that
+collected 12 commits across two full work phases before being proposed for
+merge — that was the right shape, not an
 oversight to avoid. Hold off proposing a PR until one of:
 
 - The user explicitly asks for a PR right now, or asks to "wrap this up" /
@@ -100,15 +100,15 @@ body and the final diff grows the longest:
   against the PR's full commit list before merge — not just at the moment
   each commit was made. A plan file's checklist can still be stale even
   when `TODO.md` itself was updated correctly per commit (seen live,
-  2026-09-16, WCP-67: `TODO.md` tracked Phase 1 as resolved commit-by-
-  commit, but `docs/plans/multi-tool-orchestration-evals.md`'s own Phase 1
+  2026-09-16: `TODO.md` tracked Phase 1 as resolved commit-by-
+  commit, but the plan file's own Phase 1
   checklist stayed `- [ ]` unchecked the whole time — nothing had ever
   re-diffed the plan file against TODO.md before merge).
 - Re-check the PR's own title and body against `git log <base>..HEAD` (or
   `gh pr view --json commits`) — if the accumulated commits describe
   materially more than the title/body say, fix the title/body before
-  merging, not after. Seen live the same day: PR #28 opened as "catch
-  ALL_SUBSCRIBED_TOOLS registry drift (WCP-67 Phase 0)" but accumulated 12
+  merging, not after. Seen live the same day: a PR opened as "catch
+  registry drift (Phase 0)" but accumulated 12
   commits spanning all of Phase 1 before merge; the mismatch was only
   caught because the user asked directly, not because anything flagged it.
 - Do this check even when the user's instruction to merge doesn't mention
@@ -125,9 +125,8 @@ body and the final diff grows the longest:
 - `planning-desync-cleanup.md` is the heavier remediation path when a
   large gap is already found; this rule is aimed at not accumulating one
   in the first place.
-- Independent of `planning-jira-ticket-transitions.md` (Jira status) and
-  `planning-slack-wcp-updates.md` (Slack posts) — a PR can be accurate
-  here without either of those changing, and vice versa.
+- Independent of `planning-jira-ticket-transitions.md` (Jira status) — a PR
+  can be accurate here without that changing, and vice versa.
 - `git-branch-naming.md` has the matching single-branch exemption for
   branch-naming enforcement — the two exemptions describe the same
   repo-topology check, applied to different concerns (branch naming vs.

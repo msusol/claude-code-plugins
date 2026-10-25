@@ -1,0 +1,9 @@
+{
+  "name": "plan-bash",
+  "version": "1.0.0",
+  "description": "The /plan-bash skill — given a plan number (plan-bash 0007), checks that one docs/plans/NNNN-*.md plan against live state and archives it with its number intact, after confirmation.",
+  "author": {
+    "name": "Mark Susol"
+  },
+  "license": "MIT"
+}

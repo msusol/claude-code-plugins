@@ -14,6 +14,11 @@ Personal collection of [Claude Code](https://claude.ai/code) plugins.
 | [kaggle](kaggle/) | Light harness for Kaggle competitions: `kaggle-*` rules, a project-scaffold skill, and `/kaggle:new` + `/kaggle:preflight` commands |
 | [db-guard](db-guard/) | Two-layer guard against unauthorized `DROP TABLE`, `TRUNCATE`, `DROP DATABASE`, `DROP SCHEMA`, and `DROP COLUMN` |
 | [git-guard](git-guard/) | Three-layer protection against unauthorized `git commit` and `git push`, plus branch-naming enforcement (GitFlow Lite) |
+| [dgx-spark](dgx-spark/) | Global `dgx-spark-*` rules for the DGX Spark host: Docker context/daemon gotchas and other host-level facts |
+| [jira-tickets](jira-tickets/) | The `/jira-describe` skill: a living Current Status + append-only History layout for Jira ticket descriptions, and which Atlassian tool path renders real Markdown/ADF |
+| [scratch-guard](scratch-guard/) | PreToolUse hook that blocks scratch/test scripts from being written as standalone files in a shared system temp directory outside the session scratchpad |
+| [bug-bash](bug-bash/) | The `/bug-bash` skill: given a ticket key, sweeps `docs/plans/` and `TODO.md` for stale entries tied to that ticket and archives what is done |
+| [plan-bash](plan-bash/) | The `/plan-bash` skill: given a plan number (`plan-bash 0007`), checks that one numbered plan against live state and archives it with its number intact |
 | [usage-statusline](usage-statusline/) | Status line showing model, context %, and subscription rate limits |
 
 ## Usage
@@ -40,6 +45,11 @@ Or run each plugin's own installer directly:
 ./kaggle/deploy.zsh
 ./db-guard/deploy.zsh
 ./git-guard/deploy.zsh
+./dgx-spark/deploy.zsh
+./jira-tickets/deploy.zsh
+./scratch-guard/deploy.zsh
+./bug-bash/deploy.zsh
+./plan-bash/deploy.zsh
 ./usage-statusline/deploy.zsh
 ```
 
@@ -53,6 +63,8 @@ claude plugin marketplace add msusol/claude-code-plugins
 claude plugin install kaggle@losus-ai
 claude plugin install docs@losus-ai
 claude plugin install git-guard@losus-ai
+claude plugin install bug-bash@losus-ai
+claude plugin install plan-bash@losus-ai
 ```
 
 (The repo name `claude-code-plugins` is a reserved marketplace name, so the marketplace
@@ -68,8 +80,26 @@ pulling updates. To remove a plugin:
 ./kaggle/uninstall.zsh
 ./db-guard/uninstall.zsh
 ./git-guard/uninstall.zsh
+./dgx-spark/uninstall.zsh
+./scratch-guard/uninstall.zsh
 ./usage-statusline/uninstall.zsh
 ```
+
+`jira-tickets`, `bug-bash`, and `plan-bash` are skills-only and have no uninstaller; remove them
+with `claude plugin uninstall <name>@losus-ai`.
+
+## Numbered plans, `bug-bash`, and `plan-bash`
+
+The `docs` plugin's rules name new plans `docs/plans/NNNN-title.md` (four digits, per repo, never
+reused) and give plans and specs `status` and `date` front matter. Two skills clean up finished work:
+
+| You have | Use |
+|---|---|
+| A plan number (`0007`) | `plan-bash 0007` |
+| A ticket key (`PROJ-1234`) | `bug-bash PROJ-1234` |
+
+Both check the work against live state, report, and ask before moving anything to `docs/plans/archive/`.
+Their procedures live in the `docs` plugin's rules, so install `docs` alongside them.
 
 ## Plugin design: rules vs rules + hook
 

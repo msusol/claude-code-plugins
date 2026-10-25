@@ -49,6 +49,17 @@ Use the following roles under `docs/`:
   - Top-level navigation entry point for the docs system.
   - Overview of the project and links to key ADRs, specs, plans, roadmap entries, process docs, and investigations.
 
+## Naming and front matter conventions
+
+| Folder | File name | Front matter |
+|---|---|---|
+| `docs/adr/` | `NNNN-kebab-title.md` (four digits, MADR 4.x template) | `status`, `date`, `decision-makers` (required) |
+| `docs/plans/` | `NNNN-kebab-title.md` (four digits, per repo, kept when archived) | `status`, `date` (required); `tickets`, `specs`, `adr` (optional) |
+| `docs/specs/` | `feature-name.md` or `feature-name/spec.md` | `status`, `date` |
+| `docs/investigate/`, `docs/process/`, `docs/roadmap/` | see their own rules | none |
+
+Details live in `planning-docs-adr.md`, `planning-docs-plans.md`, and `planning-docs-specs.md`. New files follow these conventions; existing files are not renamed or retrofitted unless the user asks.
+
 ## Practical classification rule
 
 If a document is expected to matter in 6 months, it should probably live in `docs/`.

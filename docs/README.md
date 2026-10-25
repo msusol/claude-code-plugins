@@ -109,6 +109,15 @@ When adding a new rule to this plugin, use the `planning-` prefix.
 Claude Code loads all `@`-imported files in `~/.claude/CLAUDE.md` as a combined context —
 order does not affect how rules are applied.
 
+## Document conventions
+
+The rules set these conventions for a repo's `docs/` tree (details in the rule files):
+
+- **ADRs** (`docs/adr/NNNN-title.md`) use the MADR 4.x template with `status`, `date`, and `decision-makers` front matter.
+- **Plans** (`docs/plans/NNNN-title.md`) carry a four-digit plan number, per repo, that never changes or gets reused, even after archiving.
+  Plans and specs carry `status` and `date` front matter. `TODO.md` stays unnumbered.
+- New files follow these conventions; existing files are not renamed or retrofitted unless you ask.
+
 ## Skill packages
 
 `build-skill.zsh` packages the skills under `skill/` into uploadable zips in `dist/`
