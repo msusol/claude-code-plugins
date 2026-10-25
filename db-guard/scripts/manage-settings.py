@@ -25,7 +25,7 @@ DB_GUARD_HOOK_ENTRY = {
 
 def _load_settings():
     if SETTINGS_PATH.exists():
-        with open(SETTINGS_PATH) as f:
+        with open(SETTINGS_PATH, encoding="utf-8") as f:
             return json.load(f)
     return {}
 
@@ -33,9 +33,10 @@ def _load_settings():
 def _write_settings(settings):
     SETTINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile(
-        "w", dir=SETTINGS_PATH.parent, delete=False, suffix=".tmp"
+        "w", dir=SETTINGS_PATH.parent, delete=False, suffix=".tmp", encoding="utf-8"
     ) as tmp:
-        json.dump(settings, tmp, indent=2)
+        # ensure_ascii=False: do not re-encode the user's existing non-ASCII text as \uXXXX escapes.
+        json.dump(settings, tmp, indent=2, ensure_ascii=False)
         tmp.write("\n")
         tmp_path = tmp.name
     shutil.move(tmp_path, SETTINGS_PATH)
