@@ -1,0 +1,9 @@
+{
+  "name": "jira-tickets",
+  "version": "1.0.0",
+  "description": "The /jira-describe skill — drives a living Current Status + append-only History layout for Jira ticket descriptions across multiple rounds of findings, and flags which Atlassian tool path actually supports real Markdown/ADF rendering vs. a plain-text fallback.",
+  "author": {
+    "name": "Mark Susol"
+  },
+  "license": "MIT"
+}

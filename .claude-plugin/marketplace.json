@@ -72,6 +72,28 @@
       },
       "description": "Status line showing model, context %, and subscription rate limits.",
       "category": "development"
+    },
+    {
+      "name": "jira-tickets",
+      "source": {
+        "source": "git-subdir",
+        "url": "msusol/claude-code-plugins",
+        "path": "jira-tickets/plugins/jira-tickets",
+        "ref": "main"
+      },
+      "description": "The /jira-describe skill — drives a living Current Status + append-only History layout for Jira ticket descriptions, and flags which Atlassian tool path supports real Markdown/ADF rendering vs. a plain-text fallback.",
+      "category": "development"
+    },
+    {
+      "name": "scratch-guard",
+      "source": {
+        "source": "git-subdir",
+        "url": "msusol/claude-code-plugins",
+        "path": "scratch-guard/plugins/scratch-guard",
+        "ref": "main"
+      },
+      "description": "PreToolUse hook that blocks scratch/test scripts from being written as standalone files in a shared system temp directory outside a Claude Code session's own scratchpad.",
+      "category": "development"
     }
   ]
 }
