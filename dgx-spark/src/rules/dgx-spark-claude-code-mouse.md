@@ -21,7 +21,8 @@ the line, then open a new shell (or `unset CLAUDE_CODE_DISABLE_MOUSE`) and resta
 Claude Code. Sourcing `~/.bashrc` alone does not clear an already-exported variable.
 
 Found live 2026-11-01: `~/.bashrc` still carried the older `=1` line next to the
-`_CLICKS` line.
+`_CLICKS` line. After removing it, wheel scrolling was confirmed working in a fresh
+PyCharm SSH shell the same day.
 
 ## Not related
 
