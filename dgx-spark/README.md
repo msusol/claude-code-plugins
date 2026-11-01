@@ -39,6 +39,7 @@ raw `sudo kill -9` from outside Docker's management path) prevented killing it. 
 |---|---|
 | `src/rules/dgx-spark-docker-context.md` | Two Docker daemons/contexts on this host (`default` vs `desktop-linux`) — how to tell which one you're on, and why a raw `kill -9` on a Docker-confined PID always fails |
 | `src/rules/dgx-spark-heavy-compute-jobs.md` | Host-level facts for running any heavy compute job here — the shared-host OOM risk, pausing background Docker services first, `tmux`-only long-running sessions |
+| `src/rules/dgx-spark-claude-code-mouse.md` | Use `CLAUDE_CODE_DISABLE_MOUSE_CLICKS=1` for copy in PyCharm's SSH terminal; never `CLAUDE_CODE_DISABLE_MOUSE=1`, which kills wheel scrolling |
 
 ## Install
 
