@@ -13,8 +13,8 @@ This is the plan-number sibling of `planning-bug-bash-ticket-cleanup.md` (keyed 
 
 ## 1. Resolve the plan
 
-- Normalize the argument to four digits (`7` becomes `0007`).
-- Find files matching `<NNNN>-*.md` in `docs/plans/` and in `docs/plans/archive/`.
+- Normalize the argument to four digits (`7` becomes `0007`). A five-digit argument such as `00011` is an inserted number (see `planning-docs-plans.md`); keep it as given.
+- Find files matching `<NNNN>-*.md` (or `<NNNNN>-*.md` for an inserted number) in `docs/plans/` and in `docs/plans/archive/`.
   - Exactly one match in `docs/plans/`: proceed.
   - Match only in `docs/plans/archive/`: say it is already archived and stop. Do not re-process it.
   - No match: list the plans that exist, including archived ones marked as archived, with number, title, and `status` for every plan, plus open/total task counts for the ones in `docs/plans/` (archived plans get no counts). If a number appears twice, list both rows. Ask which one was meant. Never guess a nearby number.

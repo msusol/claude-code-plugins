@@ -21,6 +21,7 @@ They are execution-oriented docs that explain how work should be carried out, br
 - The number stays the same when the plan is archived. Archiving moves the file; it never renames it.
 - `docs/plans/TODO.md` is not a plan and stays unnumbered.
 - Plans that already exist without a `NNNN-` prefix (unprefixed or date-prefixed) are not renamed unless the user asks. Renaming breaks links in other docs and repos.
+- **Inserted numbers (only when the user asks).** A plan that must sort between two existing plans, for example a legacy plan that belongs right after `0001`, may take a five-digit number: the four-digit number it follows plus one digit, `00011`, `00012`, `00013` (all sort between `0001` and `0002`). The filename is `00011-kebab-case-title.md`. Everything above still applies: the number appears only in the filename, is never reused, and stays when the plan is archived. Never pick an inserted number on your own; new plans always take the next four-digit number. Note that `00011` is not `0011`: write it in full ("plan 00011") in chat, commits and docs, and add the plan's number to its `TODO.md` section title.
 
 ## Front matter
 
