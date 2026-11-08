@@ -116,6 +116,17 @@
       },
       "description": "The /plan-bash skill — given a plan number (plan-bash 0007), checks that one docs/plans/NNNN-*.md plan against live state and archives it with its number intact, after confirmation.",
       "category": "development"
+    },
+    {
+      "name": "docs-hub",
+      "source": {
+        "source": "git-subdir",
+        "url": "msusol/claude-code-plugins",
+        "path": "docs-hub/plugins/docs-hub",
+        "ref": "main"
+      },
+      "description": "/docs-hub:hub — builds a docs hub page from a repo's docs/ folder (plan progress, decisions, investigations, open work), linked to the local files, with a live-reloading local server.",
+      "category": "development"
     }
   ]
 }

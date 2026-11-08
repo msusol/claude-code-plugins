@@ -1,0 +1,855 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Docs Hub</title>
+<style>
+:root {
+  --cds-gap-xs: 0.25rem; --cds-gap-sm: 0.5rem; --cds-gap-md: 1rem; --cds-gap-lg: 1.5rem;
+  --cds-pad-xs: 0.25rem; --cds-pad-sm: 0.5rem; --cds-pad-lg: 1rem;
+  --cds-font-size-caption: 0.8125rem; --cds-font-size-body: 1rem; --cds-font-size-heading: 1.25rem;
+  --cds-font-weight-medium: 500;
+  --cds-shadow-popover: 0 4px 14px rgba(0,0,0,.12);
+  --font-anthropic-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+}
+html, body { margin: 0; background: #fafafa; font-family: var(--font-anthropic-sans); }
+body { padding: 1.5rem 1rem; }
+.rh {
+  --color-fg: #111111; --color-fg-muted: #616161; --color-bg: #ffffff; --color-panel: #ffffff; --color-border-line: #e7e7e7;
+  --color-ok: #2f7d4f; --color-warn: #9a6b00; --color-bad: #b3261e;
+  --cds-radius: 2px; --cds-chart-axis: #cfcfcf; --cds-chart-muted: #e3e3e3; --cds-chart-grid: #eeeeee;
+  --cds-surface-popover: #ffffff; --cds-border: #e7e7e7; --cds-text-secondary: #616161;
+  --rh-gold: #c9ad5c;
+  color-scheme: light; background: #ffffff; padding: 1.5rem; border: 1px solid #e7e7e7;
+  max-width: 1200px; margin-inline: auto; font-family: var(--font-anthropic-sans); color: var(--color-fg);
+  display: flex; flex-direction: column; gap: var(--cds-gap-lg);
+}
+.rh * { box-sizing: border-box; }
+.rh [hidden] { display: none !important; }
+.rh-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: var(--cds-gap-lg); }
+.rh-head-main { display: flex; flex-direction: column; gap: var(--cds-gap-md, 1rem); flex: 1 1 24rem; min-width: 0; }
+.rh-tile-top { flex: 0 0 14rem; }
+.rh-tabs { display: flex; flex-wrap: wrap; gap: var(--cds-gap-lg); border-bottom: 1px solid var(--color-border-line); }
+.rh-tabs button { font: inherit; font-size: var(--cds-font-size-caption); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-fg-muted); background: none; border: 0; border-bottom: 3px solid transparent; margin-bottom: -1px; border-radius: 0; padding: 0.625rem 0; cursor: pointer; }
+.rh-tabs button:hover { color: var(--color-fg); }
+.rh-tabs button[aria-selected=true] { color: var(--color-fg); border-bottom-color: var(--rh-gold); }
+.rh-tabs button:focus-visible { outline: 2px solid var(--rh-gold); outline-offset: 2px; }
+.rh-eyebrow { margin: 0; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); text-transform: none; }
+.rh h1 { margin: 0; font-family: var(--font-anthropic-sans); font-weight: 700; font-size: 1.75rem; line-height: 1.15; text-transform: uppercase; letter-spacing: 0.01em; }
+.rh h1::after { content: ''; display: block; width: 2.25rem; height: 3px; background: var(--rh-gold); margin-top: 0.75rem; }
+.rh-tile { border-top: 3px solid var(--rh-gold); background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-lg); display: flex; flex-direction: column; gap: var(--cds-gap-xs); min-width: 0; }
+.rh-lab { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.rh-num { font-family: var(--font-anthropic-sans); font-weight: 700; font-size: 2rem; line-height: 1.1; font-variant-numeric: tabular-nums; min-height: 2.5rem; }
+.rh-note { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); font-variant-numeric: tabular-nums; }
+.rh-card { background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-lg); display: flex; flex-direction: column; gap: var(--cds-gap-sm); min-width: 0; }
+.rh-card h2 { margin: 0; font-size: var(--cds-font-size-heading); font-weight: 700; }
+.rh-card h2::after { content: ''; display: block; width: 1.5rem; height: 2px; background: var(--rh-gold); margin-top: 0.5rem; }
+.rh-sub { margin: 0; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.rh-grid-wide { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr)); gap: var(--cds-gap-md); align-items: stretch; }
+.rh-legend { display: flex; flex-wrap: wrap; gap: var(--cds-gap-md); font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.rh-legend span { display: inline-flex; align-items: center; gap: 0.375rem; }
+.rh-sw { width: 0.75rem; height: 0.75rem; border-radius: 3px; display: inline-block; }
+.rh-chart { position: relative; width: 100%; }
+.rh-chart svg { display: block; max-width: 100%; }
+.rh-chart-plans { min-height: 120px; }
+.rh-lbl { fill: var(--color-fg); font-size: var(--cds-font-size-caption); font-family: var(--font-anthropic-sans); }
+.rh-val { fill: var(--color-fg-muted); font-size: var(--cds-font-size-caption); font-family: var(--font-anthropic-sans); font-variant-numeric: tabular-nums; }
+.rh-hit { fill: transparent; }
+.rh-tip { position: absolute; z-index: 5; pointer-events: none; background: var(--cds-surface-popover); border: 1px solid var(--cds-border); border-radius: var(--cds-radius); box-shadow: var(--cds-shadow-popover); padding: var(--cds-pad-xs) var(--cds-pad-sm); font-size: var(--cds-font-size-caption); line-height: 1.45; max-width: 18rem; }
+.rh-tip div:first-child { color: var(--cds-text-secondary); }
+.rh-tools { display: flex; flex-wrap: wrap; gap: var(--cds-gap-sm); align-items: center; }
+.rh-search, .dash-select { font: inherit; font-size: var(--cds-font-size-caption); color: var(--color-fg); background: var(--color-bg); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-xs) var(--cds-pad-sm); }
+.rh-search { min-width: min(100%, 14rem); flex: 1 1 14rem; }
+.dash-select { padding: 0.4rem var(--cds-pad-sm); max-width: 100%; }
+.rh-check { display: inline-flex; align-items: center; gap: 0.375rem; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.rh-box { max-height: 26rem; overflow: auto; border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); }
+.rh-table { width: 100%; border-collapse: collapse; font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; }
+.rh-table th { position: sticky; top: 0; background: var(--color-panel); text-align: left; font-weight: var(--cds-font-weight-medium); border-bottom: 1px solid var(--color-border-line); padding: 0; white-space: nowrap; }
+.rh-table th:not(:has(.rh-sort)) { padding: var(--cds-pad-xs) var(--cds-pad-sm); }
+.rh-table .rh-sort { all: unset; box-sizing: border-box; display: block; width: 100%; padding: var(--cds-pad-xs) var(--cds-pad-sm); cursor: pointer; font-weight: var(--cds-font-weight-medium); }
+.rh-table .rh-sort:hover { color: var(--color-fg-muted); }
+.rh-table th[aria-sort=ascending] .rh-sort::after { content: ' \2191'; color: var(--color-fg-muted); }
+.rh-table th[aria-sort=descending] .rh-sort::after { content: ' \2193'; color: var(--color-fg-muted); }
+.rh-table td { padding: var(--cds-pad-xs) var(--cds-pad-sm); border-bottom: 1px solid var(--color-border-line); vertical-align: top; overflow-wrap: anywhere; }
+.rh-table tr:last-child td { border-bottom: 0; }
+.rh-table[data-tbl=todo] td:first-child, .rh-table[data-tbl=todo] td:last-child { white-space: nowrap; }
+.rh-table[data-tbl=todo] tr.rh-detail td { white-space: normal; }
+.rh-table tr.rh-done td { color: var(--color-fg-muted); text-decoration: line-through; }
+.rh-table tr.rh-focus td { background: #faf6e8; }
+.rh-card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; }
+.rh-card-head > div:first-child { flex: 1 1 20rem; min-width: 0; }
+.rh-stat { flex: none; text-align: right; display: flex; flex-direction: column; align-items: flex-end; }
+.rh-stat b { font-size: 2rem; line-height: 1.1; font-weight: 700; }
+.rh-stat span { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.rh-st { white-space: nowrap; display: inline-block; padding: 0 0.5rem; border-radius: 999px; border: 1px solid var(--color-border-line); }
+.rh-st-accepted, .rh-st-active { color: var(--color-ok); }
+.rh-st-proposed { color: var(--color-warn); }
+.rh-st-rejected { color: var(--color-bad); }
+.rh-st-shipped { color: var(--color-ok); }
+.rh-st-draft { color: var(--color-warn); }
+.rh-st-superseded { color: var(--color-fg-muted); }
+.rh-span { grid-column: 1 / -1; }
+.rh-table tr.rh-sub td { color: var(--color-fg-muted); }
+.rh-table tr.rh-sub td:nth-child(2) { padding-left: 1.5rem; }
+.rh-table tr.rh-sub td:nth-child(2)::before { content: '\21b3  '; }
+.rh-link { all: unset; box-sizing: border-box; cursor: pointer; color: var(--color-fg); text-decoration: underline; text-decoration-color: var(--rh-gold); text-decoration-thickness: 2px; text-underline-offset: 3px; }
+.rh-link:hover { color: var(--color-fg-muted); }
+.rh-table tr.rh-done .rh-link { text-decoration: line-through; }
+.rh-table tr.rh-plan td { font-weight: 600; background: #fafafa; }
+.rh-table tr.rh-exp { cursor: pointer; }
+.rh-table tr.rh-exp:hover td { background: #fafafa; }
+.rh-table tr.rh-exp td:first-child::before { content: '\25B8'; margin-right: 0.375rem; color: var(--rh-gold); }
+.rh-table tr.rh-open td:first-child::before { content: '\25BE'; }
+.rh-table tr.rh-exp:focus-visible { outline: 2px solid var(--rh-gold); outline-offset: -2px; }
+.rh-table tr.rh-detail td { background: #fafafa; text-decoration: none; padding: var(--cds-pad-sm) var(--cds-pad-lg) var(--cds-pad-sm) 2.25rem; font-weight: 400; }
+.rh-ph + .rh-ph { margin-top: var(--cds-gap-sm); }
+.rh-ph-h { font-weight: 600; margin-bottom: 0.25rem; }
+.rh-ph-list { margin: 0; padding: 0; list-style: none; }
+.rh-ph-list li { padding: 2px 0; }
+.rh-ph-list li.rh-done { color: var(--color-fg-muted); text-decoration: line-through; }
+.rh-md { font-size: var(--cds-font-size-body); line-height: 1.55; max-width: 80ch; overflow-wrap: anywhere; }
+.rh-md h1, .rh-md h2, .rh-md h3, .rh-md h4 { margin: 1.25em 0 0.4em; line-height: 1.25; }
+.rh-md h1 { font-size: 1.4rem; } .rh-md h2 { font-size: 1.2rem; } .rh-md h3 { font-size: 1.05rem; } .rh-md h4 { font-size: 1rem; }
+.rh-md p, .rh-md ul, .rh-md ol, .rh-md pre, .rh-md blockquote, .rh-md table { margin: 0.5em 0; }
+.rh-md ul, .rh-md ol { padding-left: 1.5rem; }
+.rh-md code { background: #f4f4f4; padding: 0 0.25em; border-radius: 2px; font-size: 0.9em; }
+.rh-md pre { background: #f7f7f7; border: 1px solid var(--color-border-line); padding: 0.75rem; overflow: auto; }
+.rh-md pre code { background: none; padding: 0; }
+.rh-md blockquote { border-left: 3px solid var(--rh-gold); margin-left: 0; padding-left: 1rem; color: var(--color-fg-muted); }
+.rh-md table { border-collapse: collapse; font-size: var(--cds-font-size-caption); }
+.rh-md th, .rh-md td { border: 1px solid var(--color-border-line); padding: 0.25rem 0.5rem; text-align: left; vertical-align: top; }
+.rh-md hr { border: 0; border-top: 1px solid var(--color-border-line); }
+.rh-empty { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); padding: var(--cds-pad-sm) 0; }
+.rh-foot { margin: 0; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); max-width: 70ch; }
+@media (max-width: 560px) { .rh-hide-narrow { display: none; } }
+</style>
+</head>
+<body>
+<div class="rh">
+  <header class="rh-head">
+    <div class="rh-head-main">
+      <p class="rh-eyebrow">Docs Hub</p>
+      <h1 id="ttl"></h1>
+    <nav class="rh-tabs" role="tablist" aria-label="Sections">
+      <button type="button" role="tab" data-tab="progress" aria-selected="true">Plan progress</button>
+      <button type="button" role="tab" data-tab="decisions" aria-selected="false">Decisions</button>
+      <button type="button" role="tab" data-tab="specs" aria-selected="false">Specifications</button>
+      <button type="button" role="tab" data-tab="process" aria-selected="false">Process</button>
+      <button type="button" role="tab" data-tab="activity" aria-selected="false">Investigations</button>
+      <button type="button" role="tab" data-tab="work" aria-selected="false">Open work</button>
+    </nav>
+    </div>
+    <div class="rh-tile rh-tile-top">
+      <div class="rh-lab">Checklist done</div>
+      <div class="rh-num" id="pct-top"></div>
+      <div class="rh-note" id="pct-note"></div>
+    </div>
+  </header>
+
+
+  <section class="rh-card" id="progress">
+    <h2>Plan progress</h2>
+    <p class="rh-sub">Checklist items per plan, counted from TODO.md. Hover a row for its status.</p>
+    <div class="rh-legend">
+      <span><i class="rh-sw" data-sw="done"></i>Done</span>
+      <span><i class="rh-sw" data-sw="open"></i>Open</span>
+    </div>
+    <div class="rh-chart rh-chart-plans" id="plan-chart"></div>
+  </section>
+
+  <section id="decisions" class="rh-grid-wide" hidden>
+    <div class="rh-card rh-span">
+      <div class="rh-card-head">
+        <div><h2>Decision log</h2>
+        <p class="rh-sub">Newest records last in the numbering; sort any column.</p></div>
+        <div class="rh-stat"><b id="adr-pct"></b> <span>Accepted</span></div>
+      </div>
+      <div class="rh-box">
+        <table class="rh-table" data-tbl="adrs">
+          <thead><tr>
+            <th data-field="number"><button type="button" class="rh-sort">No.</button></th>
+            <th data-field="title"><button type="button" class="rh-sort">Decision</button></th>
+            <th data-field="status"><button type="button" class="rh-sort">Status</button></th>
+            <th data-field="date" class="rh-hide-narrow"><button type="button" class="rh-sort">Date</button></th>
+          </tr></thead>
+          <tbody id="adr-rows"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="specs" class="rh-grid-wide" hidden>
+    <div class="rh-card rh-span">
+      <div class="rh-card-head">
+        <div><h2>Specifications</h2>
+        <p class="rh-sub">Feature and subsystem designs from specs/. Click a row to read it here; sort any column.</p></div>
+        <div class="rh-stat"><b id="spec-n"></b> <span>Specs</span></div>
+      </div>
+      <div class="rh-box">
+        <table class="rh-table" data-tbl="specs">
+          <thead><tr>
+            <th data-field="title"><button type="button" class="rh-sort">Specification</button></th>
+            <th data-field="status"><button type="button" class="rh-sort">Status</button></th>
+            <th data-field="date" class="rh-hide-narrow"><button type="button" class="rh-sort">Date</button></th>
+          </tr></thead>
+          <tbody id="spec-rows"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="process" class="rh-grid-wide" hidden>
+    <div class="rh-card rh-span">
+      <div class="rh-card-head">
+        <div><h2>Process</h2>
+        <p class="rh-sub">How-to guides from process/. Click a row to read it here; sort any column.</p></div>
+        <div class="rh-stat"><b id="proc-n"></b> <span>Guides</span></div>
+      </div>
+      <div class="rh-box">
+        <table class="rh-table" data-tbl="process">
+          <thead><tr>
+            <th data-field="title"><button type="button" class="rh-sort">Guide</button></th>
+            <th data-field="date" class="rh-hide-narrow"><button type="button" class="rh-sort">Updated</button></th>
+          </tr></thead>
+          <tbody id="proc-rows"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="activity" class="rh-grid-wide" hidden>
+    <div class="rh-card rh-span">
+      <div class="rh-card-head">
+        <div><h2>Investigations</h2>
+        <p class="rh-sub">Investigation notes carry no status of their own. Plans lists every plan that links to a note, and the TODO columns show the checklist item that cites it, with that item's box.</p></div>
+        <div class="rh-stat"><b id="inv-pct"></b> <span>Done</span></div>
+      </div>
+      <div class="rh-tools">
+        <input class="rh-search" id="inv-q" type="search" placeholder="Search investigations" aria-label="Search investigations">
+      </div>
+      <div class="rh-box">
+        <table class="rh-table" data-tbl="invs">
+          <thead><tr>
+            <th data-field="date"><button type="button" class="rh-sort">Date</button></th>
+            <th data-field="title"><button type="button" class="rh-sort">Investigation</button></th>
+            <th data-field="plans" class="rh-hide-narrow"><button type="button" class="rh-sort">Plans</button></th>
+            <th data-field="todo_ref" class="rh-hide-narrow"><button type="button" class="rh-sort">TODO item</button></th>
+            <th data-field="box"><button type="button" class="rh-sort">Status</button></th>
+          </tr></thead>
+          <tbody id="inv-rows"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="rh-card" id="work" hidden>
+    <div class="rh-card-head">
+      <div><h2>Open work</h2>
+      <p class="rh-sub">Every checklist item in plans/TODO.md, in file order. Click a plan or a phase item to expand its phases. Indented lines are investigation notes that the item, or its plan, links to. Search for a name or a county to see what is waiting on a person.</p></div>
+      <div class="rh-stat"><b id="work-pct"></b> <span>Done</span></div>
+    </div>
+    <div class="rh-tools">
+      <input class="rh-search" id="todo-q" type="search" placeholder="Search open items" aria-label="Search checklist items">
+      <select class="dash-select" id="todo-plan" aria-label="Plan"></select>
+      <label class="rh-check"><input type="checkbox" id="todo-done"> Include done</label>
+    </div>
+    <div class="rh-box">
+      <table class="rh-table" data-tbl="todo">
+        <thead><tr><th>Ref</th><th>Item</th><th>Status</th></tr></thead>
+        <tbody id="work-rows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <p class="rh-foot" id="foot"></p>
+</div>
+
+<script>
+const DATA0 = /*__DATA__*/null;
+let D = DATA0;
+const NS = 'http://www.w3.org/2000/svg';
+const GOLD = '#c9ad5c', SOFT = '#e3e3e3';
+const fmtC = (v) => Number(v).toLocaleString('en');
+const fmtP = (v) => Math.round(v * 100) + '%';
+const $ = (id) => document.getElementById(id);
+
+// ---------- state ----------
+const st = {
+  adrs: { key: 'number', dir: 1 },
+  specs: { key: 'title', dir: 1 },
+  process: { key: 'title', dir: 1 },
+  todo: { q: '', plan: '', done: false, focus: '' },
+  invs: { key: 'date', dir: -1, q: '' }
+};
+const expanded = new Set();
+const panels = ['progress', 'decisions', 'specs', 'process', 'activity', 'work'];
+
+// ---------- helpers ----------
+function totals() {
+  const todo = D.work.filter((r) => r.kind === 'task');
+  const done = todo.filter((t) => t.done).length;
+  const invDone = D.invs.filter((r) => /\[[xX]\]/.test(String(r.box || ''))).length;
+  const adrs = D.adrs;
+  return {
+    adrs_accepted_pct: adrs.length ? adrs.filter((a) => a.status === 'accepted').length / adrs.length : 0,
+    adrs_proposed: adrs.filter((a) => a.status === 'proposed').length,
+    plans_active: D.plans.filter((p) => p.status === 'active' && /^\d/.test(p.id)).length,
+    inv_done_pct: D.invs.length ? invDone / D.invs.length : 0,
+    todo_total: todo.length, todo_done: done, todo_open: todo.length - done,
+    pct_done: todo.length ? done / todo.length : 0
+  };
+}
+function shortTitle(t) { return String(t || ''); }
+function planLabel(r) { return /^\d/.test(r.id) ? r.id + ' ' + shortTitle(r.title) : shortTitle(r.title); }
+function measure(svg, texts, cls) {
+  const t = document.createElementNS(NS, 'text');
+  t.setAttribute('class', cls || 'rh-lbl');
+  svg.appendChild(t);
+  let m = 0;
+  texts.forEach((s) => { t.textContent = s; m = Math.max(m, t.getComputedTextLength()); });
+  t.remove();
+  return m;
+}
+function fit(svg, text, maxW, cls) {
+  const t = document.createElementNS(NS, 'text');
+  t.setAttribute('class', cls || 'rh-lbl');
+  svg.appendChild(t);
+  let s = text;
+  t.textContent = s;
+  while (s.length > 1 && t.getComputedTextLength() > maxW) { s = s.slice(0, -1); t.textContent = s + '…'; }
+  const out = s === text ? text : s.trimEnd() + '…';
+  t.remove();
+  return out;
+}
+function svgEl(tag, attrs) {
+  const e = document.createElementNS(NS, tag);
+  Object.keys(attrs || {}).forEach((k) => e.setAttribute(k, attrs[k]));
+  return e;
+}
+function makeTip(el) {
+  const tip = document.createElement('div');
+  tip.className = 'rh-tip';
+  tip.hidden = true;
+  el.appendChild(tip);
+  return {
+    show(event, lines) {
+      tip.replaceChildren(...lines.map((l) => { const d = document.createElement('div'); d.textContent = l; return d; }));
+      tip.hidden = false;
+      const box = el.getBoundingClientRect();
+      const w = tip.offsetWidth, h = tip.offsetHeight;
+      const x = Math.max(0, Math.min(event.clientX - box.left + 12, el.clientWidth - w));
+      const y = Math.max(0, event.clientY - box.top - h - 10);
+      tip.style.left = x + 'px';
+      tip.style.top = y + 'px';
+    },
+    hide() { tip.hidden = true; }
+  };
+}
+function sortRows(rows, key, dir) {
+  return rows.slice().sort((a, b) => {
+    const x = a[key], y = b[key];
+    if (x == null && y == null) return 0;
+    if (x == null) return 1;
+    if (y == null) return -1;
+    return (typeof x === 'number' ? x - y : String(x).localeCompare(String(y), 'en', { numeric: true })) * dir;
+  });
+}
+function noteKnown(path) {
+  return [D.invs, D.adrs, D.specs, D.process].some((list) => (list || []).some((r) => r.path === path));
+}
+function linkHref(path) {
+  if (/^https?:/.test(path)) return path;
+  const enc = path.split('/').map(encodeURIComponent).join('/');
+  return '../' + enc;
+}
+
+// ---------- chart ----------
+function hbars(el, rows, o) {
+  el.replaceChildren();
+  if (!rows.length) { el.innerHTML = '<div class="rh-empty">No plans with checklist items found under plans/.</div>'; return; }
+  const W = Math.max(el.clientWidth, 280), rowH = 26, barH = 14;
+  const svg = svgEl('svg', { width: '100%', role: 'img', 'aria-label': o.aria });
+  el.appendChild(svg);
+  const labels = rows.map(o.label), ends = rows.map(o.end);
+  const lw = Math.min(measure(svg, labels), W * 0.42);
+  const ew = measure(svg, ends, 'rh-val');
+  const left = lw + 10, right = ew + 10;
+  const max = Math.max(1, ...rows.map((r) => o.segments(r).reduce((s, g) => s + g.v, 0)));
+  const x = (v) => left + (v / max) * Math.max(20, W - right - left);
+  svg.setAttribute('viewBox', '0 0 ' + W + ' ' + (rows.length * rowH + 4));
+  const tip = makeTip(el);
+  rows.forEach((r, i) => {
+    const g = svgEl('g', { transform: 'translate(0,' + (i * rowH) + ')' });
+    svg.appendChild(g);
+    g.appendChild(svgEl('rect', { class: 'rh-hit', x: 0, y: 0, width: W, height: rowH }));
+    const lab = svgEl('text', { class: 'rh-lbl', x: 0, y: rowH / 2, 'dominant-baseline': 'central' });
+    lab.textContent = fit(svg, labels[i], lw);
+    g.appendChild(lab);
+    let acc = 0;
+    o.segments(r).forEach((s) => {
+      if (s.v <= 0) return;
+      g.appendChild(svgEl('rect', { x: x(acc), y: (rowH - barH) / 2, width: Math.max(2, x(acc + s.v) - x(acc)), height: barH, rx: 3, fill: s.color }));
+      acc += s.v;
+    });
+    const val = svgEl('text', { class: 'rh-val', x: x(acc) + 6, y: rowH / 2, 'dominant-baseline': 'central' });
+    val.textContent = ends[i];
+    g.appendChild(val);
+    g.addEventListener('mousemove', (event) => tip.show(event, o.tip(r)));
+    g.addEventListener('mouseleave', () => tip.hide());
+  });
+}
+
+// ---------- rows ----------
+// Find a link label in the item text, as a whole word where possible, so a label
+// such as "draft" does not match inside "drafted".
+function findLabel(text, label, from) {
+  const word = (c) => !!c && /[\w]/.test(c);
+  let i = text.indexOf(label, from);
+  while (i >= 0) {
+    if (!word(text[i - 1]) && !word(text[i + label.length])) return i;
+    i = text.indexOf(label, i + 1);
+  }
+  return text.indexOf(label, from);
+}
+function rowEl(cells, cls, key) {
+  const tr = document.createElement('tr');
+  if (cls) tr.className = cls;
+  if (key != null) tr.dataset.key = key;
+  cells.forEach((c) => {
+    const td = document.createElement('td');
+    if (c && typeof c === 'object' && c.links) {
+      let pos = 0;
+      c.links.forEach((l) => {
+        const i = findLabel(c.text, l.label, pos);
+        if (i < 0) return;
+        td.appendChild(document.createTextNode(c.text.slice(pos, i)));
+        const a = document.createElement('a');
+        a.className = 'rh-link';
+        a.textContent = l.label;
+        a.href = linkHref(l.path);
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        a.title = 'Open the file';
+        if (noteKnown(l.path.split('#')[0])) a.dataset.inv = l.path.split('#')[0];
+        td.appendChild(a);
+        pos = i + l.label.length;
+      });
+      td.appendChild(document.createTextNode(c.text.slice(pos)));
+    } else if (c && typeof c === 'object' && c.go) {
+      c.go.forEach((g, n) => {
+        if (n) td.appendChild(document.createTextNode(', '));
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'rh-link rh-go';
+        b.textContent = g.label;
+        if (g.plan) b.dataset.plan = g.plan;
+        if (g.ref) b.dataset.ref = g.ref;
+        b.title = 'Show in Open work';
+        td.appendChild(b);
+      });
+    } else if (c && typeof c === 'object' && c.badge) {
+      const s = document.createElement('span');
+      s.className = 'rh-st rh-st-' + c.badge;
+      s.textContent = c.badge;
+      td.appendChild(s);
+    } else {
+      td.textContent = c == null ? '' : String(c);
+    }
+    tr.appendChild(td);
+  });
+  return tr;
+}
+function phaseBlock(ph) {
+  const box = document.createElement('div');
+  box.className = 'rh-ph';
+  const h = document.createElement('div');
+  h.className = 'rh-ph-h';
+  h.textContent = 'Phase ' + ph.phase + (ph.heading ? ': ' + ph.heading : '') + ' (' + ph.done + '/' + ph.total + ')';
+  box.appendChild(h);
+  const ul = document.createElement('ul');
+  ul.className = 'rh-ph-list';
+  (ph.items || []).forEach((i) => {
+    const li = document.createElement('li');
+    if (i.done) li.className = 'rh-done';
+    li.textContent = i.box + ' ' + i.text;
+    ul.appendChild(li);
+  });
+  box.appendChild(ul);
+  return box;
+}
+function detailRow(blocks) {
+  const tr = document.createElement('tr');
+  tr.className = 'rh-detail';
+  const td = document.createElement('td');
+  td.colSpan = 3;
+  blocks.forEach((b) => td.appendChild(b));
+  tr.appendChild(td);
+  return tr;
+}
+function goList(v, kind) {
+  return String(v == null ? '' : v).split(/\s*,\s*/).filter(Boolean).map((x) => { const o = { label: x }; o[kind] = x; return o; });
+}
+
+// ---------- drawings ----------
+function drawTop() {
+  const t = totals();
+  $('ttl').textContent = D.project;
+  document.title = D.project + ' · Docs Hub';
+  $('pct-top').textContent = fmtP(t.pct_done);
+  $('pct-note').textContent = fmtC(t.todo_done) + ' of ' + fmtC(t.todo_total) + ' items in TODO';
+  $('adr-pct').textContent = fmtP(t.adrs_accepted_pct);
+  $('inv-pct').textContent = fmtP(t.inv_done_pct);
+  $('spec-n').textContent = fmtC((D.specs || []).length);
+  $('proc-n').textContent = fmtC((D.process || []).length);
+  $('work-pct').textContent = fmtP(t.pct_done);
+  $('foot').textContent = "Built from each file's frontmatter, its first heading, and the checkboxes in plans/TODO.md. A plan's progress is only as current as its TODO section. " +
+    'Links open the local file.' +
+    ' Generated ' + D.generated + (location.protocol === 'file:' ? ' (file://, no live reload).' : '.');
+}
+function drawPlanChart() {
+  hbars($('plan-chart'), D.plans.filter((r) => r.total != null && r.total > 0), {
+    aria: 'Checklist items done and open per plan',
+    label: planLabel,
+    end: (r) => r.done + '/' + r.total,
+    segments: (r) => [{ v: r.done, color: GOLD }, { v: r.open, color: SOFT }],
+    tip: (r) => [planLabel(r), r.kind + ' · ' + r.status, r.done + ' done, ' + r.open + ' open']
+  });
+}
+function drawPlanSelect() {
+  const sel = $('todo-plan');
+  sel.replaceChildren(new Option('All plans', ''), ...D.plans.map((r) => {
+    const t = planLabel(r);
+    return new Option(t.length > 44 ? t.slice(0, 43) + '…' : t, r.id);
+  }));
+  sel.value = st.todo.plan;
+}
+function drawAdrRows() {
+  const list = sortRows(D.adrs, st.adrs.key, st.adrs.dir);
+  const rows = [];
+  list.forEach((r) => {
+    const tr = rowEl([r.number, { text: r.title, links: [{ label: r.title, path: r.path }] }, { badge: r.status }, r.date], 'rh-exp', r.path);
+    const open = invOpen.has(r.path);
+    tr.classList.toggle('rh-open', open);
+    tr.tabIndex = 0;
+    tr.setAttribute('aria-expanded', String(open));
+    tr.dataset.rid = r.path;
+    rows.push(tr);
+    if (open) rows.push(noteRow(r.path, 4));
+  });
+  $('adr-rows').replaceChildren(...rows);
+}
+function noteTable(list, tbodyId, cells, cols) {
+  const rows = [];
+  list.forEach((r) => {
+    const tr = rowEl(cells(r), 'rh-exp', r.path);
+    const open = invOpen.has(r.path);
+    tr.classList.toggle('rh-open', open);
+    tr.tabIndex = 0;
+    tr.setAttribute('aria-expanded', String(open));
+    tr.dataset.rid = r.path;
+    rows.push(tr);
+    if (open) rows.push(noteRow(r.path, cols));
+  });
+  $(tbodyId).replaceChildren(...rows);
+}
+function drawSpecRows() {
+  noteTable(sortRows(D.specs || [], st.specs.key, st.specs.dir), 'spec-rows',
+    (r) => [{ text: r.title, links: [{ label: r.title, path: r.path }] }, r.status ? { badge: r.status } : '', r.date], 3);
+}
+function drawProcRows() {
+  noteTable(sortRows(D.process || [], st.process.key, st.process.dir), 'proc-rows',
+    (r) => [{ text: r.title, links: [{ label: r.title, path: r.path }] }, r.date], 2);
+}
+function drawWorkRows() {
+  const tb = $('work-rows');
+  const s = st.todo, q = s.q.trim().toLowerCase();
+  const tasks = D.work.filter((r) => r.kind === 'task' && (s.done || !r.done) && (!s.plan || r.plan === s.plan) &&
+    (!q || (r.plan + ' ' + r.text).toLowerCase().includes(q)));
+  const vis = new Set(tasks.map((r) => r.id));
+  const planVis = new Set(tasks.map((r) => r.plan));
+  const lastTask = {};
+  tasks.forEach((r) => { lastTask[r.plan] = r.id; });
+  const notes = D.work.filter((r) => r.kind === 'investigation');
+  const pathOf = new Map(D.invs.map((x) => [x.title, x.path]));
+  const out = [];
+  D.work.forEach((r) => {
+    if (r.kind === 'plan') { if (planVis.has(r.plan)) out.push(r); return; }
+    if (r.kind !== 'task' || !vis.has(r.id)) return;
+    out.push(r);
+    notes.filter((c) => c.parent === r.id).forEach((c) => out.push(c));
+    if (!q && lastTask[r.plan] === r.id) notes.filter((c) => !c.parent && c.plan === r.plan).forEach((c) => out.push(c));
+  });
+  const rows = [];
+  out.forEach((r) => {
+    const cls = (r.kind === 'task' && s.focus === r.id ? 'rh-focus ' : '') + (r.kind === 'plan' ? 'rh-plan' : r.kind === 'task' ? (r.done ? 'rh-done' : '') : 'rh-sub');
+    let blocks = [];
+    if (r.kind === 'plan' && r.phases) {
+      blocks = D.phases.filter((p) => p.plan === r.plan).map(phaseBlock);
+    } else if (r.kind === 'task' && r.phases) {
+      const keys = String(r.phases).split(',');
+      blocks = D.phases.filter((p) => p.plan === r.plan && keys.includes(p.phase)).map(phaseBlock);
+    }
+    const text = r.kind === 'task'
+      ? { text: r.text, links: r.links || [] }
+      : (pathOf.has(r.text) ? { text: r.text, links: [{ label: r.text, path: pathOf.get(r.text) }] } : r.text);
+    const tr = rowEl([r.id, text, r.box], cls, r.id);
+    rows.push(tr);
+    if (blocks.length) {
+      const isOpen = expanded.has(r.id);
+      tr.classList.add('rh-exp');
+      tr.classList.toggle('rh-open', isOpen);
+      tr.tabIndex = 0;
+      tr.setAttribute('aria-expanded', String(isOpen));
+      tr.dataset.rid = r.id;
+      if (isOpen) rows.push(detailRow(blocks));
+    }
+  });
+  tb.replaceChildren(...rows);
+  if (!rows.length) {
+    const tr = document.createElement('tr');
+    const td = document.createElement('td');
+    td.colSpan = 3; td.className = 'rh-empty';
+    td.textContent = 'No open work found (plans/TODO.md and plans/*.md checklists).';
+    tr.appendChild(td); tb.appendChild(tr);
+  }
+}
+function drawInvRows() {
+  const s = st.invs, q = s.q.trim().toLowerCase();
+  let list = D.invs.filter((r) => !q || (r.title + ' ' + r.plans + ' ' + r.todo_ref).toLowerCase().includes(q));
+  list = sortRows(list, s.key, s.dir);
+  const rows = [];
+  list.forEach((r) => {
+    const tr = rowEl([r.date, { text: r.title, links: [{ label: r.title, path: r.path }] }, { go: goList(r.plans, 'plan') }, { go: goList(r.todo_ref, 'ref') }, r.box], 'rh-exp', r.path);
+    const open = invOpen.has(r.path);
+    tr.classList.toggle('rh-open', open);
+    tr.tabIndex = 0;
+    tr.setAttribute('aria-expanded', String(open));
+    tr.dataset.rid = r.path;
+    rows.push(tr);
+    if (open) rows.push(noteRow(r.path, 5));
+  });
+  $('inv-rows').replaceChildren(...rows);
+}
+function drawAll() {
+  drawTop(); drawPlanChart(); drawPlanSelect(); drawAdrRows(); drawSpecRows(); drawProcRows(); drawWorkRows(); drawInvRows();
+}
+
+// ---------- investigation viewer ----------
+function mdEsc(t) { return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+function mdPath(base, href) {
+  const dir = base.split('/').slice(0, -1);
+  const out = [];
+  dir.concat(href.split('#')[0].split('/')).forEach((seg) => {
+    if (seg === '..') out.pop(); else if (seg && seg !== '.') out.push(seg);
+  });
+  return out.join('/');
+}
+function mdInline(text, base) {
+  const keep = [];
+  let t = mdEsc(text).replace(/`([^`]+)`/g, (m, c) => { keep.push('<code>' + c + '</code>'); return '\u0000' + (keep.length - 1) + '\u0000'; });
+  t = t.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (m, label, href) => {
+    href = href.replace(/&amp;/g, '&');
+    if (/^https?:/.test(href)) return '<a class="rh-link" href="' + mdEsc(href) + '" target="_blank" rel="noopener noreferrer">' + label + '</a>';
+    if (href.charAt(0) === '#') return label;
+    const path = mdPath(base, href);
+    const inv = noteKnown(path) ? ' data-inv="' + mdEsc(path) + '"' : '';
+    return '<a class="rh-link"' + inv + ' href="' + mdEsc(linkHref(path)) + '" target="_blank" rel="noopener noreferrer">' + label + '</a>';
+  });
+  t = t.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>').replace(/(^|[\s(])\*([^*\s][^*]*)\*(?=[\s).,;:]|$)/g, '$1<em>$2</em>');
+  return t.replace(/\u0000(\d+)\u0000/g, (m, i) => keep[+i]);
+}
+function mdRender(src, base) {
+  src = src.replace(/\r/g, '').replace(/^---\n[\s\S]*?\n---\n?/, '');
+  const lines = src.split('\n'), out = [];
+  let i = 0;
+  const cells = (l) => l.trim().replace(/^\||\|$/g, '').split('|').map((c) => c.trim());
+  while (i < lines.length) {
+    const l = lines[i];
+    let m;
+    if (/^```/.test(l)) {
+      const buf = [];
+      i++;
+      while (i < lines.length && !/^```/.test(lines[i])) buf.push(lines[i++]);
+      i++;
+      out.push('<pre><code>' + mdEsc(buf.join('\n')) + '</code></pre>');
+    } else if ((m = l.match(/^(#{1,6})\s+(.*)$/))) {
+      const n = Math.min(m[1].length + 1, 4);
+      out.push('<h' + n + '>' + mdInline(m[2], base) + '</h' + n + '>'); i++;
+    } else if (/^\s*([-*_])(\s*\1){2,}\s*$/.test(l)) {
+      out.push('<hr>'); i++;
+    } else if (/^\s*\|/.test(l) && i + 1 < lines.length && /^\s*\|?\s*:?-{2,}/.test(lines[i + 1])) {
+      const head = cells(l);
+      i += 2;
+      const rows = [];
+      while (i < lines.length && /^\s*\|/.test(lines[i])) rows.push(cells(lines[i++]));
+      out.push('<table><thead><tr>' + head.map((c) => '<th>' + mdInline(c, base) + '</th>').join('') + '</tr></thead><tbody>' +
+        rows.map((r) => '<tr>' + r.map((c) => '<td>' + mdInline(c, base) + '</td>').join('') + '</tr>').join('') + '</tbody></table>');
+    } else if (/^>\s?/.test(l)) {
+      const buf = [];
+      while (i < lines.length && /^>\s?/.test(lines[i])) buf.push(lines[i++].replace(/^>\s?/, ''));
+      out.push('<blockquote>' + mdInline(buf.join(' '), base) + '</blockquote>');
+    } else if (/^\s*([-*+]|\d+\.)\s+/.test(l)) {
+      const ordered = /^\s*\d+\./.test(l), items = [];
+      while (i < lines.length && /^\s*([-*+]|\d+\.)\s+/.test(lines[i])) {
+        const mm = lines[i].match(/^(\s*)(?:[-*+]|\d+\.)\s+(?:\[( |x|X)\]\s+)?(.*)$/);
+        const box = mm[2] ? (mm[2] === ' ' ? '[ ] ' : '[x] ') : '';
+        items.push('<li style="margin-left:' + Math.min(mm[1].length, 8) * 0.75 + 'rem">' + box + mdInline(mm[3], base) + '</li>');
+        i++;
+      }
+      out.push((ordered ? '<ol>' : '<ul>') + items.join('') + (ordered ? '</ol>' : '</ul>'));
+    } else if (!l.trim()) {
+      i++;
+    } else {
+      const buf = [];
+      while (i < lines.length && lines[i].trim() && !/^(```|#{1,6}\s|>|\s*([-*+]|\d+\.)\s|\s*\|)/.test(lines[i])) buf.push(lines[i++]);
+      if (!buf.length) { buf.push(lines[i++]); }
+      out.push('<p>' + mdInline(buf.join(' '), base) + '</p>');
+    }
+  }
+  return out.join('\n');
+}
+const invOpen = new Set(), noteCache = {};
+function noteEl(path) { return document.querySelector('[data-note="' + path.replace(/"/g, '') + '"]'); }
+async function loadNote(path) {
+  if (noteCache[path] === undefined) {
+    try {
+      const r = await fetch(linkHref(path), { cache: 'no-store' });
+      if (!r.ok) throw new Error(r.status);
+      noteCache[path] = mdRender(await r.text(), path);
+    } catch (e) {
+      noteCache[path] = '<p class="rh-sub">Could not load the note here; use the link above to open the file.</p>';
+    }
+  }
+  const el = noteEl(path);
+  if (el) el.innerHTML = noteCache[path];
+}
+function noteRow(path, cols) {
+  const tr = document.createElement('tr');
+  tr.className = 'rh-detail';
+  const td = document.createElement('td');
+  td.colSpan = cols;
+  const p = document.createElement('p');
+  p.className = 'rh-sub';
+  const a = document.createElement('a');
+  a.className = 'rh-link'; a.href = linkHref(path); a.target = '_blank'; a.rel = 'noopener noreferrer';
+  a.textContent = 'Open the file';
+  p.appendChild(a);
+  const body = document.createElement('div');
+  body.className = 'rh-md';
+  body.dataset.note = path;
+  body.innerHTML = noteCache[path] !== undefined ? noteCache[path] : 'Loading…';
+  td.append(p, body);
+  tr.appendChild(td);
+  if (noteCache[path] === undefined) setTimeout(() => loadNote(path), 0);
+  return tr;
+}
+function toggleInv(path) {
+  if (invOpen.has(path)) invOpen.delete(path); else invOpen.add(path);
+  drawInvRows(); drawAdrRows(); drawSpecRows(); drawProcRows();
+}
+function openInv(path) {
+  invOpen.add(path);
+  const tab = /^adr\//.test(path) ? 'decisions' : /^specs\//.test(path) ? 'specs' : /^process\//.test(path) ? 'process' : 'activity';
+  if (tab === 'activity') { st.invs.q = ''; $('inv-q').value = ''; }
+  showTab(tab);
+  drawInvRows(); drawAdrRows(); drawSpecRows(); drawProcRows();
+  setTimeout(() => {
+    const row = document.querySelector('#' + tab + ' tr[data-key="' + path.replace(/"/g, '') + '"]');
+    if (row) row.scrollIntoView({ block: 'start' });
+  }, 80);
+}
+document.addEventListener('click', (event) => {
+  const a = event.target.closest('a[data-inv]');
+  if (!a || event.metaKey || event.ctrlKey || event.shiftKey || location.protocol === 'file:') return;
+  event.preventDefault();
+  if (a.closest('#activity tr.rh-exp, #decisions tr.rh-exp, #specs tr.rh-exp, #process tr.rh-exp') && !a.closest('.rh-md')) toggleInv(a.dataset.inv); else openInv(a.dataset.inv);
+});
+['activity', 'decisions', 'specs', 'process'].forEach((id) => {
+  $(id).addEventListener('click', (event) => {
+    if (event.target.closest('a, button, .rh-detail, input')) return;
+    const tr = event.target.closest('tr.rh-exp');
+    if (tr) toggleInv(tr.dataset.rid);
+  });
+  $(id).addEventListener('keydown', (event) => {
+    if ((event.key === 'Enter' || event.key === ' ') && event.target.matches('tr.rh-exp')) { event.preventDefault(); toggleInv(event.target.dataset.rid); }
+  });
+});
+
+// ---------- controls ----------
+function showTab(id) {
+  if (!panels.includes(id)) return;
+  panels.forEach((p) => { const el = $(p); if (el) el.hidden = p !== id; });
+  document.querySelectorAll('[data-tab]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === id)));
+  if (id === 'progress') drawPlanChart();
+  try { history.replaceState(null, '', '#' + id); } catch (e) {}
+}
+const HASH_ALIASES = { plans: 'progress', adrs: 'decisions', spec: 'specs', inv: 'activity', open: 'work' };
+document.querySelectorAll('.rh-table').forEach((table) => {
+  const s = st[table.dataset.tbl];
+  if (table.dataset.tbl === 'todo') return;
+  const mark = () => table.querySelectorAll('th').forEach((th) => th.setAttribute('aria-sort', th.dataset.field === s.key ? (s.dir > 0 ? 'ascending' : 'descending') : 'none'));
+  mark();
+  table.querySelectorAll('.rh-sort').forEach((b) => b.addEventListener('click', () => {
+    const key = b.closest('th').dataset.field;
+    if (s.key === key) s.dir = -s.dir; else { s.key = key; s.dir = key === 'date' ? -1 : 1; }
+    mark();
+    ({ adrs: drawAdrRows, specs: drawSpecRows, process: drawProcRows, invs: drawInvRows })[table.dataset.tbl]();
+  }));
+});
+$('todo-q').addEventListener('input', (e) => { st.todo.q = e.target.value; drawWorkRows(); });
+$('todo-plan').addEventListener('change', (e) => { st.todo.plan = e.target.value; drawWorkRows(); });
+$('todo-done').addEventListener('change', (e) => { st.todo.done = e.target.checked; drawWorkRows(); });
+$('inv-q').addEventListener('input', (e) => { st.invs.q = e.target.value; drawInvRows(); });
+$('activity').addEventListener('click', (event) => {
+  const b = event.target.closest('.rh-go');
+  if (!b) return;
+  const ref = b.dataset.ref || '';
+  const hit = ref ? D.work.find((r) => r.id === ref) : null;
+  const plan = b.dataset.plan || (hit ? hit.plan : ref.split('-')[0]);
+  st.todo.plan = plan; st.todo.q = ''; st.todo.done = true; st.todo.focus = ref;
+  $('todo-q').value = ''; $('todo-plan').value = plan; $('todo-done').checked = true;
+  showTab('work');
+  drawWorkRows();
+  setTimeout(() => {
+    const row = ref && document.querySelector('#work tr[data-key="' + ref.replace(/"/g, '') + '"]');
+    if (row) row.scrollIntoView({ block: 'center' });
+    else $('work').scrollIntoView({ block: 'start' });
+  }, 80);
+});
+(() => {
+  const sec = $('work');
+  const toggle = (event) => {
+    if (event.target.closest('a')) return;
+    const tr = event.target.closest('tr.rh-exp');
+    if (!tr) return;
+    const id = tr.dataset.rid;
+    if (expanded.has(id)) expanded.delete(id); else expanded.add(id);
+    drawWorkRows();
+  };
+  sec.addEventListener('click', toggle);
+  sec.addEventListener('keydown', (event) => {
+    if ((event.key === 'Enter' || event.key === ' ') && event.target.matches('tr.rh-exp')) { event.preventDefault(); toggle(event); }
+  });
+})();
+document.querySelectorAll('[data-sw]').forEach((el) => { el.style.background = el.dataset.sw === 'done' ? GOLD : SOFT; });
+document.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)));
+window.addEventListener('resize', () => { if (!$('progress').hidden) drawPlanChart(); });
+
+// ---------- live reload (served pages only) ----------
+async function poll() {
+  if (location.protocol === 'file:') return;
+  try {
+    const r = await fetch('hub.json?' + Date.now(), { cache: 'no-store' });
+    if (!r.ok) return;
+    const j = await r.json();
+    if (j.version !== D.version) { D = j; drawAll(); }
+  } catch (e) {}
+}
+
+drawAll();
+{ const h = location.hash.slice(1); showTab(panels.includes(h) ? h : (HASH_ALIASES[h] || 'progress')); }
+setInterval(poll, 3000);
+</script>
+</body>
+</html>
