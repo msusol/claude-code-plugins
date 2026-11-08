@@ -5,3 +5,4 @@ known_marketplaces.json
 # docs/dist/ is kept in the repo by a .keep file; only the built zips are ignored.
 # (Ignoring the whole directory would stop .keep from being tracked.)
 docs/dist/*.zip
+__pycache__/
