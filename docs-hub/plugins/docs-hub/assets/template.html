@@ -162,6 +162,7 @@ body { padding: 1.5rem 1rem; }
     <div class="rh-legend">
       <span><i class="rh-sw" data-sw="done"></i>Done</span>
       <span><i class="rh-sw" data-sw="open"></i>Open</span>
+      <span id="sw-archived" hidden><i class="rh-sw" data-sw="archived"></i>Archived, done</span>
       <label class="rh-check"><input type="checkbox" id="show-archived"> Archived</label>
     </div>
     <div class="rh-chart rh-chart-plans" id="plan-chart"></div>
@@ -278,7 +279,7 @@ body { padding: 1.5rem 1rem; }
 const DATA0 = /*__DATA__*/null;
 let D = DATA0;
 const NS = 'http://www.w3.org/2000/svg';
-const GOLD = '#c9ad5c', SOFT = '#e3e3e3';
+const GOLD = '#c9ad5c', SOFT = '#e3e3e3', GREEN = '#5f9e6e';   // GREEN: the done part of an archived plan
 const fmtC = (v) => Number(v).toLocaleString('en');
 const fmtP = (v) => Math.round(v * 100) + '%';
 const $ = (id) => document.getElementById(id);
@@ -540,12 +541,13 @@ function drawTop() {
   $('foot').appendChild(gen);
 }
 function drawPlanChart() {
+  $('sw-archived').hidden = !st.showArchived;            // the green swatch explains the archived bars, so it shows only with them
   hbars($('plan-chart'), D.plans.filter((r) => r.total != null && r.total > 0 && live(r)), {
     aria: 'Checklist items done and open per plan',
     label: planLabel,
     go: (r) => gotoWork(r.id, ''),
     end: (r) => r.done + '/' + r.total,
-    segments: (r) => [{ v: r.done, color: GOLD }, { v: r.open, color: SOFT }],
+    segments: (r) => [{ v: r.done, color: r.kind === 'archived' ? GREEN : GOLD }, { v: r.open, color: SOFT }],
     tip: (r) => [planLabel(r), r.kind + ' · ' + r.status, r.done + ' done, ' + r.open + ' open']
   });
 }
@@ -882,7 +884,7 @@ $('activity').addEventListener('click', (event) => {
     if ((event.key === 'Enter' || event.key === ' ') && event.target.matches('tr.rh-exp')) { event.preventDefault(); toggle(event); }
   });
 })();
-document.querySelectorAll('[data-sw]').forEach((el) => { el.style.background = el.dataset.sw === 'done' ? GOLD : SOFT; });
+document.querySelectorAll('[data-sw]').forEach((el) => { el.style.background = el.dataset.sw === 'done' ? GOLD : el.dataset.sw === 'archived' ? GREEN : SOFT; });
 document.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)));
 window.addEventListener('resize', () => { if (!$('progress').hidden) drawPlanChart(); });
 
