@@ -166,6 +166,7 @@ body { padding: 1.5rem 1rem; }
       <label class="rh-check"><input type="checkbox" id="show-archived"> Archived</label>
     </div>
     <div class="rh-chart rh-chart-plans" id="plan-chart"></div>
+    <p class="rh-sub" id="sync-note" hidden></p>
   </section>
 
   <section id="decisions" class="rh-grid-wide" hidden>
@@ -546,10 +547,20 @@ function drawPlanChart() {
     aria: 'Checklist items done and open per plan',
     label: planLabel,
     go: (r) => gotoWork(r.id, ''),
-    end: (r) => r.done + '/' + r.total,
+    end: (r) => r.done + '/' + r.total + (r.drift ? ' ⚠' : ''),
     segments: (r) => [{ v: r.done, color: r.kind === 'archived' ? GREEN : GOLD }, { v: r.open, color: SOFT }],
-    tip: (r) => [planLabel(r), r.kind + ' · ' + r.status, r.done + ' done, ' + r.open + ' open']
+    tip: (r) => [planLabel(r), r.kind + ' · ' + r.status, r.done + ' done, ' + r.open + ' open'].concat(r.drift ? ['TODO.md out of sync: ' + r.drift] : [])
   });
+  drawSyncNote();
+}
+function drawSyncNote() {
+  // plans/TODO.md should mirror each plan file; say so when it does not, and when a dated Next step has passed its date.
+  const sy = D.sync || { drift: [], stale_steps: [] };
+  const bits = [];
+  if (sy.drift.length) bits.push('⚠ TODO.md disagrees with the plan file for ' + sy.drift.length + ' plan' + (sy.drift.length === 1 ? '' : 's') + ' (' + sy.drift.join(', ') + '); hover a marked row.');
+  if (sy.stale_steps.length) bits.push(sy.stale_steps.length + ' dated Next step' + (sy.stale_steps.length === 1 ? ' is' : 's are') + ' past its date: ' + sy.stale_steps.join(' | '));
+  $('sync-note').hidden = !bits.length;
+  $('sync-note').textContent = bits.join(' ');
 }
 function drawPlanSelect() {
   const sel = $('todo-plan');

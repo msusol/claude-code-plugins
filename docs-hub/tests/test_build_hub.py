@@ -5,6 +5,7 @@ Run from the plugin repo root:  python3 -m unittest discover -s docs-hub/tests -
 Covers the checklist counting rule (obsolete, dropped and deferred tasks are out of the count), plan order (inserted numbers sit between their
 neighbours), the archived flag, and the headline tile's math, which lives in the page template's JavaScript and is run under node.
 """
+import datetime
 import json
 import re
 import shutil
@@ -136,6 +137,95 @@ class Counting(unittest.TestCase):
     def test_every_plan_row_carries_its_file_path_so_an_archived_plan_can_be_linked(self):
         self.assertEqual(self.rows["0004"]["path"], "plans/archive/0004-epsilon.md")
         self.assertEqual(self.rows["0001"]["path"], "plans/0001-alpha.md")
+
+
+SYNC_TODO = """# TODO
+
+## 0001 Alpha
+
+Source plan: [0001-alpha.md](0001-alpha.md)
+
+- [x] one
+- [x] two
+- [ ] three
+
+## 0002 Beta
+
+Source plan: [0002-beta.md](0002-beta.md)
+
+- [x] one
+- [ ] ~~two~~ — deferred to [plan 0001](0001-alpha.md)
+
+## Next steps
+
+### 0001-alpha.md
+
+1. Monday 2026-11-02: check the first run.
+2. On or after 2026-11-09 raise the minimum to 1.
+3. Decide the owner order (no date).
+4. Ran 2026-11-02, check again 2026-11-12.
+"""
+
+
+def make_sync_docs(root, alpha_checks):
+    write(root, "plans/TODO.md", SYNC_TODO)
+    write(root, "plans/0001-alpha.md", "---\nstatus: active\ndate: 2026-11-08\n---\n\n# Alpha Implementation Plan\n\n" + alpha_checks)
+    write(root, "plans/0002-beta.md", "---\nstatus: active\ndate: 2026-11-08\n---\n\n# Beta Implementation Plan\n\n- [x] one\n- [ ] ~~two~~ — deferred to plan 0001\n")
+    for d in ("adr", "specs", "process", "investigate"):
+        (Path(root) / d).mkdir(exist_ok=True)
+
+
+class Sync(unittest.TestCase):
+    """plans/TODO.md mirrors each plan file; the hub says where it does not."""
+
+    def collect(self, alpha_checks, today=datetime.date(2026, 11, 8)):
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp, ignore_errors=True)
+        make_sync_docs(tmp, alpha_checks)
+        data = b.collect(Path(tmp), today=today)
+        return data, {p["id"]: p for p in data["plans"]}
+
+    def test_a_section_that_matches_its_plan_file_has_no_drift(self):
+        data, rows = self.collect("- [x] one\n- [x] two\n- [ ] three\n")
+        self.assertEqual(rows["0001"]["drift"], "")
+        self.assertEqual(rows["0002"]["drift"], "")             # obsolete, dropped and deferred tasks are left out of both counts
+        self.assertEqual(data["sync"]["drift"], [])
+
+    def test_a_section_that_lags_the_plan_file_is_flagged_with_both_counts(self):
+        data, rows = self.collect("- [x] one\n- [x] two\n- [x] three\n")        # the plan file finished a task; TODO.md did not
+        self.assertEqual(rows["0001"]["drift"], "plan file 3 of 3 done, TODO.md section 2 of 3")
+        self.assertEqual(data["sync"]["drift"], ["0001"])
+
+    def test_a_task_missing_from_the_section_is_flagged(self):
+        _, rows = self.collect("- [x] one\n- [x] two\n- [ ] three\n- [ ] four\n")
+        self.assertIn("2 of 4", rows["0001"]["drift"])
+
+    def test_an_archived_plan_is_not_compared(self):
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp, ignore_errors=True)
+        write(tmp, "plans/TODO.md", "# TODO\n\n## 0002 Beta\n\n_Archived 2026-11-08_\n\n- [x] kept line\n")
+        write(tmp, "plans/archive/0002-beta.md", "---\nstatus: archived\ndate: 2026-11-08\n---\n\n# Beta Implementation Plan\n\n- [x] a\n- [x] b\n- [x] c\n")
+        for d in ("adr", "specs", "process", "investigate"):
+            (Path(tmp) / d).mkdir(exist_ok=True)
+        data = b.collect(Path(tmp), today=datetime.date(2026, 11, 8))
+        self.assertEqual(data["sync"]["drift"], [])
+
+    def test_a_next_step_whose_dates_have_all_passed_is_stale(self):
+        data, _ = self.collect("- [x] one\n- [x] two\n- [ ] three\n")
+        stale = data["sync"]["stale_steps"]
+        self.assertEqual(len(stale), 1)
+        self.assertTrue(stale[0].startswith("0001-alpha.md: Monday 2026-11-02"))
+
+    def test_a_next_step_with_a_future_date_or_none_is_not_stale(self):
+        data, _ = self.collect("- [x] one\n- [x] two\n- [ ] three\n")
+        text = " ".join(data["sync"]["stale_steps"])
+        self.assertNotIn("2026-11-09", text)                    # still ahead
+        self.assertNotIn("owner order", text)                   # no date
+        self.assertNotIn("check again 2026-11-12", text)        # the latest date it names is still ahead
+
+    def test_the_same_steps_are_not_stale_before_their_date(self):
+        data, _ = self.collect("- [x] one\n- [x] two\n- [ ] three\n", today=datetime.date(2026, 11, 1))
+        self.assertEqual(data["sync"]["stale_steps"], [])
 
 
 @unittest.skipUnless(shutil.which("node"), "node is needed to run the page's tile math")

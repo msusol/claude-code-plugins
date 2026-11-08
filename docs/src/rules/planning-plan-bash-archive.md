@@ -43,7 +43,11 @@ For each task in the plan and in its `TODO.md` section:
 
 A checkbox is a claim, not proof (see `planning-ai-skepticism.md`). For each task that is checked off, confirm against the primary source: the code or file on the branch, the merged PR or commit, the deployed or running behavior, or the test result. Say which source you used. If it cannot be confirmed, classify it as unverifiable and do not count it as done.
 
-Compare the plan's task list with its `TODO.md` section. If they differ (a task missing from `TODO.md`, a shortened or extra task, a different checkbox state), report it. A difference is not a blocker by itself, and a verified plan file wins over `TODO.md`. When the plan is archived, its `TODO.md` section is replaced anyway; when it is not, offer to sync that one section.
+Compare the plan's task list with its `TODO.md` section, task for task (see "Shape of a TODO section" in `planning-plan-sync.md`). Count both under the counting rule (obsolete, dropped and deferred tasks left out) and report any difference: a task missing from `TODO.md`, a roll-up line standing in for several tasks, a different checkbox state, state written as prose. If the docs-hub plugin is installed, its Plan progress chart marks the same plans with ⚠ and `hub.json` lists them under `sync.drift`. A difference is not a blocker by itself, and a verified plan file wins over `TODO.md`.
+
+Check the plan's group under `Next steps` too: an item whose dates have all passed is either done (remove it) or late (say so).
+
+When the plan is archived, its `TODO.md` section is replaced anyway. When it is **not** archived (the user keeps it open, or it has open tasks), the sync is part of the job, not an offer: in step 6 or in the follow-up edit the user confirms, rewrite that one section so it mirrors the verified plan file task for task, retire the passed Next-steps items, and bump the plan's `date`, all in the same commit as the plan file's own edits. Only the one plan's section and group are touched.
 
 Also compare the plan's front matter `status` with the checkboxes. If they disagree (for example `status: active` with every task done, or `status: done` with open tasks), trust the verified checkboxes, report the mismatch, and plan to correct `status`.
 
@@ -54,6 +58,7 @@ Before editing or moving any file, tell the user:
 - the plan file and its `TODO.md` section
 - counts per classification, and each open or unverifiable task by name
 - any blocking open question, unmet exit criterion, or `status` mismatch
+- the plan's `TODO.md` section against the plan file: counts on each side, and what the sync would change (a plan that stays open gets this sync too)
 - whether the plan is archivable, and what you would do
 
 Then get explicit confirmation. A plan is archivable only when **all** of these hold:
@@ -70,6 +75,8 @@ If the plan is **not** archivable, say exactly which tasks or questions block it
 - leaving the plan alone
 
 Never check off a task, mark one deferred, or soften a blocker to make a plan archivable.
+
+A task moved to another plan follows "Moving a task between plans" in `planning-plan-sync.md`: struck in the source with the deferral note, added unchecked in the destination file and its section, in the same change. Do it only to a destination the user names.
 
 ## 6. Archive (after confirmation)
 
@@ -95,6 +102,7 @@ Follow "Archiving completed plans" in `planning-docs-plans.md`, with these speci
 - Do not archive a plan with open or unverifiable tasks, or one marked `blocked`, without the user explicitly accepting that.
 - Do not rename or renumber a plan, and never reuse its number.
 - Do not touch other plans or other `TODO.md` sections while checking one plan.
+- Do not leave a checked plan's `TODO.md` section out of step with its plan file when you commit: the plan file and the section change together, or the commit is a desync.
 - Do not delete a plan; archiving moves it.
 - Do not trust `status` over verified checkboxes, or checkboxes over live state.
 - If checking this one plan reveals a repo-wide mismatch between plans and `TODO.md`, stop and switch to `planning-desync-cleanup.md` rather than silently widening scope.

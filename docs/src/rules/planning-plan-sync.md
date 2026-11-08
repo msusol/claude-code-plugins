@@ -31,8 +31,22 @@ Rules:
 - New implementation plans go in `docs/plans/` (named `NNNN-title.md`, see `planning-docs-plans.md`) and get a new named section in `TODO.md` when a live checklist is useful.
 - Each plan has its own top-level section in `TODO.md`. Do not merge tasks across sections.
 - When a task is completed, mark it complete only in the section that owns it.
+- The plan file is the source of truth and its `TODO.md` section is derived from it. A commit that checks off, adds, strikes or rewords a plan task changes the same task in the plan's `TODO.md` section in the same commit; a plan file edited alone is the desync this file exists to prevent.
 - When you check off or add tasks in a plan that has front matter, bump the plan's `date`.
 - When adding tasks derived from a plan file, place them under the correct section.
+
+## Shape of a TODO section
+
+A section mirrors its plan file **task for task**: one checkbox line per plan task, in the plan's order, so the two can be compared by counting.
+
+- Do not write phase roll-ups ("Phase 3: dry run done; stage and gate left"). A roll-up cannot be compared with the plan file, and its prose goes stale first.
+- A line says what the task is and its state, nothing more: no "left: …", no "done on Monday, then …". The story goes in the plan file next to the task.
+- Obsolete, dropped and deferred tasks carry the same marker as in the plan file, `- [x] ~~Task~~ — obsolete: reason` (or `dropped`, or `- [ ] ~~Task~~ — deferred to [plan NNNN](...)`). Tooling that counts progress, for example the docs-hub plugin, leaves exactly these out; a plain-text "obsolete" still counts as work.
+- Under this shape the checked and unchecked counts of the section equal those of the plan file (struck-through tasks left out of both). The docs-hub plugin's Plan progress chart marks a plan where they do not.
+
+## Moving a task between plans
+
+When a task moves from one plan to another (a deferral), in one change: strike it in the source plan and its section with `— deferred to [plan NNNN](...)`, and add it, unchecked, to the destination plan file and its section with a note such as `_carried from plan NNNN_`. Never leave it in only one of the two places.
 
 ## Deriving tasks from plans
 
@@ -47,4 +61,6 @@ Rules:
 - Each item should be numbered sequentially within its group when ordering matters.
 - An item belongs to the plan whose work it advances; do not mix plans within a group.
 - When a next step is completed or deferred, remove or demote it and renumber as needed.
+- A next step that names a date ("Monday 2026-11-02: check the first run") is a promise about a day. Once the latest date it names has passed, check it: if it is done, remove it; if it is late, say so in the item. Do not leave a past-dated item as it is. Any session that touches a plan, and `plan-bash`, makes this check. The docs-hub plugin flags such items.
+- Do not copy a next step into the plan's task lines as well; a task is either a checkbox in the section or a next step, not both.
 - Deferred items stay in `Next steps` with a short note such as `deferred: <reason>`.

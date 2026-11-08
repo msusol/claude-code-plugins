@@ -37,8 +37,16 @@ A struck-through task needs the keyword (`obsolete`, `dropped` or `deferred`) af
 - **Plan progress chart:** one row per plan, in plan-number order (an inserted number such as `00011` sits between `0001` and `0002`). Archived plans appear only when the **Archived** box is ticked; ticking it never changes the tile.
 - **Open work tab:** lists open tasks; obsolete, dropped and deferred ones appear only with "Include done".
 
+## The TODO sync check
+
+`plans/TODO.md` should mirror each plan file task for task (the plan file is the source of truth). The hub checks it:
+
+- **Drift.** For every active plan with a TODO section, the done and open counts of the plan file and of its section are compared under the counting rule above. If they differ, the plan's row in the **Plan progress** chart ends in ⚠ and its tooltip says how: "plan file 23 of 30 done, TODO.md section 5 of 9". A line under the chart lists the plans. Archived plans keep a one-line note instead of a checklist, so they are not compared, and a plan file with no checklist has nothing to compare with.
+- **Stale Next steps.** An item under `## Next steps` that names a date (`YYYY-MM-DD`) is flagged once the latest date it names is in the past. It is either done (remove it) or late (say so). Items with no date, or a date still ahead, are not flagged.
+- Both are also in `hub.json` as `sync: {drift: [plan ids], stale_steps: [...]}`, and each plan row has a `drift` text.
+
 ## Tests
 
 ```bash
-python3 -m unittest discover -s docs-hub/tests -v     # from the plugin repo root; the tile math needs node
+python3 -m unittest discover -s docs-hub/tests -v     # from the plugin repo root; the tile math needs node; includes the sync check
 ```

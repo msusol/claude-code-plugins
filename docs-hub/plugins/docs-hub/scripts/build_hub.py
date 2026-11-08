@@ -7,6 +7,7 @@ Standard library only. Links point at the local files, relative to docs/
     build_hub.py [DOCS_DIR] [--watch] [--interval SECONDS]
 """
 import argparse
+import datetime
 import hashlib
 import json
 import posixpath
@@ -20,6 +21,7 @@ CHECK = re.compile(r"^\s*[-*]\s+\[( |x|X)\]\s+(.*)$")
 # A task struck through and marked obsolete, dropped or deferred ("~~Task~~ — obsolete: why", "~~Task~~ — deferred to plan 0018") is not work in this plan:
 # it counts as neither done nor open (a deferred task is counted in the plan it moved to).
 SKIP = re.compile(r"~~.+?~~.*?\b(obsolete|dropped|deferred)\b", re.I)
+ISO_DATE = re.compile(r"\b(20\d\d-\d\d-\d\d)\b")
 LINK = re.compile(r"\[([^\]]+)\]\(([^)\s]+)\)")
 HREF = re.compile(r"\]\(([^)\s]+)\)")
 PHASE_H = re.compile(r"(?i)^phase\s+([A-Za-z0-9]+)\s*[:.—–-]*\s*(.*)$")
@@ -287,6 +289,31 @@ def parse_todo(root, plans):
     return out
 
 
+def stale_next_steps(root, today):
+    """Next-steps items in plans/TODO.md whose dates are all in the past: `["<group> — <item>", ...]`.
+
+    An item with a date is a promise about a day. Once the latest date it names has passed, it is either done (remove it) or late (say so);
+    leaving it in the list is how Next steps went stale. An item with no date, or with a date still ahead, is not flagged.
+    """
+    path = root / "plans" / "TODO.md"
+    if not path.exists():
+        return []
+    _, body = frontmatter(read(path))
+    out, in_next, group = [], False, ""
+    for line in body.splitlines():
+        if line.startswith("## "):
+            in_next = line[3:].strip().lower() == "next steps"
+            group = ""
+        elif in_next and line.startswith("### "):
+            group = line[4:].strip()
+        elif in_next and re.match(r"^\s*(\d+\.|[-*])\s+", line):
+            dates = ISO_DATE.findall(line)
+            if dates and max(dates) < today.isoformat():
+                text = re.sub(r"^\s*(\d+\.|[-*])\s+", "", line).strip()
+                out.append("%s: %s" % (group or "Next steps", text[:140]))
+    return out
+
+
 def investigation_notes(root):
     inv_dir = root / "investigate"
     notes = {}
@@ -301,6 +328,20 @@ def investigation_notes(root):
     return notes
 
 
+def drift_of(plan, section_done, section_counted):
+    """Why a plan's TODO section disagrees with the plan file, or "" when they agree.
+
+    The plan file is the source of truth and its TODO section mirrors it task for task, so both give the same counts under the counting rule
+    (obsolete, dropped and deferred tasks left out). Archived plans keep a one-line note instead of a checklist, so they are not compared, and a
+    plan file with no checklist has nothing to compare with.
+    """
+    if plan["kind"] == "archived" or not plan["total"]:
+        return ""
+    if (plan["done"], plan["total"]) == (section_done, section_counted):
+        return ""
+    return "plan file %d of %d done, TODO.md section %d of %d" % (plan["done"], plan["total"], section_done, section_counted)
+
+
 def build_model(root, plans, sections, notes):
     """Turn parsed plans, TODO sections and investigation notes into the page's datasets."""
     inv_title, inv_path = {}, {}
@@ -313,9 +354,9 @@ def build_model(root, plans, sections, notes):
     cited = {name: {"plans": [], "refs": [], "done": []} for name in notes}
     used = set()
 
-    def plan_row(pid, title, status, kind, done, total, path=""):
+    def plan_row(pid, title, status, kind, done, total, path="", drift=""):
         plan_rows.append({"id": pid, "title": title, "status": status, "kind": kind,
-                          "done": done, "open": total - done, "total": total, "path": path})
+                          "done": done, "open": total - done, "total": total, "path": path, "drift": drift})
 
     # Plans in number order: 0001, then its inserted numbers 00011 to 00013, then 0002 (string order does this); unnumbered plans keep their TODO order after them.
     sections = sorted(sections, key=lambda s: plan_order((s["plan"]["id"] if s["plan"] else slug(s["title"]))))
@@ -360,7 +401,7 @@ def build_model(root, plans, sections, notes):
                     cited[name]["plans"].append(pid)
         if pl:
             pl["_counted"] = True
-            plan_row(pid, pl["title"], pl["status"], pl["kind"], done_n, counted_n, pl["path"])
+            plan_row(pid, pl["title"], pl["status"], pl["kind"], done_n, counted_n, pl["path"], drift_of(pl, done_n, counted_n))
         else:
             plan_row(pid, sec["title"], "active", "todo", done_n, counted_n)
 
@@ -387,7 +428,8 @@ def build_model(root, plans, sections, notes):
     return plan_rows, work, phases_out, invs
 
 
-def collect(root):
+def collect(root, today=None):
+    today = today or datetime.date.today()
     plans = parse_plans(root)
     sections = parse_todo(root, plans)
     plan_rows, work, phases, invs = build_model(root, plans, sections, investigation_notes(root))
@@ -396,6 +438,7 @@ def collect(root):
         "adrs": parse_adrs(root),
         "specs": parse_specs(root), "process": parse_process(root),
         "plans": plan_rows, "work": work, "phases": phases, "invs": invs,
+        "sync": {"drift": [r["id"] for r in plan_rows if r.get("drift")], "stale_steps": stale_next_steps(root, today)},
     }
     data["version"] = hashlib.sha1(json.dumps(data, sort_keys=True).encode()).hexdigest()[:12]
     data["generated"] = time.strftime("%Y-%m-%d %H:%M:%S")
