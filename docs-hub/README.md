@@ -9,11 +9,12 @@ the planning-docs layout (`adr/`, `plans/` with `TODO.md`, `investigate/`), or s
 rebuilds. Plans, decisions, specs, process docs and investigations on one page, with the progress of
 every plan counted from its checkboxes.
 
-![The Plan progress tab of a docs hub on a project in progress: one bar per plan, the headline tile, and a warning on the plans whose TODO.md disagrees with the plan file](images/plan-progress.png)
+![The Plan progress tab of a docs hub on a project in progress: the headline tile and one bar per plan, each counted from its TODO.md section](images/plan-progress.png)
 
 *The Plan progress tab on a project in progress (generated 2026-11-08): one bar per plan counted from
-`plans/TODO.md`, the headline tile (done ÷ done + open over the active plans), and ⚠ on the plans whose
-`TODO.md` section disagrees with the plan file.*
+`plans/TODO.md`, and the headline tile (done ÷ done + open over the active plans, with the share of all work
+including archived plans). Every `TODO.md` section matches its plan file here; a plan whose section
+disagrees gets a ⚠ on its row.*
 
 ## Why
 
