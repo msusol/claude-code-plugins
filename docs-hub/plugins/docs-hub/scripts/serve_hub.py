@@ -21,6 +21,7 @@ Markdown files are served as plain text. Only files inside a docs/ folder are se
 """
 import argparse
 import html
+import importlib
 import posixpath
 import sys
 import threading
@@ -83,10 +84,23 @@ def find_docs(name, start):
     return None
 
 
+CODE = {"seen": None}   # newest mtime of the generator and the page template, as last loaded
+
+
+def plugin_mtime():
+    """When the generator or the page template last changed: a reload must pick up a new plugin version without restarting the server."""
+    return max(Path(build_hub.__file__).stat().st_mtime, build_hub.TEMPLATE.stat().st_mtime)
+
+
 def project_refresh(name):
     with LOCK:
+        code = plugin_mtime()
+        if CODE["seen"] is not None and code != CODE["seen"]:
+            importlib.reload(build_hub)          # a changed build_hub.py takes effect on the next page load
+            print("reloaded build_hub (plugin files changed)", flush=True)
+        CODE["seen"] = code
         p = PROJECTS[name]
-        cur = build_hub.newest_mtime(p["docs"])
+        cur = (build_hub.newest_mtime(p["docs"]), code)
         if cur != p["seen"] or p["page"] is None:
             data = build_hub.collect(p["docs"])
             p["json"], p["page"] = build_hub.render(data)
