@@ -146,10 +146,11 @@ body { padding: 1.5rem 1rem; }
       <button type="button" role="tab" data-tab="work" aria-selected="false">Open work</button>
     </nav>
     </div>
-    <div class="rh-tile rh-tile-top">
+    <div class="rh-tile rh-tile-top" title="Done ÷ (done + open) over the active plans' TODO items. Tasks struck through as obsolete, dropped or deferred, and archived plans, are not counted. The second line adds archived plans.">
       <div class="rh-lab">Checklist done</div>
       <div class="rh-num" id="pct-top"></div>
       <div class="rh-note" id="pct-note"></div>
+      <div class="rh-note" id="pct-all" hidden></div>
     </div>
   </header>
 
@@ -296,8 +297,11 @@ const panels = ['progress', 'decisions', 'specs', 'process', 'activity', 'work']
 // ---------- helpers ----------
 const live = (r) => !r.archived && r.kind !== 'archived' || st.showArchived;   // an archived plan shows only when "Archived" is ticked
 function totals() {
-  const todo = D.work.filter((r) => r.kind === 'task' && !r.archived);        // the totals never count an archived plan's items
+  // The headline counts live work only: not an archived plan's items, and not a task struck through as obsolete, dropped or deferred.
+  const todo = D.work.filter((r) => r.kind === 'task' && !r.archived && !r.skip);
   const done = todo.filter((t) => t.done).length;
+  const arch = D.plans.filter((p) => p.kind === 'archived');                  // for the second line: every plan, finished ones included
+  const aDone = arch.reduce((n, p) => n + p.done, 0), aTotal = arch.reduce((n, p) => n + p.total, 0);
   const invDone = D.invs.filter((r) => /\[[xX]\]/.test(String(r.box || ''))).length;
   const adrs = D.adrs;
   return {
@@ -306,7 +310,9 @@ function totals() {
     plans_active: D.plans.filter((p) => p.status === 'active' && /^\d/.test(p.id)).length,
     inv_done_pct: D.invs.length ? invDone / D.invs.length : 0,
     todo_total: todo.length, todo_done: done, todo_open: todo.length - done,
-    pct_done: todo.length ? done / todo.length : 0
+    pct_done: todo.length ? done / todo.length : 0,
+    archived_n: arch.length,
+    pct_all: todo.length + aTotal ? (done + aDone) / (todo.length + aTotal) : 0
   };
 }
 function shortTitle(t) { return String(t || ''); }
@@ -518,13 +524,15 @@ function drawTop() {
   $('ttl').textContent = D.project;
   document.title = D.project + ' · Docs Hub';
   $('pct-top').textContent = fmtP(t.pct_done);
-  $('pct-note').textContent = fmtC(t.todo_done) + ' of ' + fmtC(t.todo_total) + ' items in TODO';
+  $('pct-note').textContent = fmtC(t.todo_done) + ' of ' + fmtC(t.todo_total) + ' active items in TODO';
+  $('pct-all').hidden = !t.archived_n;
+  $('pct-all').textContent = fmtP(t.pct_all) + ' of all work, with ' + fmtC(t.archived_n) + ' archived plan' + (t.archived_n === 1 ? '' : 's');
   $('adr-pct').textContent = fmtP(t.adrs_accepted_pct);
   $('inv-pct').textContent = fmtP(t.inv_done_pct);
   $('spec-n').textContent = fmtC((D.specs || []).length);
   $('proc-n').textContent = fmtC((D.process || []).length);
   $('work-pct').textContent = fmtP(t.pct_done);
-  $('foot').textContent = "Built from each file's frontmatter, its first heading, and the checkboxes in plans/TODO.md. A plan's progress is only as current as its TODO section.";
+  $('foot').textContent = "Built from each file's frontmatter, its first heading, and the checkboxes in plans/TODO.md. A plan's progress is only as current as its TODO section. Done is [x], open is [ ]; tasks struck through as obsolete, dropped or deferred, and archived plans, are left out of the main figure.";
   const gen = document.createElement('span');
   gen.style.display = 'block';
   gen.textContent = 'Generated ' + D.generated + (location.protocol === 'file:' ? ' (file://, no live reload).' : '.');
@@ -588,7 +596,7 @@ function drawProcRows() {
 function drawWorkRows() {
   const tb = $('work-rows');
   const s = st.todo, q = s.q.trim().toLowerCase();
-  const tasks = D.work.filter((r) => r.kind === 'task' && live(r) && (s.done || !r.done) && (!s.plan || r.plan === s.plan) &&
+  const tasks = D.work.filter((r) => r.kind === 'task' && live(r) && (s.done || !(r.done || r.skip)) && (!s.plan || r.plan === s.plan) &&
     (!q || (r.plan + ' ' + r.text).toLowerCase().includes(q)));
   const vis = new Set(tasks.map((r) => r.id));
   const planVis = new Set(tasks.map((r) => r.plan));
@@ -606,7 +614,7 @@ function drawWorkRows() {
   });
   const rows = [];
   out.forEach((r) => {
-    const cls = (r.kind === 'task' && s.focus === r.id ? 'rh-focus ' : '') + (r.kind === 'plan' ? 'rh-plan' : r.kind === 'task' ? (r.done ? 'rh-done' : '') : 'rh-sub');
+    const cls = (r.kind === 'task' && s.focus === r.id ? 'rh-focus ' : '') + (r.kind === 'plan' ? 'rh-plan' : r.kind === 'task' ? (r.done || r.skip ? 'rh-done' : '') : 'rh-sub');
     let blocks = [];
     if (r.kind === 'plan' && r.phases) {
       blocks = D.phases.filter((p) => p.plan === r.plan).map(phaseBlock);

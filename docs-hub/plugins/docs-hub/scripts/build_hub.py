@@ -17,6 +17,9 @@ import time
 from pathlib import Path
 
 CHECK = re.compile(r"^\s*[-*]\s+\[( |x|X)\]\s+(.*)$")
+# A task struck through and marked obsolete, dropped or deferred ("~~Task~~ — obsolete: why", "~~Task~~ — deferred to plan 0018") is not work in this plan:
+# it counts as neither done nor open (a deferred task is counted in the plan it moved to).
+SKIP = re.compile(r"~~.+?~~.*?\b(obsolete|dropped|deferred)\b", re.I)
 LINK = re.compile(r"\[([^\]]+)\]\(([^)\s]+)\)")
 HREF = re.compile(r"\]\(([^)\s]+)\)")
 PHASE_H = re.compile(r"(?i)^phase\s+([A-Za-z0-9]+)\s*[:.—–-]*\s*(.*)$")
@@ -99,6 +102,12 @@ def investigation_ids(text, base_dir):
     return ids
 
 
+def skip_kind(text):
+    """'obsolete', 'dropped' or 'deferred' for a struck-through task that is out of this plan's count, else ''."""
+    m = SKIP.search(text)
+    return m.group(1).lower() if m else ""
+
+
 def parse_items(body):
     items, h2, h3 = [], "", ""
     for line in body.splitlines():
@@ -109,7 +118,7 @@ def parse_items(body):
         else:
             m = CHECK.match(line)
             if m:
-                items.append({"h2": h2, "h3": h3, "done": m.group(1) != " ", "text": m.group(2).strip()})
+                items.append({"h2": h2, "h3": h3, "done": m.group(1) != " ", "text": m.group(2).strip(), "skip": skip_kind(m.group(2))})
     return items
 
 
@@ -201,17 +210,19 @@ def parse_plans(root):
             key = m.group(1)
             ph = phases.setdefault(key, {"phase": key, "heading": strip_marks(m.group(2)).strip(),
                                          "done": 0, "total": 0, "items": []})
-            ph["total"] += 1
-            ph["done"] += 1 if it["done"] else 0
-            ph["items"].append({"box": box(it["done"]), "done": it["done"], "text": plain(it["text"], "plans")[0]})
-        done = sum(1 for i in items if i["done"])
-        status = "archived" if archived else (fm.get("status") or ("done" if items and done == len(items) else "active"))
+            if not it["skip"]:
+                ph["total"] += 1
+                ph["done"] += 1 if it["done"] else 0
+            ph["items"].append({"box": box(it["done"]), "done": it["done"] or bool(it["skip"]), "text": plain(it["text"], "plans")[0]})
+        counted = [i for i in items if not i["skip"]]
+        done = sum(1 for i in counted if i["done"])
+        status = "archived" if archived else (fm.get("status") or ("done" if counted and done == len(counted) else "active"))
         m = re.match(r"^(\d{4,5})-", p.name)
         title = re.sub(r"\s+Implementation Plan$", "", re.sub(r"^(Plan\s+)?\d{4,5}[:.]?\s*", "", title_of(body, p.stem)))
         plans.append({
             "stem": p.stem, "id": m.group(1) if m else p.stem, "num": m.group(1) if m else "",
             "title": strip_marks(title), "status": status, "kind": "archived" if archived else "plan",
-            "path": rel(p, root), "done": done, "total": len(items), "phases": list(phases.values()),
+            "path": rel(p, root), "done": done, "total": len(counted), "phases": list(phases.values()),
             "investigations": investigation_ids(text, "plans/archive" if archived else "plans"),
         })
     return plans
@@ -266,7 +277,7 @@ def parse_todo(root, plans):
             if m:
                 t = m.group(2).strip()
                 shown, links = plain(t, "plans")
-                items.append({"done": m.group(1) != " ", "text": shown, "links": links,
+                items.append({"done": m.group(1) != " ", "text": shown, "links": links, "skip": skip_kind(t),
                               "inv": investigation_ids(t, "plans")})
         if not items:
             continue
@@ -322,13 +333,15 @@ def build_model(root, plans, sections, notes):
         for ph in (pl["phases"] if pl else []):
             phases_out.append(dict(ph, plan=pid))
         done_n = 0
+        counted_n = sum(1 for it in sec["items"] if not it["skip"])   # obsolete, dropped and deferred tasks are out of the count
         seen_notes = set()
         for n, it in enumerate(sec["items"], 1):
             ref = "%s-%d" % (pid, n)
-            done_n += 1 if it["done"] else 0
+            done_n += 1 if it["done"] and not it["skip"] else 0
             refs = [k for k in dict.fromkeys(PHASE_REF.findall(it["text"])) if k in keys]
             work.append(dict({"kind": "task", "id": ref, "text": it["text"], "box": box(it["done"]),
-                              "done": it["done"], "plan": pid, "links": it["links"], "phases": ",".join(refs)}, **arch))
+                              "done": it["done"], "plan": pid, "links": it["links"], "phases": ",".join(refs)},
+                             **arch, **({"skip": it["skip"]} if it["skip"] else {})))
             for name in it["inv"]:
                 if name in notes:
                     seen_notes.add(name)
@@ -338,7 +351,7 @@ def build_model(root, plans, sections, notes):
                     if pid not in c["plans"]:
                         c["plans"].append(pid)
                     c["refs"].append(ref)
-                    c["done"].append(it["done"])
+                    c["done"].append(it["done"] or bool(it["skip"]))
         for name in (pl["investigations"] if pl else []):
             if name in notes and name not in seen_notes:
                 work.append({"kind": "investigation", "id": "", "text": inv_title[name], "box": "",
@@ -347,9 +360,9 @@ def build_model(root, plans, sections, notes):
                     cited[name]["plans"].append(pid)
         if pl:
             pl["_counted"] = True
-            plan_row(pid, pl["title"], pl["status"], pl["kind"], done_n, len(sec["items"]))
+            plan_row(pid, pl["title"], pl["status"], pl["kind"], done_n, counted_n)
         else:
-            plan_row(pid, sec["title"], "active", "todo", done_n, len(sec["items"]))
+            plan_row(pid, sec["title"], "active", "todo", done_n, counted_n)
 
     for pl in plans:  # plans with a checklist of their own but no TODO section
         if not pl.get("_counted") and pl["total"]:
@@ -418,7 +431,7 @@ def newest_mtime(root):
 
 
 def summary(data, path):
-    n_items = sum(1 for r in data["work"] if r["kind"] == "task")
+    n_items = sum(1 for r in data["work"] if r["kind"] == "task" and not r.get("archived") and not r.get("skip"))
     return "wrote %s: %d plans, %d ADRs, %d investigations, %d TODO items" % (
         path, len(data["plans"]), len(data["adrs"]), len(data["invs"]), n_items)
 

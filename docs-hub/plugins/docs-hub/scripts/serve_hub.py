@@ -114,7 +114,7 @@ def index_page():
     rows = []
     for name in sorted(PROJECTS):
         d = project_refresh(name)["data"]
-        t = [r for r in d["work"] if r["kind"] == "task"]
+        t = [r for r in d["work"] if r["kind"] == "task" and not r.get("archived") and not r.get("skip")]
         done = sum(1 for r in t if r["done"])
         pct = round(100 * done / len(t)) if t else 0
         rows.append(
