@@ -137,7 +137,7 @@ def parse_adrs(root):
     readme = adr_dir / "README.md"
     if readme.exists():
         for line in read(readme).splitlines():
-            m = re.match(r"^\|\s*\[?(\d{4})\]?(?:\([^)]*\))?\s*\|.*\|\s*([^|]+?)\s*\|\s*$", line)
+            m = re.match(r"^\|\s*\[?(\d{4,5})\]?(?:\([^)]*\))?\s*\|.*\|\s*([^|]+?)\s*\|\s*$", line)
             if m:
                 index_status[m.group(1)] = m.group(2)
     adrs = []
@@ -148,7 +148,7 @@ def parse_adrs(root):
         if not status:
             m = re.search(r"^##\s+Status\s*\n+\s*(.+)$", body, re.M)
             status = m.group(1).strip() if m else "unknown"
-        title = re.sub(r"^\d{4}\.?\s*", "", title_of(body, p.stem))
+        title = re.sub(r"^\d{4,5}\.?\s*", "", title_of(body, p.stem))
         adrs.append({"number": num, "title": strip_marks(title),
                      "status": re.split(r"[\s,.(]", status.strip().lower() or "unknown")[0] or "unknown",
                      "date": fm.get("date") or file_date(root, p), "path": rel(p, root)})
@@ -206,8 +206,8 @@ def parse_plans(root):
             ph["items"].append({"box": box(it["done"]), "done": it["done"], "text": plain(it["text"], "plans")[0]})
         done = sum(1 for i in items if i["done"])
         status = "archived" if archived else (fm.get("status") or ("done" if items and done == len(items) else "active"))
-        m = re.match(r"^(\d{4})-", p.name)
-        title = re.sub(r"\s+Implementation Plan$", "", re.sub(r"^(Plan\s+)?\d{4}[:.]?\s*", "", title_of(body, p.stem)))
+        m = re.match(r"^(\d{4,5})-", p.name)
+        title = re.sub(r"\s+Implementation Plan$", "", re.sub(r"^(Plan\s+)?\d{4,5}[:.]?\s*", "", title_of(body, p.stem)))
         plans.append({
             "stem": p.stem, "id": m.group(1) if m else p.stem, "num": m.group(1) if m else "",
             "title": strip_marks(title), "status": status, "kind": "archived" if archived else "plan",
@@ -227,14 +227,14 @@ def match_plan(section_title, source_href, plans, base):
         for pl in plans:
             if pl["path"] == target:
                 return pl
-    m = re.match(r"^(\d{4})\b", section_title)
+    m = re.match(r"^(\d{4,5})\b", section_title)
     if m:
         for pl in plans:
             if pl["num"] == m.group(1):
                 return pl
-    s = slug(re.sub(r"^(Plan\s+)?\d{4}[:.]?\s*", "", section_title))
+    s = slug(re.sub(r"^(Plan\s+)?\d{4,5}[:.]?\s*", "", section_title))
     for pl in plans:
-        if slug(re.sub(r"^\d{4}-", "", pl["stem"])) == s or slug(pl["title"]) == s:
+        if slug(re.sub(r"^\d{4,5}-", "", pl["stem"])) == s or slug(pl["title"]) == s:
             return pl
     return None
 
@@ -413,6 +413,16 @@ def summary(data, path):
         path, len(data["plans"]), len(data["adrs"]), len(data["invs"]), n_items)
 
 
+def not_ignored(page):
+    """True when the page sits in a git repo that does not ignore it."""
+    try:
+        r = subprocess.run(["git", "-C", str(page.parent), "check-ignore", "-q", page.name],
+                           capture_output=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return r.returncode == 1          # 0 = ignored, 128 = not a repo
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("docs", nargs="?", default="docs")
@@ -424,6 +434,8 @@ def main(argv=None):
         sys.exit("not a directory: %s" % root)
     data, path = build(root)
     print(summary(data, path), flush=True)
+    if not_ignored(path):
+        print("note: %s is not git-ignored; add `.hub/` to the repo's .gitignore" % path.parent, file=sys.stderr)
     for name, key in (("adr/", "adrs"), ("plans/", "plans"), ("investigate/", "invs"), ("specs/", "specs"), ("process/", "process")):
         if not data[key]:
             print("note: nothing found under %s" % name, file=sys.stderr)

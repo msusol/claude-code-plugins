@@ -44,7 +44,18 @@ Steps:
    `/<project>/.hub/index.html` and `/` lists them (built in memory, nothing written).
 4. If the output shows an empty tab, say which folder was missing (`adr/`, `plans/`,
    `investigate/`); the generator expects the planning-docs layout.
-5. If you ran `build_hub.py`, remind the user to add `.hub/` to `.gitignore` if it is not there already (serving does not need it).
+5. Keep the build output out of git. `build_hub.py` writes `<docs-dir>/.hub/`, and it prints
+   `note: ... is not git-ignored` when the repo does not ignore it. In that case, add this to
+   the repo's `.gitignore` (create the file if needed) and tell the user what you added. Do
+   not stage or commit it:
+
+   ```
+   # docs-hub output (build_hub.py writes docs/.hub/)
+   .hub/
+   ```
+
+   Check first with `git -C <docs-dir> check-ignore -q .hub/index.html` (exit 0 = already
+   ignored). `serve` writes nothing into the project, so this step is only for `build_hub.py`.
 
 If `${CLAUDE_PLUGIN_ROOT}` is empty in your shell, find the plugin with
 `ls ~/.claude/plugins/cache/*/docs-hub/*/scripts/build_hub.py` and use that path.

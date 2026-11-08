@@ -12,7 +12,7 @@ python3 scripts/serve_hub.py docs            # http://127.0.0.1:8765/<project>/.
 python3 scripts/serve_hub.py --root ~/Projects --port 8766   # every <project>/docs under one port
 ```
 
-In Claude Code: `/docs-hub:hub`, `/docs-hub:hub serve`, `/docs-hub:hub serve re-lead-pipeline` (a project name is found below your home directory), or `/docs-hub:hub serve all ~/Projects --port 8766`. Add `.hub/` to the repo's `.gitignore`.
+In Claude Code: `/docs-hub:hub`, `/docs-hub:hub serve`, `/docs-hub:hub serve re-lead-pipeline` (a project name is found below your home directory), or `/docs-hub:hub serve all ~/Projects --port 8766`. `build_hub.py` warns when `.hub/` is not git-ignored, and the command adds the line to `.gitignore` for you (it never commits it).
 
 With `--root`, each project is at `/<project>/.hub/index.html` and `/` lists them. Served pages are built in memory, so serving writes nothing into the project and needs no `.gitignore` entry (`build_hub.py` still writes `docs/.hub/`).
 
