@@ -379,14 +379,20 @@ def collect(root):
     return data
 
 
+def render(data):
+    """Return (hub.json text, index.html text) for a collected model."""
+    blob = json.dumps(data, ensure_ascii=False)
+    page = read(TEMPLATE).replace("/*__DATA__*/null", blob.replace("</", "<\\/"))
+    return blob, page
+
+
 def build(root):
     root = Path(root)
     data = collect(root)
     out = root / ".hub"
     out.mkdir(exist_ok=True)
-    blob = json.dumps(data, ensure_ascii=False)
+    blob, page = render(data)
     (out / "hub.json").write_text(blob, encoding="utf-8")
-    page = read(TEMPLATE).replace("/*__DATA__*/null", blob.replace("</", "<\\/"))
     (out / "index.html").write_text(page, encoding="utf-8")
     return data, out / "index.html"
 
