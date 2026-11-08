@@ -3,7 +3,8 @@
 Run from the plugin repo root:  python3 -m unittest discover -s docs-hub/tests -v
 
 Covers the checklist counting rule (obsolete, dropped and deferred tasks are out of the count), plan order (inserted numbers sit between their
-neighbours), the archived flag, and the headline tile's math, which lives in the page template's JavaScript and is run under node.
+neighbours), the archived flag, the optional `plans:` and `tickets:` front matter of an investigation note, the hidden TODO and Tickets columns,
+and the headline tile's math, which lives in the page template's JavaScript and is run under node.
 """
 import datetime
 import json
@@ -226,6 +227,75 @@ class Sync(unittest.TestCase):
     def test_the_same_steps_are_not_stale_before_their_date(self):
         data, _ = self.collect("- [x] one\n- [x] two\n- [ ] three\n", today=datetime.date(2026, 11, 1))
         self.assertEqual(data["sync"]["stale_steps"], [])
+
+
+class InvestigationFrontMatter(unittest.TestCase):
+    """A note names its plans and tickets in optional front matter; a plan that links the note counts too."""
+
+    def collect(self):
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp, ignore_errors=True)
+        make_sync_docs(tmp, "- [x] one\n- [x] two\n- [ ] three\n\nSee [the linked note](../investigate/2026-11-01-linked.md).\n")
+        write(tmp, "investigate/2026-11-01-linked.md", "# 2026-11-01 Linked note\n\n## 1. Something\n")
+        write(tmp, "investigate/2026-11-02-fm.md", "---\nplans: [0002, 0099]\ntickets: [PROJ-12, PROJ-13]\n---\n\n# 2026-11-02 Front note\n\n## 1. Something\n")
+        write(tmp, "investigate/2026-11-03-none.md", "# 2026-11-03 Bare note\n\n## 1. Something\n")
+        data = b.collect(Path(tmp), today=datetime.date(2026, 11, 8))
+        return data, {Path(i["path"]).stem: i for i in data["invs"]}
+
+    def test_a_front_matter_list_is_read_with_or_without_brackets_and_quotes(self):
+        self.assertEqual(b.fm_list("[0003, 0018]"), ["0003", "0018"])
+        self.assertEqual(b.fm_list("0003"), ["0003"])
+        self.assertEqual(b.fm_list("['0003', \"PROJ-1\"]"), ["0003", "PROJ-1"])
+        self.assertEqual(b.fm_list(""), [])
+        self.assertEqual(b.fm_list(None), [])
+
+    def test_a_note_lists_the_plans_it_names_and_its_tickets(self):
+        _, rows = self.collect()
+        self.assertEqual(rows["2026-11-02-fm"]["plans"], "0002")
+        self.assertEqual(rows["2026-11-02-fm"]["tickets"], "PROJ-12, PROJ-13")
+        self.assertEqual(rows["2026-11-02-fm"]["title"], "Front note")               # the front matter is not the title
+
+    def test_a_plan_that_links_a_note_still_counts_and_a_bare_note_has_no_plans(self):
+        _, rows = self.collect()
+        self.assertEqual(rows["2026-11-01-linked"]["plans"], "0001")
+        self.assertEqual((rows["2026-11-03-none"]["plans"], rows["2026-11-03-none"]["tickets"]), ("", ""))
+
+    def test_a_plan_id_that_matches_no_plan_is_left_out_and_reported(self):
+        data, rows = self.collect()
+        self.assertEqual(rows["2026-11-02-fm"]["bad_plans"], "0099")
+        self.assertEqual(data["sync"]["unknown_note_plans"], ["2026-11-02-fm: 0099"])
+
+    def test_a_note_named_by_a_plan_in_both_ways_lists_the_plan_once(self):
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp, ignore_errors=True)
+        make_sync_docs(tmp, "- [x] one\n- [x] two\n- [ ] three\n\n[n](../investigate/2026-11-01-both.md)\n")
+        write(tmp, "investigate/2026-11-01-both.md", "---\nplans: [0001]\n---\n\n# 2026-11-01 Both\n")
+        row = b.collect(Path(tmp), today=datetime.date(2026, 11, 8))["invs"][0]
+        self.assertEqual(row["plans"], "0001")
+
+
+@unittest.skipUnless(shutil.which("node"), "node is needed to run the page's column logic")
+class InvestigationColumns(unittest.TestCase):
+    """TODO item, Status and Tickets are drawn only when some note has a value for them."""
+
+    @classmethod
+    def setUpClass(cls):
+        src = (PLUGIN / "assets" / "template.html").read_text(encoding="utf-8")
+        m = re.search(r"(function invColumns\(\) \{.*?\n\})", src, re.S)
+        assert m, "invColumns() not found in the template"
+        cls.js = m.group(1)
+
+    def columns(self, invs):
+        prog = "const D = {invs: %s};\n%s\nconsole.log(JSON.stringify(invColumns()));" % (json.dumps(invs), self.js)
+        return json.loads(subprocess.run(["node", "-e", prog], capture_output=True, text=True, check=True).stdout)
+
+    def test_no_note_is_cited_and_none_has_a_ticket_so_both_columns_are_hidden(self):
+        self.assertEqual(self.columns([{"todo_ref": "", "tickets": ""}, {"todo_ref": "", "tickets": ""}]), {"todo": False, "tickets": False})
+        self.assertEqual(self.columns([]), {"todo": False, "tickets": False})
+
+    def test_one_cited_note_shows_the_todo_columns_and_one_ticket_shows_the_tickets_column(self):
+        self.assertEqual(self.columns([{"todo_ref": "0001-2", "tickets": ""}, {"todo_ref": "", "tickets": ""}]), {"todo": True, "tickets": False})
+        self.assertEqual(self.columns([{"todo_ref": "", "tickets": "PROJ-1"}]), {"todo": False, "tickets": True})
 
 
 @unittest.skipUnless(shutil.which("node"), "node is needed to run the page's tile math")

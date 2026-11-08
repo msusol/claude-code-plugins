@@ -233,8 +233,8 @@ body { padding: 1.5rem 1rem; }
     <div class="rh-card rh-span">
       <div class="rh-card-head">
         <div><h2>Investigations</h2>
-        <p class="rh-sub">Investigation notes carry no status of their own. Plans lists every plan that links to a note, and the TODO columns show the checklist item that cites it, with that item's box.</p></div>
-        <div class="rh-stat"><b id="inv-pct"></b> <span>Done</span></div>
+        <p class="rh-sub">Investigation notes carry no status of their own. Plans lists every plan that links to a note or that the note names in its front matter (<code>plans: [0003]</code>); Tickets shows its <code>tickets:</code>. TODO item and Status appear only when a checklist item cites a note, with that item's box.</p></div>
+        <div class="rh-stat" id="inv-stat"><b id="inv-pct"></b> <span>Done</span></div>
       </div>
       <div class="rh-tools">
         <input class="rh-search" id="inv-q" type="search" placeholder="Search investigations" aria-label="Search investigations">
@@ -245,6 +245,7 @@ body { padding: 1.5rem 1rem; }
             <th data-field="date"><button type="button" class="rh-sort">Date</button></th>
             <th data-field="title"><button type="button" class="rh-sort">Investigation</button></th>
             <th data-field="plans" class="rh-hide-narrow"><button type="button" class="rh-sort">Plans</button></th>
+            <th data-field="tickets" class="rh-hide-narrow" hidden><button type="button" class="rh-sort">Tickets</button></th>
             <th data-field="todo_ref" class="rh-hide-narrow"><button type="button" class="rh-sort">TODO item</button></th>
             <th data-field="box"><button type="button" class="rh-sort">Status</button></th>
           </tr></thead>
@@ -670,20 +671,33 @@ function drawWorkRows() {
     tr.appendChild(td); tb.appendChild(tr);
   }
 }
+function invColumns() {
+  // TODO item and Status mean something only when a checklist item cites a note, and Tickets only when a note names one; otherwise the column is empty, so it is hidden.
+  return { todo: D.invs.some((r) => r.todo_ref), tickets: D.invs.some((r) => r.tickets) };
+}
 function drawInvRows() {
+  const show = invColumns();
+  document.querySelectorAll('table[data-tbl="invs"] th').forEach((th) => {
+    const f = th.dataset.field;
+    th.hidden = f === 'todo_ref' || f === 'box' ? !show.todo : f === 'tickets' ? !show.tickets : false;
+  });
+  $('inv-stat').hidden = !show.todo;
   const s = st.invs, q = s.q.trim().toLowerCase();
-  let list = D.invs.filter((r) => !q || (r.title + ' ' + r.plans + ' ' + r.todo_ref).toLowerCase().includes(q));
+  let list = D.invs.filter((r) => !q || (r.title + ' ' + r.plans + ' ' + r.tickets + ' ' + r.todo_ref).toLowerCase().includes(q));
   list = sortRows(list, s.key, s.dir);
   const rows = [];
   list.forEach((r) => {
-    const tr = rowEl([r.date, { text: r.title, links: [{ label: r.title, path: r.path }] }, { go: goList(r.plans, 'plan') }, { go: goList(r.todo_ref, 'ref') }, r.box], 'rh-exp', r.path);
+    const cells = [r.date, { text: r.title, links: [{ label: r.title, path: r.path }] }, { go: goList(r.plans, 'plan') }];
+    if (show.tickets) cells.push(r.tickets);
+    if (show.todo) cells.push({ go: goList(r.todo_ref, 'ref') }, r.box);
+    const tr = rowEl(cells, 'rh-exp', r.path);
     const open = invOpen.has(r.path);
     tr.classList.toggle('rh-open', open);
     tr.tabIndex = 0;
     tr.setAttribute('aria-expanded', String(open));
     tr.dataset.rid = r.path;
     rows.push(tr);
-    if (open) rows.push(noteRow(r.path, 5));
+    if (open) rows.push(noteRow(r.path, cells.length));
   });
   $('inv-rows').replaceChildren(...rows);
 }

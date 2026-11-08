@@ -56,7 +56,8 @@ Use the following roles under `docs/`:
 | `docs/adr/` | `NNNN-kebab-title.md` (four digits, MADR 4.x template) | `status`, `date`, `decision-makers` (required) |
 | `docs/plans/` | `NNNN-kebab-title.md` (four digits, per repo, kept when archived; a five-digit inserted number such as `00011` only when the user asks) | `status`, `date` (required); `tickets`, `specs`, `adr` (optional) |
 | `docs/specs/` | `feature-name.md` or `feature-name/spec.md` | `status`, `date` |
-| `docs/investigate/`, `docs/process/`, `docs/roadmap/` | see their own rules | none |
+| `docs/investigate/` | see its own rule (`YYYY-MM-DD-issue-name.md`) | optional: `plans`, `tickets` |
+| `docs/process/`, `docs/roadmap/` | see their own rules | none |
 
 Details live in `planning-docs-adr.md`, `planning-docs-plans.md`, and `planning-docs-specs.md`. New files follow these conventions; existing files are not renamed or retrofitted unless the user asks.
 

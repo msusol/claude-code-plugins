@@ -342,11 +342,16 @@ def drift_of(plan, section_done, section_counted):
     return "plan file %d of %d done, TODO.md section %d of %d" % (plan["done"], plan["total"], section_done, section_counted)
 
 
+def fm_list(value):
+    """A front matter list written as `[0003, 0018]`, `0003, 0018` or `0003` -> ['0003', '0018']."""
+    return [x.strip().strip("'\"") for x in str(value or "").strip().strip("[]").split(",") if x.strip().strip("'\"")]
+
+
 def build_model(root, plans, sections, notes):
     """Turn parsed plans, TODO sections and investigation notes into the page's datasets."""
-    inv_title, inv_path = {}, {}
+    inv_title, inv_path, inv_fm = {}, {}, {}
     for name, p in notes.items():
-        _, body = frontmatter(read(p))
+        inv_fm[name], body = frontmatter(read(p))
         inv_title[name] = strip_marks(re.sub(r"^\d{4}-\d{2}-\d{2}\s*", "", title_of(body, name)))
         inv_path[name] = rel(p, root)
 
@@ -415,16 +420,25 @@ def build_model(root, plans, sections, notes):
                     cited[name]["plans"].append(pl["id"])
 
     plan_rows.sort(key=lambda r: plan_order(r["id"]))  # the archived plans, added last above, take their place by number
+    known = {r["id"] for r in plan_rows}
     invs = []
     for name, p in sorted(notes.items(), reverse=True):
         c = cited[name]
+        unknown = []
+        for pid in fm_list(inv_fm[name].get("plans")):  # a note may name its plans in its own front matter, besides being linked from a plan
+            if pid in known:
+                if pid not in c["plans"]:
+                    c["plans"].append(pid)
+            else:
+                unknown.append(pid)
         m = re.match(r"^(\d{4}-\d{2}-\d{2})", name)
         if c["refs"]:
             state = box(all(c["done"]))
         else:
             state = ""
         invs.append({"date": m.group(1) if m else "", "title": inv_title[name], "path": inv_path[name],
-                     "plans": ", ".join(c["plans"]), "todo_ref": ", ".join(c["refs"]), "box": state})
+                     "plans": ", ".join(c["plans"]), "tickets": ", ".join(fm_list(inv_fm[name].get("tickets"))), "bad_plans": ", ".join(unknown),
+                     "todo_ref": ", ".join(c["refs"]), "box": state})
     return plan_rows, work, phases_out, invs
 
 
@@ -438,7 +452,8 @@ def collect(root, today=None):
         "adrs": parse_adrs(root),
         "specs": parse_specs(root), "process": parse_process(root),
         "plans": plan_rows, "work": work, "phases": phases, "invs": invs,
-        "sync": {"drift": [r["id"] for r in plan_rows if r.get("drift")], "stale_steps": stale_next_steps(root, today)},
+        "sync": {"drift": [r["id"] for r in plan_rows if r.get("drift")], "stale_steps": stale_next_steps(root, today),
+                 "unknown_note_plans": ["%s: %s" % (Path(i["path"]).stem, i["bad_plans"]) for i in invs if i["bad_plans"]]},
     }
     data["version"] = hashlib.sha1(json.dumps(data, sort_keys=True).encode()).hexdigest()[:12]
     data["generated"] = time.strftime("%Y-%m-%d %H:%M:%S")

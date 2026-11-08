@@ -20,6 +20,23 @@ paths:
 
 See `planning-docs-artifacts.md` for the full artifact co-location rule.
 
+## Optional front matter
+
+A note may start with front matter that names what it belongs to, so a docs hub can list the note under its plans and tickets without a plan having to link it:
+
+```yaml
+---
+plans: [0003, 0018]
+tickets: [PROJ-123]
+---
+```
+
+- `plans` lists the plans the note is evidence for or about, by number (four digits, or five for an inserted number such as `00011`). `tickets` lists issue-tracker keys. Both are optional and independent.
+- Add it when the note is about a plan or a bug; leave it off a note that belongs to neither. A plan that links the note counts too, and a note named both ways is listed once.
+- Do not add `status` or `date`: a note carries no status of its own, and its date is in its file name.
+- The anchor doc of a subdirectory note carries the same front matter.
+- A plan number that matches no plan is a typo; the docs-hub plugin reports it in `hub.json` under `sync.unknown_note_plans`.
+
 ## Per-issue structure
 
 When actively working an issue, add these subsections if they are missing:

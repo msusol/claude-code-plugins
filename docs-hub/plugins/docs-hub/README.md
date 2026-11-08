@@ -19,6 +19,10 @@ With `--root`, each project is at `/<project>/.hub/index.html` and `/` lists the
 A `file://` page does not auto-reload; the served page polls `hub.json` and re-renders in place.
 Open a tab directly with `index.html#open` (`plans`, `adrs`, `inv`, `open`).
 
+## Investigations tab
+
+One row per note in `investigate/`. **Plans** lists every plan that links the note (in the plan file or on a `TODO.md` line) and every plan the note names in its own optional front matter, `plans: [0003, 0018]`; **Tickets** shows `tickets: [PROJ-123]`. **TODO item** and **Status** show the checklist line that cites a note and its box. A column with no value in any row is hidden (Tickets until a note has one; TODO item and Status, and the Done tile, until a `TODO.md` line links a note), so a project whose `TODO.md` lines carry no links does not see empty columns. A `plans:` id that matches no plan is left out of the table and listed in `hub.json` under `sync.unknown_note_plans`.
+
 ## How the numbers are counted
 
 Everything comes from the checkboxes in `plans/TODO.md` (one section per plan). A plan with no TODO section falls back to the checklist in its own file.
