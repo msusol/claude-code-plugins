@@ -160,6 +160,7 @@ body { padding: 1.5rem 1rem; }
     <div class="rh-legend">
       <span><i class="rh-sw" data-sw="done"></i>Done</span>
       <span><i class="rh-sw" data-sw="open"></i>Open</span>
+      <label class="rh-check"><input type="checkbox" id="show-archived"> Archived</label>
     </div>
     <div class="rh-chart rh-chart-plans" id="plan-chart"></div>
   </section>
@@ -286,14 +287,16 @@ const st = {
   specs: { key: 'title', dir: 1 },
   process: { key: 'title', dir: 1 },
   todo: { q: '', plan: '', done: false, focus: '' },
+  showArchived: false,
   invs: { key: 'date', dir: -1, q: '' }
 };
 const expanded = new Set();
 const panels = ['progress', 'decisions', 'specs', 'process', 'activity', 'work'];
 
 // ---------- helpers ----------
+const live = (r) => !r.archived && r.kind !== 'archived' || st.showArchived;   // an archived plan shows only when "Archived" is ticked
 function totals() {
-  const todo = D.work.filter((r) => r.kind === 'task');
+  const todo = D.work.filter((r) => r.kind === 'task' && !r.archived);        // the totals never count an archived plan's items
   const done = todo.filter((t) => t.done).length;
   const invDone = D.invs.filter((r) => /\[[xX]\]/.test(String(r.box || ''))).length;
   const adrs = D.adrs;
@@ -528,7 +531,7 @@ function drawTop() {
   $('foot').appendChild(gen);
 }
 function drawPlanChart() {
-  hbars($('plan-chart'), D.plans.filter((r) => r.total != null && r.total > 0), {
+  hbars($('plan-chart'), D.plans.filter((r) => r.total != null && r.total > 0 && live(r)), {
     aria: 'Checklist items done and open per plan',
     label: planLabel,
     go: (r) => gotoWork(r.id, ''),
@@ -539,7 +542,7 @@ function drawPlanChart() {
 }
 function drawPlanSelect() {
   const sel = $('todo-plan');
-  sel.replaceChildren(new Option('All plans', ''), ...D.plans.map((r) => {
+  sel.replaceChildren(new Option('All plans', ''), ...D.plans.filter(live).map((r) => {
     const t = planLabel(r);
     return new Option(t.length > 44 ? t.slice(0, 43) + '…' : t, r.id);
   }));
@@ -585,7 +588,7 @@ function drawProcRows() {
 function drawWorkRows() {
   const tb = $('work-rows');
   const s = st.todo, q = s.q.trim().toLowerCase();
-  const tasks = D.work.filter((r) => r.kind === 'task' && (s.done || !r.done) && (!s.plan || r.plan === s.plan) &&
+  const tasks = D.work.filter((r) => r.kind === 'task' && live(r) && (s.done || !r.done) && (!s.plan || r.plan === s.plan) &&
     (!q || (r.plan + ' ' + r.text).toLowerCase().includes(q)));
   const vis = new Set(tasks.map((r) => r.id));
   const planVis = new Set(tasks.map((r) => r.plan));
@@ -821,6 +824,11 @@ document.querySelectorAll('.rh-table').forEach((table) => {
 $('todo-q').addEventListener('input', (e) => { st.todo.q = e.target.value; drawWorkRows(); });
 $('todo-plan').addEventListener('change', (e) => { st.todo.plan = e.target.value; drawWorkRows(); });
 $('todo-done').addEventListener('change', (e) => { st.todo.done = e.target.checked; drawWorkRows(); });
+$('show-archived').addEventListener('change', (e) => {
+  st.showArchived = e.target.checked;
+  if (!st.showArchived && st.todo.plan && D.plans.some((r) => r.id === st.todo.plan && !live(r))) st.todo.plan = '';   // the chosen plan was archived: back to all plans
+  drawPlanChart(); drawPlanSelect(); $('todo-plan').value = st.todo.plan; drawWorkRows();
+});
 $('inv-q').addEventListener('input', (e) => { st.invs.q = e.target.value; drawInvRows(); });
 function gotoWork(plan, ref) {
   st.todo.plan = plan; st.todo.q = ''; st.todo.done = true; st.todo.focus = ref;

@@ -217,6 +217,11 @@ def parse_plans(root):
     return plans
 
 
+def plan_order(pid):
+    """Sort key for plan ids: numbered plans first, by their number as text (so 00011 sorts between 0001 and 0002); the rest keep their order after them."""
+    return (0, pid) if pid[:1].isdigit() else (1, "")
+
+
 def slug(s):
     return re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-")
 
@@ -301,15 +306,19 @@ def build_model(root, plans, sections, notes):
         plan_rows.append({"id": pid, "title": title, "status": status, "kind": kind,
                           "done": done, "open": total - done, "total": total})
 
+    # Plans in number order: 0001, then its inserted numbers 00011 to 00013, then 0002 (string order does this); unnumbered plans keep their TODO order after them.
+    sections = sorted(sections, key=lambda s: plan_order((s["plan"]["id"] if s["plan"] else slug(s["title"]))))
+
     for sec in sections:
         pl = sec["plan"]
         pid = pl["id"] if pl else slug(sec["title"])
         if pid in used:  # a second TODO section for the same plan: keep its tasks under one id
             pid = pid + "-" + slug(sec["title"])
         used.add(pid)
+        arch = {"archived": True} if pl and pl["kind"] == "archived" else {}  # an archived plan's tasks stay out of the totals and the lists unless asked for
         keys = {ph["phase"] for ph in pl["phases"]} if pl else set()
-        work.append({"kind": "plan", "id": pid, "text": pl["title"] if pl else sec["title"], "box": "",
-                     "plan": pid, "phases": "1" if keys else ""})
+        work.append(dict({"kind": "plan", "id": pid, "text": pl["title"] if pl else sec["title"], "box": "",
+                          "plan": pid, "phases": "1" if keys else ""}, **arch))
         for ph in (pl["phases"] if pl else []):
             phases_out.append(dict(ph, plan=pid))
         done_n = 0
@@ -318,8 +327,8 @@ def build_model(root, plans, sections, notes):
             ref = "%s-%d" % (pid, n)
             done_n += 1 if it["done"] else 0
             refs = [k for k in dict.fromkeys(PHASE_REF.findall(it["text"])) if k in keys]
-            work.append({"kind": "task", "id": ref, "text": it["text"], "box": box(it["done"]),
-                         "done": it["done"], "plan": pid, "links": it["links"], "phases": ",".join(refs)})
+            work.append(dict({"kind": "task", "id": ref, "text": it["text"], "box": box(it["done"]),
+                              "done": it["done"], "plan": pid, "links": it["links"], "phases": ",".join(refs)}, **arch))
             for name in it["inv"]:
                 if name in notes:
                     seen_notes.add(name)
@@ -351,6 +360,7 @@ def build_model(root, plans, sections, notes):
                 if name in cited and pl["id"] not in cited[name]["plans"]:
                     cited[name]["plans"].append(pl["id"])
 
+    plan_rows.sort(key=lambda r: plan_order(r["id"]))  # the archived plans, added last above, take their place by number
     invs = []
     for name, p in sorted(notes.items(), reverse=True):
         c = cited[name]
