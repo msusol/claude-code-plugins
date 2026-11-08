@@ -8,18 +8,19 @@ Personal collection of [Claude Code](https://claude.ai/code) plugins.
 
 ## Plugins
 
-| Plugin | Description |
-|--------|-------------|
-| [docs](docs/) | Deploys `planning-*` rules to `~/.claude/rules/` and @-imports them in `~/.claude/CLAUDE.md` — Claude Code-native only |
-| [kaggle](kaggle/) | Light harness for Kaggle competitions: `kaggle-*` rules, a project-scaffold skill, and `/kaggle:new` + `/kaggle:preflight` commands |
-| [db-guard](db-guard/) | Two-layer guard against unauthorized `DROP TABLE`, `TRUNCATE`, `DROP DATABASE`, `DROP SCHEMA`, and `DROP COLUMN` |
-| [git-guard](git-guard/) | Three-layer protection against unauthorized `git commit` and `git push`, plus branch-naming enforcement (GitFlow Lite) |
-| [dgx-spark](dgx-spark/) | Global `dgx-spark-*` rules for the DGX Spark host: Docker context/daemon gotchas and other host-level facts |
-| [jira-tickets](jira-tickets/) | The `/jira-describe` skill: a living Current Status + append-only History layout for Jira ticket descriptions, and which Atlassian tool path renders real Markdown/ADF |
-| [scratch-guard](scratch-guard/) | PreToolUse hook that blocks scratch/test scripts from being written as standalone files in a shared system temp directory outside the session scratchpad |
-| [bug-bash](bug-bash/) | The `/bug-bash` skill: given a ticket key, sweeps `docs/plans/` and `TODO.md` for stale entries tied to that ticket and archives what is done |
-| [plan-bash](plan-bash/) | The `/plan-bash` skill: given a plan number (`plan-bash 0007`), checks that one numbered plan against live state and archives it with its number intact |
-| [usage-statusline](usage-statusline/) | Status line showing model, context %, and subscription rate limits |
+| Plugin | Version | Description |
+|--------|---------|-------------|
+| [docs](docs/) | 1.4.0 | Deploys `planning-*` rules to `~/.claude/rules/` and @-imports them in `~/.claude/CLAUDE.md` — Claude Code-native only |
+| [kaggle](kaggle/) | 1.1.0 | Light harness for Kaggle competitions: `kaggle-*` rules, a project-scaffold skill, and `/kaggle:new` + `/kaggle:preflight` commands |
+| [db-guard](db-guard/) | 1.0.0 | Two-layer guard against unauthorized `DROP TABLE`, `TRUNCATE`, `DROP DATABASE`, `DROP SCHEMA`, and `DROP COLUMN` |
+| [git-guard](git-guard/) | 1.3.0 | Three-layer protection against unauthorized `git commit` and `git push`, plus branch-naming enforcement (GitFlow Lite) |
+| [dgx-spark](dgx-spark/) | 1.0.0 | Global `dgx-spark-*` rules for the DGX Spark host: Docker context/daemon gotchas and other host-level facts |
+| [jira-tickets](jira-tickets/) | 1.0.0 | The `/jira-describe` skill: a living Current Status + append-only History layout for Jira ticket descriptions, and which Atlassian tool path renders real Markdown/ADF |
+| [scratch-guard](scratch-guard/) | 1.0.0 | PreToolUse hook that blocks scratch/test scripts from being written as standalone files in a shared system temp directory outside the session scratchpad |
+| [bug-bash](bug-bash/) | 1.0.0 | The `/bug-bash` skill: given a ticket key, sweeps `docs/plans/` and `TODO.md` for stale entries tied to that ticket and archives what is done |
+| [plan-bash](plan-bash/) | 1.0.0 | The `/plan-bash` skill: given a plan number (`plan-bash 0007`), checks that one numbered plan against live state and archives it with its number intact |
+| [docs-hub](docs-hub/) | 0.4.0 | The `/docs-hub:hub` command: builds a docs hub page (plan progress, decisions, specs, process docs, investigations, open work) from a repo's planning-docs layout, or serves it with live rebuilds |
+| [usage-statusline](usage-statusline/) | — | Status line showing model, context %, and subscription rate limits |
 
 ## Usage
 
@@ -50,6 +51,7 @@ Or run each plugin's own installer directly:
 ./scratch-guard/deploy.zsh
 ./bug-bash/deploy.zsh
 ./plan-bash/deploy.zsh
+./docs-hub/deploy.zsh
 ./usage-statusline/deploy.zsh
 ```
 
@@ -65,6 +67,7 @@ claude plugin install docs@losus-ai
 claude plugin install git-guard@losus-ai
 claude plugin install bug-bash@losus-ai
 claude plugin install plan-bash@losus-ai
+claude plugin install docs-hub@losus-ai
 ```
 
 (The repo name `claude-code-plugins` is a reserved marketplace name, so the marketplace
@@ -85,7 +88,7 @@ pulling updates. To remove a plugin:
 ./usage-statusline/uninstall.zsh
 ```
 
-`jira-tickets`, `bug-bash`, and `plan-bash` are skills-only and have no uninstaller; remove them
+`jira-tickets`, `bug-bash`, `plan-bash`, and `docs-hub` have no uninstaller; remove them
 with `claude plugin uninstall <name>@losus-ai`.
 
 ## Numbered plans, `bug-bash`, and `plan-bash`
@@ -131,8 +134,9 @@ The pattern is: if the risk is a specific runtime Bash event, add a hook. If the
 
 Each plugin's `version` is in `<plugin>/plugins/<plugin>/.claude-plugin/plugin.json`, and every push
 that changes a plugin must raise it (Claude Code uses the version to find updates). Commits can roll
-up: bump once, in the last commit before the push. `scripts/check-plugin-versions.zsh` checks this and
-`scripts/check-plugin-versions.zsh bump <plugin> patch|minor|major` applies a bump; the `git-push` skill
+up: bump once, in the last commit before the push. The Version column in the table above must match each
+`plugin.json` (a plugin's README, LICENSE and images do not ship and need no bump). `scripts/check-plugin-versions.zsh`
+checks both and `scripts/check-plugin-versions.zsh bump <plugin> patch|minor|major` applies a bump and updates the table; the `git-push` skill
 runs the check before each push. See `CLAUDE.md`.
 
 ## Known Behaviors

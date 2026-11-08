@@ -54,6 +54,14 @@ new = {"patch": (a, b, c + 1), "minor": (a, b + 1, 0), "major": (a + 1, 0, 0)}[l
 new = ".".join(map(str, new))
 open(path, "w").write(re.sub(r'("version"\s*:\s*")[^"]+(")', r"\g<1>" + new + r"\g<2>", text, count=1))
 print(f"{path}: {old} -> {new}")
+plugin = path.split("/")[0]
+readme = open("README.md").read()
+row = re.compile(r"(\| \[" + re.escape(plugin) + r"\]\(" + re.escape(plugin) + r"/\) \| )[^ |]+( \|)")
+if row.search(readme):
+    open("README.md", "w").write(row.sub(r"\g<1>" + new + r"\g<2>", readme, count=1))
+    print(f"README.md: {plugin} row -> {new}")
+else:
+    print(f"README.md has no row for {plugin}; add one")
 PY
   exit 0
 fi
@@ -80,6 +88,20 @@ for manifest in */plugins/*/.claude-plugin/plugin.json(N); do
     failed+=("$plugin")
   fi
 done
+
+# The Version column of the README table must match each plugin.json (a README change needs no bump, so this is checked on every run).
+stale=()
+for manifest in */plugins/*/.claude-plugin/plugin.json(N); do
+  plugin="${manifest%%/*}"
+  have="$(grep -E "^\| \[$plugin\]\($plugin/\) \|" README.md | awk -F'|' '{gsub(/ /, "", $3); print $3}' || true)"
+  want="$(version_in < "$manifest")"
+  if [[ -z "$have" ]]; then
+    print "FAIL  README.md has no table row for $plugin"; stale+=("$plugin")
+  elif [[ "$have" != "$want" ]]; then
+    print "FAIL  README.md lists $plugin $have but its plugin.json says $want"; stale+=("$plugin")
+  fi
+done
+(( ${#stale[@]} )) && { print "Fix the Version column in README.md (bump does it for you)."; exit 1; }
 
 if (( ${#failed[@]} )); then
   print ""

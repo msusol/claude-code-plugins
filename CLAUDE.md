@@ -17,11 +17,15 @@ ships with the same version can sit unnoticed. Rule:
   many commits it covers.
 - Pick the level: **patch** for fixes, docs or wording; **minor** for new or changed behavior;
   **major** for breaking changes.
+- The plugin table in the root `README.md` has a **Version** column that must equal each
+  `plugin.json`. Whenever you raise a version, update that plugin's row in the same commit (the `bump`
+  command below does both), and a new plugin gets a row. The check fails the push when a row is missing
+  or stale, even when no plugin changed.
 - Check and bump with the script, which the `git-push` skill also runs before every push here:
 
   ```zsh
-  scripts/check-plugin-versions.zsh                    # exit 1 if a changed plugin kept its version
-  scripts/check-plugin-versions.zsh bump docs-hub minor
+  scripts/check-plugin-versions.zsh                    # exit 1 if a changed plugin kept its version, or a README row is stale
+  scripts/check-plugin-versions.zsh bump docs-hub minor   # raises plugin.json and the README row
   ```
 
   Commit the bump as `chore(<plugin>): bump to <x.y.z>`, or fold it into the last commit.
