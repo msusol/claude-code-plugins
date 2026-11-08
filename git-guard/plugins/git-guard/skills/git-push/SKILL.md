@@ -47,6 +47,28 @@ If the branch has no upstream, or shows 0 commits ahead, tell the user there is
 nothing to push and stop. Do not push an empty no-op. If there is nothing staged
 or committed at all, point the user to the `git-commit` skill instead.
 
+## Step 1b — Repo pre-push check (only when the repo defines one)
+
+If the repo root has `scripts/check-plugin-versions.zsh` (the `claude-code-plugins` repo does),
+run it from the repo root before going further:
+
+```bash
+scripts/check-plugin-versions.zsh
+```
+
+It compares the commits about to be pushed with the upstream branch and fails (exit 1) when a
+plugin changed but its `plugin.json` version did not go up. Many commits may roll up into one
+bump, but the push must carry it.
+
+- Exit 0: continue.
+- Exit 1: stop. Show the `FAIL` lines and propose the bump: patch for fixes, docs or wording;
+  minor for new or changed behavior; major for breaking changes. Run
+  `scripts/check-plugin-versions.zsh bump <plugin> <level>`, then hand the change to the
+  `git-commit` skill as `chore(<plugin>): bump to <x.y.z>` (or fold it into the last commit of
+  the batch if the user prefers). Do not push until the check passes, unless the user says
+  explicitly to push anyway; then say so in the confirmation prompt in Step 3.
+- Exit 2 or any other error: report it and ask; do not skip silently.
+
 ## Step 2 — Allowlist check
 
 ```bash

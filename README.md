@@ -127,6 +127,14 @@ Git-guard needs both layers for the same reason:
 
 The pattern is: if the risk is a specific runtime Bash event, add a hook. If the risk is a reasoning failure (wrong workflow, wrong sequence, missing verification), a rule is sufficient. If both apply, use both — the hook is the floor, the rule is what keeps Claude from hitting it in the first place.
 
+## Versioning
+
+Each plugin's `version` is in `<plugin>/plugins/<plugin>/.claude-plugin/plugin.json`, and every push
+that changes a plugin must raise it (Claude Code uses the version to find updates). Commits can roll
+up: bump once, in the last commit before the push. `scripts/check-plugin-versions.zsh` checks this and
+`scripts/check-plugin-versions.zsh bump <plugin> patch|minor|major` applies a bump; the `git-push` skill
+runs the check before each push. See `CLAUDE.md`.
+
 ## Known Behaviors
 
 ### Auto-memory + commit rule interaction
