@@ -643,7 +643,17 @@ function drawWorkRows() {
     const tr = document.createElement('tr');
     const td = document.createElement('td');
     td.colSpan = 3; td.className = 'rh-empty';
-    td.textContent = 'No open work found (plans/TODO.md and plans/*.md checklists).';
+    const chosen = D.plans.find((r) => r.id === s.plan);
+    if (chosen && chosen.kind === 'archived') {          // an archived plan has no TODO section: say where its checklist is
+      td.append(planLabel(chosen) + ' is archived, so it has no open work. Its checklist is in ');
+      if (chosen.path) {
+        const a = document.createElement('a');
+        a.className = 'rh-link'; a.href = linkHref(chosen.path); a.target = '_blank'; a.rel = 'noopener noreferrer';
+        a.textContent = chosen.path;
+        td.appendChild(a);
+      } else td.append('plans/archive/');
+      td.append('.');
+    } else td.textContent = 'No open work found (plans/TODO.md and plans/*.md checklists; archived plans are in plans/archive/).';
     tr.appendChild(td); tb.appendChild(tr);
   }
 }

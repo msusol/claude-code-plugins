@@ -1,6 +1,6 @@
 {
   "name": "docs-hub",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "/docs-hub:hub — builds a docs hub page (plan progress, decisions, investigations, open work) from a repo's docs/ folder, linked to the local files, with an optional live-reloading local server.",
   "author": {
     "name": "Mark Susol"

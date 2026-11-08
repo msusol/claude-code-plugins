@@ -133,6 +133,10 @@ class Counting(unittest.TestCase):
         e = self.rows["0004"]                                    # 4 items: 1 done, 1 open, 2 struck
         self.assertEqual((e["kind"], e["done"], e["open"], e["total"]), ("archived", 1, 1, 2))
 
+    def test_every_plan_row_carries_its_file_path_so_an_archived_plan_can_be_linked(self):
+        self.assertEqual(self.rows["0004"]["path"], "plans/archive/0004-epsilon.md")
+        self.assertEqual(self.rows["0001"]["path"], "plans/0001-alpha.md")
+
 
 @unittest.skipUnless(shutil.which("node"), "node is needed to run the page's tile math")
 class TileMath(unittest.TestCase):

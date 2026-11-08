@@ -313,9 +313,9 @@ def build_model(root, plans, sections, notes):
     cited = {name: {"plans": [], "refs": [], "done": []} for name in notes}
     used = set()
 
-    def plan_row(pid, title, status, kind, done, total):
+    def plan_row(pid, title, status, kind, done, total, path=""):
         plan_rows.append({"id": pid, "title": title, "status": status, "kind": kind,
-                          "done": done, "open": total - done, "total": total})
+                          "done": done, "open": total - done, "total": total, "path": path})
 
     # Plans in number order: 0001, then its inserted numbers 00011 to 00013, then 0002 (string order does this); unnumbered plans keep their TODO order after them.
     sections = sorted(sections, key=lambda s: plan_order((s["plan"]["id"] if s["plan"] else slug(s["title"]))))
@@ -360,13 +360,13 @@ def build_model(root, plans, sections, notes):
                     cited[name]["plans"].append(pid)
         if pl:
             pl["_counted"] = True
-            plan_row(pid, pl["title"], pl["status"], pl["kind"], done_n, counted_n)
+            plan_row(pid, pl["title"], pl["status"], pl["kind"], done_n, counted_n, pl["path"])
         else:
             plan_row(pid, sec["title"], "active", "todo", done_n, counted_n)
 
     for pl in plans:  # plans with a checklist of their own but no TODO section
         if not pl.get("_counted") and pl["total"]:
-            plan_row(pl["id"], pl["title"], pl["status"], pl["kind"], pl["done"], pl["total"])
+            plan_row(pl["id"], pl["title"], pl["status"], pl["kind"], pl["done"], pl["total"], pl["path"])
             for ph in pl["phases"]:
                 phases_out.append(dict(ph, plan=pl["id"]))
             for name in pl["investigations"]:
