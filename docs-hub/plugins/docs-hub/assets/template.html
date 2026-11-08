@@ -27,10 +27,10 @@ body { padding: 1.5rem 1rem; }
 }
 .rh * { box-sizing: border-box; }
 .rh [hidden] { display: none !important; }
-.rh-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: var(--cds-gap-lg); }
+.rh-head { border-bottom: 1px solid var(--color-border-line); display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: var(--cds-gap-lg); }
 .rh-head-main { display: flex; flex-direction: column; gap: var(--cds-gap-md, 1rem); flex: 1 1 24rem; min-width: 0; }
 .rh-tile-top { flex: 0 0 14rem; }
-.rh-tabs { display: flex; flex-wrap: wrap; gap: var(--cds-gap-lg); border-bottom: 1px solid var(--color-border-line); }
+.rh-tabs { display: flex; flex-wrap: wrap; gap: var(--cds-gap-lg); }
 .rh-tabs button { font: inherit; font-size: var(--cds-font-size-caption); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-fg-muted); background: none; border: 0; border-bottom: 3px solid transparent; margin-bottom: -1px; border-radius: 0; padding: 0.625rem 0; cursor: pointer; }
 .rh-tabs button:hover { color: var(--color-fg); }
 .rh-tabs button[aria-selected=true] { color: var(--color-fg); border-bottom-color: var(--rh-gold); }
@@ -121,7 +121,7 @@ body { padding: 1.5rem 1rem; }
 .rh-md th, .rh-md td { border: 1px solid var(--color-border-line); padding: 0.25rem 0.5rem; text-align: left; vertical-align: top; }
 .rh-md hr { border: 0; border-top: 1px solid var(--color-border-line); }
 .rh-empty { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); padding: var(--cds-pad-sm) 0; }
-.rh-foot { margin: 0; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); max-width: 70ch; }
+.rh-foot { margin: 0; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
 @media (max-width: 560px) { .rh-hide-narrow { display: none; } }
 </style>
 </head>
@@ -503,9 +503,11 @@ function drawTop() {
   $('spec-n').textContent = fmtC((D.specs || []).length);
   $('proc-n').textContent = fmtC((D.process || []).length);
   $('work-pct').textContent = fmtP(t.pct_done);
-  $('foot').textContent = "Built from each file's frontmatter, its first heading, and the checkboxes in plans/TODO.md. A plan's progress is only as current as its TODO section. " +
-    'Links open the local file.' +
-    ' Generated ' + D.generated + (location.protocol === 'file:' ? ' (file://, no live reload).' : '.');
+  $('foot').textContent = "Built from each file's frontmatter, its first heading, and the checkboxes in plans/TODO.md. A plan's progress is only as current as its TODO section.";
+  const gen = document.createElement('span');
+  gen.style.display = 'block';
+  gen.textContent = 'Generated ' + D.generated + (location.protocol === 'file:' ? ' (file://, no live reload).' : '.');
+  $('foot').appendChild(gen);
 }
 function drawPlanChart() {
   hbars($('plan-chart'), D.plans.filter((r) => r.total != null && r.total > 0), {
