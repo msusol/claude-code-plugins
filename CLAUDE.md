@@ -10,7 +10,8 @@ Claude Code decides whether an installed plugin has an update by its `version`, 
 ships with the same version can sit unnoticed. Rule:
 
 - A push (the repo has a single branch and no PRs, so the push is the unit) that changes anything
-  under `<plugin>/` must raise that plugin's version in its `plugin.json`.
+  under `<plugin>/` must raise that plugin's version in its `plugin.json`, except a plugin's
+  top-level `README.md`, `LICENSE` and `images/`: they do not ship, so changing them needs no bump.
 - Commits roll up: commit freely and leave the version alone while work is in progress. The bump
   goes in the last commit of the batch, before the push. One bump per plugin per push, however
   many commits it covers.

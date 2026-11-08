@@ -1,5 +1,6 @@
 #!/usr/bin/env zsh
 # Every push that changes a plugin must raise that plugin's version.
+# A change to a plugin's README.md, LICENSE or images/ at its top level does not count: those files do not ship.
 #
 #   scripts/check-plugin-versions.zsh [BASE_REF]
 #       Compares BASE_REF (default: the upstream branch, @{u}) with HEAD. For each plugin whose
@@ -64,7 +65,8 @@ git rev-parse --verify --quiet "$base^{commit}" >/dev/null || { print -u2 "base 
 failed=()
 for manifest in */plugins/*/.claude-plugin/plugin.json(N); do
   plugin="${manifest%%/*}"
-  changed="$(git diff --name-only "$base" HEAD -- "$plugin/" | grep -v "^$manifest\$" || true)"
+  # A plugin's README, LICENSE and images do not ship in the plugin (only plugins/ does), so changing them needs no new version.
+  changed="$(git diff --name-only "$base" HEAD -- "$plugin/" | grep -v "^$manifest\$" | grep -Ev "^$plugin/(README\.md|LICENSE|images/.*)\$" || true)"
   [[ -n "$changed" ]] || continue
   old="$(git show "$base:$manifest" 2>/dev/null | version_in || true)"
   new="$(version_in < "$manifest")"
