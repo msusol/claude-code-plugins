@@ -3,7 +3,7 @@
 Idempotent manager for git-guard entries in ~/.claude/settings.json.
 
 Usage:
-  python3 manage-settings.py install    # Merge hooks + deny rules (safe to re-run)
+  python3 manage-settings.py install    # Merge hooks + deny/ask rules (safe to re-run)
   python3 manage-settings.py uninstall  # Remove git-guard entries only
 """
 
@@ -46,8 +46,13 @@ DENY_RULES_COMMON = [
     "Read(./.vscode/**)",
     "Bash(git init*)",
     "Bash(gh repo create*)",
-    "Bash(git push*)",
     "Bash(rm -rf *)",
+]
+
+# Ask rules: Claude Code prompts for these instead of refusing. A push is one: the git-push skill
+# runs it after its own confirmation, and a deny rule would refuse that sanctioned push too.
+ASK_RULES = [
+    "Bash(git push*)",
 ]
 
 def _platform_deny_rules():
@@ -117,6 +122,12 @@ def install():
     permissions = settings.setdefault("permissions", {})
     deny = permissions.setdefault("deny", [])
 
+    # Older versions put the push rule under deny; it belongs under ask (see ASK_RULES).
+    for rule in ASK_RULES:
+        if rule in deny:
+            deny.remove(rule)
+            print(f"✓ Moved {rule} from permissions.deny to permissions.ask")
+
     added = 0
     for rule in ALL_DENY_RULES:
         if rule not in deny:
@@ -127,6 +138,15 @@ def install():
         print(f"✓ Added {added} deny rule(s) to permissions.deny")
     else:
         print("✓ All deny rules already present — skipping")
+
+    ask = permissions.setdefault("ask", [])
+    added_ask = 0
+    for rule in ASK_RULES:
+        if rule not in ask:
+            ask.append(rule)
+            added_ask += 1
+    if added_ask:
+        print(f"✓ Added {added_ask} ask rule(s) to permissions.ask")
 
     _write_settings(settings)
     print(f"✓ Settings written to {SETTINGS_PATH}")
@@ -157,7 +177,7 @@ def uninstall():
         settings.pop("hooks", None)
 
     # --- Remove deny rules ---
-    guard_rules = set(ALL_DENY_RULES)
+    guard_rules = set(ALL_DENY_RULES) | set(ASK_RULES)  # also clears the push rule an older install left under deny
     deny = settings.get("permissions", {}).get("deny", [])
     before = len(deny)
     remaining = [r for r in deny if r not in guard_rules]
@@ -169,6 +189,18 @@ def uninstall():
         if not settings.get("permissions"):
             settings.pop("permissions", None)
         print(f"✓ Removed {removed} deny rule(s)")
+        changed = True
+
+    # --- Remove ask rules ---
+    ask = settings.get("permissions", {}).get("ask", [])
+    remaining_ask = [r for r in ask if r not in set(ASK_RULES)]
+    if len(remaining_ask) < len(ask):
+        settings["permissions"]["ask"] = remaining_ask
+        if not remaining_ask:
+            del settings["permissions"]["ask"]
+        if not settings.get("permissions"):
+            settings.pop("permissions", None)
+        print(f"✓ Removed {len(ask) - len(remaining_ask)} ask rule(s)")
         changed = True
 
     if changed:

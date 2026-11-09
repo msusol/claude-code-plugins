@@ -50,12 +50,16 @@ error message early, before the shell wrapper even runs.
 `~/.claude/settings.json` → `permissions.deny` — a list of patterns Claude Code refuses
 to execute regardless of context:
 
-- Dangerous Bash: `git push`, `git init`, `gh repo create`, `rm -rf`
+- Dangerous Bash: `git init`, `gh repo create`, `rm -rf`
 - Secrets: `.env`, `*.pem`, `*.key`, `.ssh/**`
 - Shell configs: `.zshrc`, `.zprofile`, `.bash_profile`
 - Build artifacts, logs, vendor directories, IDE configs
 
 These rules are enforced by the Claude Code runtime itself.
+
+`git push` is under `permissions.ask`, not `deny`: Claude Code prompts for it. A deny rule matches the
+command text and refused even the sanctioned push from the `git-push` skill when it was spelled with
+the real git path (found live 2026-11-08). The install moves an older `deny` entry to `ask`.
 
 ### Layer 2b — Branch-naming convention (same hook)
 
