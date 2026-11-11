@@ -349,5 +349,48 @@ class TileMath(unittest.TestCase):
         self.assertEqual((t["pct_done"], t["pct_all"]), (0, 0))
 
 
+@unittest.skipUnless(shutil.which("node"), "node is needed to run the page's archived-plan message")
+class ArchivedPlanMessage(unittest.TestCase):
+    """Open work, one archived plan chosen: the plan's name and its path both link to the archived file (archiving a plan must not take its link away)."""
+
+    @classmethod
+    def setUpClass(cls):
+        src = (PLUGIN / "assets" / "template.html").read_text(encoding="utf-8")
+        m = re.search(r"(    if \(chosen && chosen\.kind === 'archived'\) \{.*?)\n    \} else td\.textContent = 'No open work found", src, re.S)
+        assert m, "the archived-plan message was not found in the template"
+        cls.js = m.group(1) + "\n    }"
+
+    def message(self, chosen):
+        prog = """
+function node(tag) {
+  const n = {tag, children: [], className: '', title: '', textContent: '', attrs: {}};
+  Object.defineProperty(n, 'href', {get() { return n.attrs.href; }, set(v) { n.attrs.href = v; }});
+  n.target = ''; n.rel = '';
+  n.append = (...xs) => xs.forEach((x) => n.children.push(x));
+  n.appendChild = (x) => { n.children.push(x); return x; };
+  return n;
+}
+const document = {createElement: node};
+const planLabel = (r) => r.id + ' ' + r.title;
+const linkHref = (p) => '../' + p;
+const td = node('td'), chosen = %s;
+%s
+console.log(JSON.stringify(td.children.map((c) => typeof c === 'string' ? c : {link: c.textContent, href: c.href})));
+""" % (json.dumps(chosen), self.js)
+        return json.loads(subprocess.run(["node", "-e", prog], capture_output=True, text=True, check=True).stdout)
+
+    def test_the_plan_name_and_its_path_both_link_to_the_archived_file(self):
+        out = self.message({"id": "0022", "title": "Tracing People by Name", "kind": "archived", "path": "plans/archive/0022-x.md"})
+        links = [c for c in out if isinstance(c, dict)]
+        self.assertEqual([c["link"] for c in links], ["0022 Tracing People by Name", "plans/archive/0022-x.md"])
+        self.assertEqual({c["href"] for c in links}, {"../plans/archive/0022-x.md"})
+        self.assertIn(" is archived, so it has no open work. Its checklist is in ", out)
+
+    def test_a_plan_with_no_path_is_plain_text(self):
+        out = self.message({"id": "0022", "title": "Tracing People by Name", "kind": "archived"})
+        self.assertFalse([c for c in out if isinstance(c, dict)])
+        self.assertIn("0022 Tracing People by Name is archived", out[0])
+
+
 if __name__ == "__main__":
     unittest.main()

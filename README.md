@@ -14,7 +14,7 @@ Personal collection of [Claude Code](https://claude.ai/code) plugins.
 | [db-guard](db-guard/) | 1.0.0 | Two-layer guard against unauthorized `DROP TABLE`, `TRUNCATE`, `DROP DATABASE`, `DROP SCHEMA`, and `DROP COLUMN` |
 | [dgx-spark](dgx-spark/) | 1.0.0 | Global `dgx-spark-*` rules for the DGX Spark host: Docker context/daemon gotchas and other host-level facts |
 | [docs](docs/) | 1.5.0 | Deploys `planning-*` rules to `~/.claude/rules/` and @-imports them in `~/.claude/CLAUDE.md` — Claude Code-native only |
-| [docs-hub](docs-hub/) | 0.5.0 | The `/docs-hub:hub` command: builds a docs hub page (plan progress, decisions, specs, process docs, investigations, open work) from a repo's planning-docs layout, or serves it with live rebuilds |
+| [docs-hub](docs-hub/) | 0.5.1 | The `/docs-hub:hub` command: builds a docs hub page (plan progress, decisions, specs, process docs, investigations, open work) from a repo's planning-docs layout, or serves it with live rebuilds |
 | [git-guard](git-guard/) | 1.4.0 | Three-layer protection against unauthorized `git commit` and `git push`, plus branch-naming enforcement (GitFlow Lite) |
 | [jira-tickets](jira-tickets/) | 1.0.0 | The `/jira-describe` skill: a living Current Status + append-only History layout for Jira ticket descriptions, and which Atlassian tool path renders real Markdown/ADF |
 | [kaggle](kaggle/) | 1.1.0 | Light harness for Kaggle competitions: `kaggle-*` rules, a project-scaffold skill, and `/kaggle:new` + `/kaggle:preflight` commands |

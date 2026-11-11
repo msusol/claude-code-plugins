@@ -659,14 +659,15 @@ function drawWorkRows() {
     td.colSpan = 3; td.className = 'rh-empty';
     const chosen = D.plans.find((r) => r.id === s.plan);
     if (chosen && chosen.kind === 'archived') {          // an archived plan has no TODO section: say where its checklist is
-      td.append(planLabel(chosen) + ' is archived, so it has no open work. Its checklist is in ');
-      if (chosen.path) {
+      // Both the plan's name and its path link to the archived file: archiving a plan must not take its link away.
+      const planLink = (text) => {
         const a = document.createElement('a');
-        a.className = 'rh-link'; a.href = linkHref(chosen.path); a.target = '_blank'; a.rel = 'noopener noreferrer';
-        a.textContent = chosen.path;
-        td.appendChild(a);
-      } else td.append('plans/archive/');
-      td.append('.');
+        a.className = 'rh-link'; a.href = linkHref(chosen.path); a.target = '_blank'; a.rel = 'noopener noreferrer'; a.title = 'Open the file';
+        a.textContent = text;
+        return a;
+      };
+      if (chosen.path) td.append(planLink(planLabel(chosen)), ' is archived, so it has no open work. Its checklist is in ', planLink(chosen.path), '.');
+      else td.append(planLabel(chosen) + ' is archived, so it has no open work. Its checklist is in plans/archive/.');
     } else td.textContent = 'No open work found (plans/TODO.md and plans/*.md checklists; archived plans are in plans/archive/).';
     tr.appendChild(td); tb.appendChild(tr);
   }
