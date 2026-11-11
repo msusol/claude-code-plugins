@@ -351,7 +351,7 @@ class TileMath(unittest.TestCase):
 
 @unittest.skipUnless(shutil.which("node"), "node is needed to run the page's archived-plan message")
 class ArchivedPlanMessage(unittest.TestCase):
-    """Open work, one archived plan chosen: the plan's name and its path both link to the archived file (archiving a plan must not take its link away)."""
+    """Open work, one archived plan chosen: the plan's name links to the archived file (archiving a plan must not take its link away), and the path is not repeated."""
 
     @classmethod
     def setUpClass(cls):
@@ -379,17 +379,16 @@ console.log(JSON.stringify(td.children.map((c) => typeof c === 'string' ? c : {l
 """ % (json.dumps(chosen), self.js)
         return json.loads(subprocess.run(["node", "-e", prog], capture_output=True, text=True, check=True).stdout)
 
-    def test_the_plan_name_and_its_path_both_link_to_the_archived_file(self):
+    def test_the_plan_name_links_to_the_archived_file_and_the_path_is_not_repeated(self):
         out = self.message({"id": "0022", "title": "Tracing People by Name", "kind": "archived", "path": "plans/archive/0022-x.md"})
         links = [c for c in out if isinstance(c, dict)]
-        self.assertEqual([c["link"] for c in links], ["0022 Tracing People by Name", "plans/archive/0022-x.md"])
-        self.assertEqual({c["href"] for c in links}, {"../plans/archive/0022-x.md"})
-        self.assertIn(" is archived, so it has no open work. Its checklist is in ", out)
+        self.assertEqual(links, [{"link": "0022 Tracing People by Name", "href": "../plans/archive/0022-x.md"}])
+        self.assertEqual([c for c in out if isinstance(c, str)], [" is archived, so it has no open work."])      # no "Its checklist is in <path>"
 
     def test_a_plan_with_no_path_is_plain_text(self):
         out = self.message({"id": "0022", "title": "Tracing People by Name", "kind": "archived"})
         self.assertFalse([c for c in out if isinstance(c, dict)])
-        self.assertIn("0022 Tracing People by Name is archived", out[0])
+        self.assertEqual(out, ["0022 Tracing People by Name is archived, so it has no open work."])
 
 
 if __name__ == "__main__":
