@@ -659,15 +659,18 @@ function drawWorkRows() {
     td.colSpan = 3; td.className = 'rh-empty';
     const chosen = D.plans.find((r) => r.id === s.plan);
     if (chosen && chosen.kind === 'archived') {          // an archived plan has no TODO section: say so, and link to its file
-      // The plan's name links to its archived file (archiving a plan must not take its link away); the path is not repeated.
+      // The plan's name links to its archived file (archiving a plan must not take its link away); the path is not repeated. A plain click shows the plan rendered below
+      // (the click handler "archived plan: rendered in place"); Ctrl or Cmd click, or "Open the file" in the rendered view, opens the raw file.
       if (chosen.path) {
         const a = document.createElement('a');
-        a.className = 'rh-link'; a.href = linkHref(chosen.path); a.target = '_blank'; a.rel = 'noopener noreferrer'; a.title = 'Open the file';
+        a.className = 'rh-link'; a.href = linkHref(chosen.path); a.target = '_blank'; a.rel = 'noopener noreferrer'; a.title = 'Show the plan here';
+        a.dataset.planNote = chosen.path;
         a.textContent = planLabel(chosen);
         td.append(a, ' is archived, so it has no open work.');
       } else td.append(planLabel(chosen) + ' is archived, so it has no open work.');
     } else td.textContent = 'No open work found (plans/TODO.md and plans/*.md checklists; archived plans are in plans/archive/).';
     tr.appendChild(td); tb.appendChild(tr);
+    if (chosen && chosen.kind === 'archived' && chosen.path && invOpen.has(chosen.path)) tb.appendChild(noteRow(chosen.path, 3));      // the plan, rendered in place
   }
 }
 function invColumns() {
@@ -834,6 +837,16 @@ document.addEventListener('click', (event) => {
   event.preventDefault();
   if (a.closest('#activity tr.rh-exp, #decisions tr.rh-exp, #specs tr.rh-exp, #process tr.rh-exp') && !a.closest('.rh-md')) toggleInv(a.dataset.inv); else openInv(a.dataset.inv);
 });
+// ---- archived plan: rendered in place ----
+document.addEventListener('click', (event) => {
+  const a = event.target.closest('a[data-plan-note]');
+  if (!a || event.metaKey || event.ctrlKey || event.shiftKey || location.protocol === 'file:') return;      // a modified click, or a file page, goes to the raw file
+  event.preventDefault();
+  const path = a.dataset.planNote;
+  if (invOpen.has(path)) invOpen.delete(path); else invOpen.add(path);
+  drawWorkRows();
+});
+// ---- end archived plan ----
 ['activity', 'decisions', 'specs', 'process'].forEach((id) => {
   $(id).addEventListener('click', (event) => {
     if (event.target.closest('a, button, .rh-detail, input')) return;

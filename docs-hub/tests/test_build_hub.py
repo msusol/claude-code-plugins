@@ -351,44 +351,87 @@ class TileMath(unittest.TestCase):
 
 @unittest.skipUnless(shutil.which("node"), "node is needed to run the page's archived-plan message")
 class ArchivedPlanMessage(unittest.TestCase):
-    """Open work, one archived plan chosen: the plan's name links to the archived file (archiving a plan must not take its link away), and the path is not repeated."""
+    """Open work, one archived plan chosen: the plan's name links to the archived file, a plain click shows the plan rendered in place, and the path is not repeated."""
 
     @classmethod
     def setUpClass(cls):
         src = (PLUGIN / "assets" / "template.html").read_text(encoding="utf-8")
-        m = re.search(r"(    if \(chosen && chosen\.kind === 'archived'\) \{.*?)\n    \} else td\.textContent = 'No open work found", src, re.S)
-        assert m, "the archived-plan message was not found in the template"
-        cls.js = m.group(1) + "\n    }"
+        m = re.search(r"(  tb\.replaceChildren\(\.\.\.rows\);\n  if \(!rows\.length\) \{.*?\n  \})\n\}\nfunction invColumns", src, re.S)
+        assert m, "the empty state of Open work was not found in the template"
+        cls.block = m.group(1)
+        h = re.search(r"(// ---- archived plan: rendered in place ----.*?// ---- end archived plan ----)", src, re.S)
+        assert h, "the archived-plan click handler was not found in the template"
+        cls.handler = h.group(1)
 
-    def message(self, chosen):
-        prog = """
+    STUBS = """
 function node(tag) {
-  const n = {tag, children: [], className: '', title: '', textContent: '', attrs: {}};
+  const n = {tag, children: [], className: '', title: '', textContent: '', attrs: {}, dataset: {}};
   Object.defineProperty(n, 'href', {get() { return n.attrs.href; }, set(v) { n.attrs.href = v; }});
-  n.target = ''; n.rel = '';
+  n.target = ''; n.rel = ''; n.colSpan = 0;
   n.append = (...xs) => xs.forEach((x) => n.children.push(x));
   n.appendChild = (x) => { n.children.push(x); return x; };
+  n.replaceChildren = (...xs) => { n.children = xs; };
   return n;
 }
+"""
+
+    def render(self, chosen, open_paths=()):
+        """The rows the empty state puts in the table body, as plain data."""
+        prog = self.STUBS + """
 const document = {createElement: node};
-const planLabel = (r) => r.id + ' ' + r.title;
-const linkHref = (p) => '../' + p;
-const td = node('td'), chosen = %s;
+const planLabel = (r) => r.id + ' ' + r.title, linkHref = (p) => '../' + p;
+const noteRow = (path, cols) => ({note: path, cols});
+const invOpen = new Set(%s), s = {plan: %s}, D = {plans: [%s]}, rows = [], tb = node('tbody');
+function draw() {
 %s
-console.log(JSON.stringify(td.children.map((c) => typeof c === 'string' ? c : {link: c.textContent, href: c.href})));
-""" % (json.dumps(chosen), self.js)
+}
+draw();
+const view = (c) => typeof c === 'string' ? c : c.note ? {note: c.note, cols: c.cols} : c.tag === 'a' ? {link: c.textContent, href: c.href, plan: c.dataset.planNote, title: c.title} : {tag: c.tag, children: c.children.map(view)};
+console.log(JSON.stringify(tb.children.map(view)));
+""" % (json.dumps(list(open_paths)), json.dumps(chosen["id"]), json.dumps(chosen), self.block)
+        return json.loads(subprocess.run(["node", "-e", prog], capture_output=True, text=True, check=True).stdout)
+
+    def click(self, clicks):
+        """Run the click handler on a sequence of clicks: [(modifier or '', protocol)]; returns the open set after each, and how often it redrew and prevented the default."""
+        prog = self.STUBS + """
+let handler; const document = {addEventListener: (t, f) => { if (t === 'click') handler = f; }};
+const invOpen = new Set(); let draws = 0; const drawWorkRows = () => { draws++; };
+const location = {protocol: 'http:'};
+%s
+const anchor = {dataset: {planNote: 'plans/archive/0022-x.md'}};
+const out = [];
+for (const [mod, protocol] of %s) {
+  location.protocol = protocol; let prevented = false;
+  handler({target: {closest: (sel) => sel === 'a[data-plan-note]' ? anchor : null}, metaKey: mod === 'meta', ctrlKey: mod === 'ctrl', shiftKey: false, preventDefault: () => { prevented = true; }});
+  out.push({open: [...invOpen], prevented});
+}
+console.log(JSON.stringify({out, draws}));
+""" % (self.handler, json.dumps(clicks))
         return json.loads(subprocess.run(["node", "-e", prog], capture_output=True, text=True, check=True).stdout)
 
     def test_the_plan_name_links_to_the_archived_file_and_the_path_is_not_repeated(self):
-        out = self.message({"id": "0022", "title": "Tracing People by Name", "kind": "archived", "path": "plans/archive/0022-x.md"})
-        links = [c for c in out if isinstance(c, dict)]
-        self.assertEqual(links, [{"link": "0022 Tracing People by Name", "href": "../plans/archive/0022-x.md"}])
-        self.assertEqual([c for c in out if isinstance(c, str)], [" is archived, so it has no open work."])      # no "Its checklist is in <path>"
+        out = self.render({"id": "0022", "title": "Tracing People by Name", "kind": "archived", "path": "plans/archive/0022-x.md"})
+        (tr,) = out                                                         # closed: only the message row
+        cell = tr["children"][0]["children"]
+        self.assertEqual(cell[0], {"link": "0022 Tracing People by Name", "href": "../plans/archive/0022-x.md", "plan": "plans/archive/0022-x.md", "title": "Show the plan here"})
+        self.assertEqual(cell[1:], [" is archived, so it has no open work."])      # no "Its checklist is in <path>"
 
-    def test_a_plan_with_no_path_is_plain_text(self):
-        out = self.message({"id": "0022", "title": "Tracing People by Name", "kind": "archived"})
-        self.assertFalse([c for c in out if isinstance(c, dict)])
-        self.assertEqual(out, ["0022 Tracing People by Name is archived, so it has no open work."])
+    def test_once_clicked_the_plan_is_rendered_in_a_row_below_the_message(self):
+        chosen = {"id": "0022", "title": "Tracing People by Name", "kind": "archived", "path": "plans/archive/0022-x.md"}
+        out = self.render(chosen, open_paths=["plans/archive/0022-x.md"])
+        self.assertEqual(len(out), 2)
+        self.assertEqual(out[1], {"note": "plans/archive/0022-x.md", "cols": 3})
+
+    def test_a_plan_with_no_path_is_plain_text_and_has_nothing_to_open(self):
+        out = self.render({"id": "0022", "title": "Tracing People by Name", "kind": "archived"})
+        self.assertEqual(len(out), 1)
+        self.assertEqual(out[0]["children"][0]["children"], ["0022 Tracing People by Name is archived, so it has no open work."])
+
+    def test_a_plain_click_toggles_the_rendered_plan_and_a_modified_click_goes_to_the_raw_file(self):
+        r = self.click([["", "http:"], ["", "http:"], ["ctrl", "http:"], ["meta", "http:"], ["", "file:"]])
+        self.assertEqual([c["open"] for c in r["out"]], [["plans/archive/0022-x.md"], [], [], [], []])      # opened, closed, then untouched
+        self.assertEqual([c["prevented"] for c in r["out"]], [True, True, False, False, False])
+        self.assertEqual(r["draws"], 2)
 
 
 if __name__ == "__main__":
