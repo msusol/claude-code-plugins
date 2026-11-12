@@ -1,0 +1,9 @@
+{
+  "name": "cost-dashboard",
+  "version": "0.1.0",
+  "description": "The /cost-dashboard:dashboard command — builds a self-contained HTML dashboard of estimated Claude Code cost per session, task (prompt turn), model, day, and subagent from local session logs.",
+  "author": {
+    "name": "Mark Susol"
+  },
+  "license": "MIT"
+}

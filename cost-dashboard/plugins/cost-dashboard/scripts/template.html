@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Claude Code Cost Dashboard</title>
+<style>
+  :root{--bg:#fafaf9;--card:#fff;--fg:#1c1917;--mut:#78716c;--line:#e7e5e4;--acc:#c2410c;--acc2:#0f766e}
+  @media (prefers-color-scheme:dark){:root{--bg:#171412;--card:#211d1a;--fg:#f5f5f4;--mut:#a8a29e;--line:#3a3430;--acc:#fb923c;--acc2:#2dd4bf}}
+  *{box-sizing:border-box}
+  body{margin:0;padding:24px;background:var(--bg);color:var(--fg);font:14px/1.45 system-ui,-apple-system,Segoe UI,sans-serif}
+  h1{margin:0 0 4px;font-size:20px} .sub{color:var(--mut);margin-bottom:20px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:20px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px}
+  .k{color:var(--mut);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+  .v{font-size:24px;font-weight:650;margin-top:2px}
+  h2{font-size:15px;margin:0 0 10px}
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:7px 8px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--mut);font-weight:550;font-size:12px;cursor:pointer;user-select:none;white-space:nowrap}
+  td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+  tr.s{cursor:pointer} tr.s:hover{background:color-mix(in srgb,var(--acc) 8%,transparent)}
+  tr.t td{background:color-mix(in srgb,var(--fg) 3%,transparent);font-size:13px}
+  .bar{height:6px;border-radius:3px;background:var(--acc);min-width:1px}
+  .warn{background:color-mix(in srgb,var(--acc) 15%,transparent);border:1px solid var(--acc);padding:8px 12px;border-radius:8px;margin-bottom:16px}
+  input{padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--fg);width:260px;max-width:100%}
+  .row{display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:20px}
+  @media(max-width:800px){.row{grid-template-columns:1fr}}
+  .mut{color:var(--mut)} .trunc{max-width:420px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+</style>
+</head>
+<body>
+<h1>Claude Code cost dashboard</h1>
+<div class="sub" id="sub"></div>
+<div id="warn"></div>
+<div class="grid" id="kpis"></div>
+<div class="row">
+  <div class="card"><h2>Cost per day</h2><svg id="daily" width="100%" height="180"></svg></div>
+  <div class="card"><h2>By model</h2><table id="models"></table></div>
+</div>
+<div class="card">
+  <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:10px">
+    <h2 style="margin:0">Sessions <span class="mut">(click a row for per-task breakdown)</span></h2>
+    <input id="q" placeholder="Filter by project or prompt…">
+  </div>
+  <table id="sess"></table>
+</div>
+<script>
+const DATA = /*__DATA__*/null;
+const $ = id => document.getElementById(id);
+const usd = x => '$' + x.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+const kfmt = n => n>=1e6 ? (n/1e6).toFixed(1)+'M' : n>=1e3 ? (n/1e3).toFixed(1)+'k' : String(n);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const ses = DATA.sessions;
+$('sub').textContent = `Generated ${DATA.generated} · last ${DATA.days || 'all'} days · estimates from token counts × pricing.json`;
+if (DATA.unpriced.length) $('warn').innerHTML = `<div class="warn">Unpriced models (fallback rates used): ${esc(DATA.unpriced.join(', '))}. Edit pricing.json for accurate numbers.</div>`;
+
+const total = ses.reduce((a,s)=>a+s.cost,0), sub = ses.reduce((a,s)=>a+s.sub_cost,0);
+const turns = ses.reduce((a,s)=>a+s.turns.length,0);
+const tok = ses.reduce((a,s)=>{for(const k in s.tokens)a[k]=(a[k]||0)+s.tokens[k];return a},{});
+const cacheHit = (tok.cache_read||0)/(((tok.cache_read||0)+(tok.input||0)+(tok.cache_write||0))||1);
+const kp = [['Total cost',usd(total)],['Sessions',ses.length],['Avg / session',usd(ses.length?total/ses.length:0)],
+  ['Tasks (prompts)',turns],['Avg / task',usd(turns?total/turns:0)],['Subagent share',total?Math.round(100*sub/total)+'%':'–'],
+  ['Cache hit rate',Math.round(cacheHit*100)+'%']];
+$('kpis').innerHTML = kp.map(([k,v])=>`<div class="card"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
+
+// daily chart
+const days = {};
+ses.forEach(s=>{for(const d in s.daily) days[d]=(days[d]||0)+s.daily[d]});
+const dk = Object.keys(days).sort(), mx = Math.max(...dk.map(d=>days[d]),0.01);
+const svg = $('daily'); const W = 600, H = 180, pad = 22;
+svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
+const bw = dk.length ? (W-pad)/dk.length : 0;
+svg.innerHTML = dk.map((d,i)=>{const h=(days[d]/mx)*(H-pad-16);
+  return `<rect x="${pad+i*bw+1}" y="${H-pad-h}" width="${Math.max(bw-2,1)}" height="${h}" rx="2" fill="var(--acc)"><title>${d}: ${usd(days[d])}</title></rect>`}).join('')
+  + (dk.length ? `<text x="${pad}" y="${H-6}" font-size="10" fill="var(--mut)">${dk[0]}</text><text x="${W}" y="${H-6}" font-size="10" text-anchor="end" fill="var(--mut)">${dk[dk.length-1]}</text><text x="${pad}" y="10" font-size="10" fill="var(--mut)">max ${usd(mx)}</text>` : '');
+
+// models
+const mm = {};
+ses.forEach(s=>{for(const m in s.models){const e=mm[m]||(mm[m]={cost:0,calls:0});e.cost+=s.models[m].cost;e.calls+=s.models[m].calls}});
+$('models').innerHTML = '<tr><th>Model</th><th class="n">Calls</th><th class="n">Cost</th></tr>' +
+  Object.entries(mm).sort((a,b)=>b[1].cost-a[1].cost).map(([m,e])=>`<tr><td>${esc(m)}</td><td class="n">${e.calls}</td><td class="n">${usd(e.cost)}</td></tr>`).join('');
+
+// sessions table
+let sortKey='cost', sortDir=-1, open = new Set();
+const cols = [['last','Last active'],['project','Project'],['title','First prompt'],['turns','Tasks'],['calls','Calls'],['tokens','Tokens'],['sub_cost','Subagent'],['cost','Cost']];
+const tk = s => Object.values(s.tokens).reduce((a,b)=>a+b,0);
+function val(s,k){return k==='turns'?s.turns.length:k==='tokens'?tk(s):s[k]}
+function render(){
+  const q = $('q').value.toLowerCase();
+  const rows = ses.filter(s=>!q||(s.project+' '+s.title).toLowerCase().includes(q))
+    .sort((a,b)=>{const x=val(a,sortKey),y=val(b,sortKey);return (x>y?1:x<y?-1:0)*sortDir});
+  const mxc = Math.max(...rows.map(r=>r.cost),0.01);
+  let h = '<tr>'+cols.map(([k,l])=>`<th data-k="${k}" class="${['turns','calls','tokens','sub_cost','cost'].includes(k)?'n':''}">${l}${k===sortKey?(sortDir<0?' ▼':' ▲'):''}</th>`).join('')+'</tr>';
+  for(const s of rows){
+    h += `<tr class="s" data-id="${esc(s.id)}"><td>${s.last?s.last.slice(0,16).replace('T',' '):''}</td><td>${esc(s.project)}</td>
+      <td class="trunc">${esc(s.title)}</td><td class="n">${s.turns.length}</td><td class="n">${s.calls}</td><td class="n">${kfmt(tk(s))}</td>
+      <td class="n">${usd(s.sub_cost)}</td><td class="n">${usd(s.cost)}<div class="bar" style="width:${100*s.cost/mxc}%"></div></td></tr>`;
+    if(open.has(s.id)){
+      const tmax = Math.max(...s.turns.map(t=>t.cost),0.01);
+      h += s.turns.slice().sort((a,b)=>b.cost-a.cost).map(t=>`<tr class="t"><td>${t.ts?t.ts.slice(11,16):''}</td><td colspan="2" class="trunc" style="max-width:none">↳ ${esc(t.prompt)}</td>
+        <td class="n"></td><td class="n">${t.calls}</td><td class="n">${kfmt(Object.values(t.tokens).reduce((a,b)=>a+b,0))}</td>
+        <td class="n">${usd(t.sub_cost)}</td><td class="n">${usd(t.cost)}<div class="bar" style="width:${100*t.cost/tmax}%;background:var(--acc2)"></div></td></tr>`).join('')
+        || '<tr class="t"><td colspan="8" class="mut">No task breakdown (subagent-only or no prompts found)</td></tr>';
+    }
+  }
+  $('sess').innerHTML = h;
+}
+$('sess').addEventListener('click',e=>{
+  const th=e.target.closest('th'); if(th){const k=th.dataset.k; if(k===sortKey)sortDir*=-1; else{sortKey=k;sortDir=-1} return render()}
+  const tr=e.target.closest('tr.s'); if(tr){const id=tr.dataset.id; open.has(id)?open.delete(id):open.add(id); render()}
+});
+$('q').addEventListener('input',render);
+render();
+</script>
+</body>
+</html>
