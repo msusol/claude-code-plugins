@@ -57,7 +57,7 @@ dashboard to open in a browser.
 
 `plugins/cost-dashboard/scripts/build_dashboard.py` reads `~/.claude/projects/**/*.jsonl`,
 de-duplicates streamed assistant messages, and multiplies token usage by the per-model rates in
-`plugins/cost-dashboard/pricing.json`. `scripts/serve_dashboard.py` serves the same page live. Python 3 standard library only.
+`plugins/cost-dashboard/pricing.json`. `scripts/serve_dashboard.py` serves the same page live. Python 3 standard library only. Each session in the data (`/data.json`) also carries its active time, with idle gaps over 10 minutes removed, for tooling built on top of it.
 No rules and no hooks: there is no runtime event to intercept, so this plugin is a command only.
 
 ## Tests

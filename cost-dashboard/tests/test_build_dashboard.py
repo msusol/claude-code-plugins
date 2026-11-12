@@ -846,6 +846,30 @@ class SessionsTab(Base):
         self.assertIn('colspan="12"', out["sess"])
 
 
+class ActiveTime(Base):
+    """Active time: the sum of gaps between consecutive calls that are no longer than ten minutes."""
+
+    def test_idle_gaps_over_ten_minutes_are_left_out(self):
+        write_log(self.root, "-p/s1.jsonl", [user(0, "go")] + [assistant(m, "claude-opus-4-9", OPUS_USAGE, "m%d" % m, "r%d" % m) for m in (1, 2, 3, 40)])
+        s = self.only_session()
+        self.assertEqual(s["active_s"], 120, "1 -> 2 and 2 -> 3 count; the 37-minute gap does not")
+
+    def test_the_ten_minute_boundary_counts_and_one_second_more_does_not(self):
+        self.assertEqual(b.active_seconds([datetime(2026, 1, 1, 0, 0, 0), datetime(2026, 1, 1, 0, 10, 0)]), 600)
+        self.assertEqual(b.active_seconds([datetime(2026, 1, 1, 0, 0, 0), datetime(2026, 1, 1, 0, 10, 1)]), 0)
+
+    def test_order_does_not_matter_and_one_call_is_zero(self):
+        a, c = datetime(2026, 1, 1, 0, 0, 0), datetime(2026, 1, 1, 0, 5, 0)
+        self.assertEqual(b.active_seconds([c, a]), 300)
+        self.assertEqual(b.active_seconds([a]), 0)
+        self.assertEqual(b.active_seconds([]), 0)
+
+    def test_subagent_calls_are_part_of_the_active_time(self):
+        write_log(self.root, "-p/s1.jsonl", [user(0, "go"), assistant(1, "claude-opus-4-9", OPUS_USAGE, "m1", "r1")])
+        write_log(self.root, "-p/s1/subagents/a.jsonl", [assistant(4, "claude-haiku-4-5", HAIKU_USAGE, "x1", "q1", side=True)])
+        self.assertEqual(self.only_session()["active_s"], 180)
+
+
 class Robustness(Base):
     def test_empty_and_missing_roots_give_no_sessions(self):
         self.assertEqual(self.build()["sessions"], [])
@@ -981,7 +1005,7 @@ class Render(Base):
             assistant(3, "claude-opus-4-9", OPUS_USAGE, "m3", "r3", per_turn="high"),
         ])
         out = self.run_page_script(b.render(self.build()))
-        rows = re.findall(r'<tr class="(tot|t)"><td>(.*?)</td>', out["mod-eff"], re.S)
+        rows = re.findall(r'<tr class="(tot|t)"><td[^>]*>(.*?)</td>', out["mod-eff"], re.S)
         labels = [(cls, re.sub(r"<[^>]+>", "", cell).strip()) for cls, cell in rows]
         self.assertEqual(labels, [("tot", "claude-opus-4-9"), ("t", "low"), ("t", "high"), ("tot", "claude-sonnet-5-5 · medium")])
 
@@ -1042,6 +1066,29 @@ class Render(Base):
         self.assertNotIn("scrollbar-gutter", box)
         self.assertNotIn("position: sticky", re.search(r"\.cd-table th\s*\{([^}]*)\}", css).group(1))
 
+    def test_the_model_and_effort_tab_stacks_the_chart_above_the_task_table_at_full_width(self):
+        html = (PLUGIN / "scripts" / "template.html").read_text()
+        day = re.search(r'<div class="([^"]*)"><h2>Cost per day by model and effort</h2>', html)
+        task = re.search(r'<div class="([^"]*)"><h2>Cost per task by model and effort</h2>', html)
+        self.assertIn("cd-span", day.group(1))
+        self.assertIn("cd-span", task.group(1))
+        self.assertLess(day.start(), task.start(), "the chart comes before the table it would otherwise squeeze")
+
+    def test_the_stacked_chart_uses_a_wide_canvas_to_fill_its_card(self):
+        write_log(self.root, "-p/s1.jsonl", [user(0, "go"), assistant(1, "claude-opus-4-9", OPUS_USAGE, "m1", "r1", per_turn="high")])
+        out = self.run_page_script(b.render(self.build()))
+        xs = [float(x) for x in re.findall(r'<rect x="([\d.]+)"', out["daily-eff"])]
+        self.assertTrue(xs)
+        self.assertGreater(float(re.search(r'<text x="([\d.]+)" y="[\d.]+" font-size="10" text-anchor="end"', out["daily-eff"]).group(1)), 1000,
+                           "the end label sits at the right edge of the 1100-wide canvas")
+
+    def test_model_and_effort_labels_never_wrap(self):
+        write_log(self.root, "-p/s1.jsonl", [user(0, "go"), assistant(1, "claude-opus-4-9", OPUS_USAGE, "m1", "r1", per_turn="high")])
+        out = self.run_page_script(b.render(self.build()))
+        self.assertRegex(out["task-eff"], r'<tr><td class="nw"><span class="cd-sw"')
+        self.assertRegex(out["mod-eff"], r'<tr class="tot"><td class="nw"><span class="cd-sw"')
+        self.assertIn('<th class="nw">Model · effort</th>', out["task-eff"])
+
     def test_generated_time_can_be_fixed(self):
         write_log(self.root, "-p/s1.jsonl", [user(0, "go"), assistant(1, "claude-opus-4-9", OPUS_USAGE)])
         fixed = datetime(2026, 1, 2, 3, 4, 5)
@@ -1096,7 +1143,7 @@ class StaticOutputUnchanged(Base):
             (s["id"], s["project"], s["title"], s["cost"], s["sub_cost"], s["calls"]),
             ("s1", "proj", "one", round(SONNET_BIG_COST + OPUS_COST, 4), 0.0, 2))
         self.assertEqual(sorted(data), ["days", "generated", "rates", "rates_source", "rates_verified", "sessions", "speed_flags", "unpriced"])
-        self.assertEqual(sorted(s), ["calls", "cost", "ctx", "cw1h", "daily", "daily_me", "first", "id", "last",
+        self.assertEqual(sorted(s), ["active_s", "calls", "cost", "ctx", "cw1h", "daily", "daily_me", "first", "id", "last",
                                      "matrix", "models", "parts", "project", "sub_cost", "title", "tokens", "turns"])
 
 

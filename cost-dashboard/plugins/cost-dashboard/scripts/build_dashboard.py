@@ -226,12 +226,13 @@ def process_file(path, sessions):
             "id": sid, "project": project, "cwd": None, "first": None, "last": None,
             "cost": 0.0, "sub_cost": 0.0, "tokens": blank_tokens(), "models": {}, "turns": [], "calls": 0,
             "matrix": {}, "daily_me": {},
-            "parts": blank_tokens(), "ctx_series": [], "cw1h": 0})
+            "parts": blank_tokens(), "ctx_series": [], "cw1h": 0, "stamps": []})
         if cwd and not s["cwd"]:
             s["cwd"] = cwd
         c = cost_of(rec["model"], rec["u"])
         ts = parse_ts(rec["ts"])
         if ts:
+            s["stamps"].append(ts)
             if not s["first"] or ts < s["first"]:
                 s["first"] = ts
             if not s["last"] or ts > s["last"]:
@@ -281,6 +282,14 @@ def process_file(path, sessions):
 
 
 MAX_CTX_POINTS = 240
+IDLE_SECONDS = 600     # a gap between two calls longer than this is you being away, not the model working
+
+
+def active_seconds(stamps):
+    """Time the session was busy: the sum of the gaps between consecutive calls that are no longer than IDLE_SECONDS."""
+    ordered = sorted(stamps)
+    return round(sum(g for g in ((b - a).total_seconds() for a, b in zip(ordered, ordered[1:])) if g <= IDLE_SECONDS))
+
 RESET_DROP = 0.7     # a call whose context is under 70% of the previous call's is counted as a reset (/clear or compaction)
 
 
@@ -357,6 +366,7 @@ def collect(root, days=30, project="", now=None):
             "models": {k: {"cost": round(v["cost"], 4), "calls": v["calls"], "ctx_tokens": v["ctx_tokens"], "ctx_cost": round(v["ctx_cost"], 4)}
                        for k, v in s["models"].items()},
             "cw1h": s["cw1h"],
+            "active_s": active_seconds(s["stamps"]),
             "daily": {k: round(v, 4) for k, v in s.get("daily", {}).items()},
             "matrix": {m: rounded_cells(e) for m, e in s["matrix"].items()},
             "daily_me": {d: {m: rounded_map(e) for m, e in v.items()} for d, v in s["daily_me"].items()},

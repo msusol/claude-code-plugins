@@ -130,8 +130,8 @@ body { padding: 1.5rem 1rem; }
     <div class="cd-grid">
       <div class="cd-card cd-span"><h2>Cost by model and effort</h2><p class="cd-sub">Each model with the effort levels it ran at, recorded per call: one row when a model ran at a single effort, otherwise the model's total with each effort nested under it. In is everything sent to the model (fresh input, cache writes, cache reads) and Out is what it wrote; $ In and $ Out are what each side cost, and the $ / 1M columns are the price actually paid per million tokens. Effort is only meaningful for the model it ran on, so it is never summed across models.</p><div class="cd-box"><table class="cd-table" id="mod-eff"></table></div></div>
       <div class="cd-card cd-span"><h2>Model x effort</h2><p class="cd-sub">The same figures as a grid: estimated cost for each model at each effort level, with tokens in and out and $ in and out under it. Darker cells cost more.</p><div class="cd-box"><table class="cd-table" id="matrix"></table></div></div>
-      <div class="cd-card"><h2>Cost per task by model and effort</h2><p class="cd-sub">A task is one prompt and everything Claude did for it, grouped by the model and effort that cost the most in it. Few tasks means a noisy average.</p><div class="cd-box"><table class="cd-table" id="task-eff"></table></div></div>
-      <div class="cd-card"><h2>Cost per day by model and effort</h2><p class="cd-sub">Estimated USD per calendar day, stacked by model and effort; hover a segment for the figure.</p><div class="cd-legend" id="eff-legend"></div><div class="cd-chart"><svg id="daily-eff" width="100%" height="190"></svg></div></div>
+      <div class="cd-card cd-span"><h2>Cost per day by model and effort</h2><p class="cd-sub">Estimated USD per calendar day, stacked by model and effort; hover a segment for the figure.</p><div class="cd-legend" id="eff-legend"></div><div class="cd-chart"><svg id="daily-eff" width="100%" height="190"></svg></div></div>
+      <div class="cd-card cd-span"><h2>Cost per task by model and effort</h2><p class="cd-sub">A task is one prompt and everything Claude did for it, grouped by the model and effort that cost the most in it. Few tasks means a noisy average.</p><div class="cd-box"><table class="cd-table" id="task-eff"></table></div></div>
     </div>
   </section>
   <section id="tab-context" class="cd-main" hidden>
@@ -240,9 +240,9 @@ const effsOf = m => Object.keys(mxm[m] || {}).sort(effCmp);
 const effs = [...new Set(mods.flatMap(effsOf))].sort(effCmp);
 
 const shareOf = c => total ? Math.round(100*c.cost/total) + '%' : '0%';
-const meRow = (label, c, cls) => `<tr class="${cls}"><td>${label}</td><td class="n">${c.calls}</td>${ioCells(c)}<td class="n">${perM(c.in_cost, c.in_tok)}</td><td class="n">${perM(c.out_cost, c.out_tok)}</td><td class="n">${usd(c.cost)}</td><td class="n">${shareOf(c)}</td></tr>`;
+const meRow = (label, c, cls) => `<tr class="${cls}"><td class="nw">${label}</td><td class="n">${c.calls}</td>${ioCells(c)}<td class="n">${perM(c.in_cost, c.in_tok)}</td><td class="n">${perM(c.out_cost, c.out_tok)}</td><td class="n">${usd(c.cost)}</td><td class="n">${shareOf(c)}</td></tr>`;
 $('mod-eff').innerHTML = mods.length
-  ? '<thead><tr><th>Model / effort</th><th class="n">Calls</th>' + IO_HEAD + '<th class="n">In $ / 1M</th><th class="n">Out $ / 1M</th><th class="n">Cost</th><th class="n">Share</th></tr></thead><tbody>' +
+  ? '<thead><tr><th class="nw">Model / effort</th><th class="n">Calls</th>' + IO_HEAD + '<th class="n">In $ / 1M</th><th class="n">Out $ / 1M</th><th class="n">Cost</th><th class="n">Share</th></tr></thead><tbody>' +
     mods.map(m => { const es = effsOf(m);
       // one effort: a single "model · effort" row says it all; several: the model's total, then each effort nested under it
       return es.length === 1 ? meRow(`${sw(m, es[0])} ${esc(comboLabelFull(m, es[0]))}`, modelCells[m], 'tot')
@@ -260,9 +260,9 @@ const tg = {};  // "model|effort" of the costliest pair in each task -> tasks, c
 ses.forEach(s => s.turns.forEach(t => { const c = topCombo(t.me); if (!c) return; const k = c[0] + '|' + c[1]; const g = tg[k] || (tg[k] = {pair: c, tasks:0, sum: ZERO()}); g.tasks++; addTo(g.sum, sumNest(t.me)); }));
 const tRows = Object.values(tg).sort((a,b) => comboCmp(a.pair, b.pair));
 $('task-eff').innerHTML = tRows.length
-  ? '<thead><tr><th>Model · effort</th><th class="n">Tasks</th><th class="n">Calls / task</th><th class="n">In tokens / task</th><th class="n">Out tokens / task</th><th class="n">$ In / task</th><th class="n">$ Out / task</th><th class="n">Cost / task</th><th class="n">Total</th></tr></thead><tbody>' +
+  ? '<thead><tr><th class="nw">Model · effort</th><th class="n">Tasks</th><th class="n">Calls / task</th><th class="n">In tokens / task</th><th class="n">Out tokens / task</th><th class="n">$ In / task</th><th class="n">$ Out / task</th><th class="n">Cost / task</th><th class="n">Total</th></tr></thead><tbody>' +
     tRows.map(g => { const n = g.tasks, c = g.sum;
-      return `<tr><td>${sw(g.pair[0], g.pair[1])} ${esc(comboLabel(g.pair[0], g.pair[1]))}</td><td class="n">${n}${n<5?' <span class="cd-small">small sample</span>':''}</td><td class="n">${(c.calls/n).toFixed(1)}</td><td class="n">${kfmt(Math.round(c.in_tok/n))}</td><td class="n">${kfmt(Math.round(c.out_tok/n))}</td><td class="n">${usd(c.in_cost/n)}</td><td class="n">${usd(c.out_cost/n)}</td><td class="n">${usd(c.cost/n)}</td><td class="n">${usd(c.cost)}</td></tr>`; }).join('') + '</tbody>'
+      return `<tr><td class="nw">${sw(g.pair[0], g.pair[1])} ${esc(comboLabel(g.pair[0], g.pair[1]))}</td><td class="n">${n}${n<5?' <span class="cd-small">small sample</span>':''}</td><td class="n">${(c.calls/n).toFixed(1)}</td><td class="n">${kfmt(Math.round(c.in_tok/n))}</td><td class="n">${kfmt(Math.round(c.out_tok/n))}</td><td class="n">${usd(c.in_cost/n)}</td><td class="n">${usd(c.out_cost/n)}</td><td class="n">${usd(c.cost/n)}</td><td class="n">${usd(c.cost)}</td></tr>`; }).join('') + '</tbody>'
   : emptyRow(9, 'No tasks in this period.');
 
 // cost per day, stacked by model and effort
@@ -270,12 +270,12 @@ const dMe = {};  // day -> "model|effort" -> cost
 ses.forEach(s => { for (const d in s.daily_me) for (const m in s.daily_me[d]) for (const e in s.daily_me[d][m]) { const day = dMe[d] || (dMe[d] = {}); day[m + '|' + e] = (day[m + '|' + e] || 0) + s.daily_me[d][m][e]; } });
 const pairOf = k => k.split('|');
 const dEk = Object.keys(dMe).sort(), dTot = d => Object.values(dMe[d]).reduce((a,b)=>a+b,0);
-const dMx = Math.max(...dEk.map(dTot), 0.01), sv2 = $('daily-eff'), bw2 = dEk.length ? (W-pad)/dEk.length : 0;
-sv2.setAttribute('viewBox', `0 0 ${W} ${H}`);
+const dMx = Math.max(...dEk.map(dTot), 0.01), sv2 = $('daily-eff'), W2 = 1100, bw2 = dEk.length ? (W2-pad)/dEk.length : 0;
+sv2.setAttribute('viewBox', `0 0 ${W2} ${H}`);   // the card spans the page, so the canvas is wide too
 sv2.innerHTML = dEk.map((d,i) => { let y = H-pad;
   return Object.keys(dMe[d]).sort((a,b) => comboCmp(pairOf(a), pairOf(b))).map(k => { const [m, e] = pairOf(k), h = (dMe[d][k]/dMx)*(H-pad-16); y -= h;
     return `<rect x="${pad+i*bw2+1}" y="${y}" width="${Math.max(bw2-2,1)}" height="${h}" fill="${combo(m, e)}" data-tip="${d} ${esc(comboLabel(m, e))}: ${usd(dMe[d][k])}"><title>${d} ${esc(comboLabel(m, e))}: ${usd(dMe[d][k])}</title></rect>`; }).join(''); }).join('')
-  + (dEk.length ? `<text x="${pad}" y="${H-6}" font-size="10" fill="var(--mut)">${dEk[0]}</text><text x="${W}" y="${H-6}" font-size="10" text-anchor="end" fill="var(--mut)">${dEk[dEk.length-1]}</text><text x="${pad}" y="10" font-size="10" fill="var(--mut)">max ${usd(dMx)}</text>` : '');
+  + (dEk.length ? `<text x="${pad}" y="${H-6}" font-size="10" fill="var(--mut)">${dEk[0]}</text><text x="${W2}" y="${H-6}" font-size="10" text-anchor="end" fill="var(--mut)">${dEk[dEk.length-1]}</text><text x="${pad}" y="10" font-size="10" fill="var(--mut)">max ${usd(dMx)}</text>` : '');
 const legendPairs = [...new Set(dEk.flatMap(d => Object.keys(dMe[d])))].map(pairOf).sort(comboCmp);
 $('eff-legend').innerHTML = legendPairs.map(([m, e]) => `<span>${sw(m, e)} ${esc(comboLabel(m, e))}</span>`).join('');
 

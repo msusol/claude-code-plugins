@@ -190,7 +190,7 @@ def main():
         page2 = page.replace("let ctxPick = ctxSes.length ? ctxSes[0].id : null;", "let ctxPick = %s;" % json.dumps(pick["id"]))
         out = run_page(page2)
     (HERE / "images" / "overview-daily.svg").write_text(standalone_svg(out["daily"], 600, 180))
-    (HERE / "images" / "effort-daily.svg").write_text(standalone_svg(out["daily-eff"], 600, 180))
+    (HERE / "images" / "effort-daily.svg").write_text(standalone_svg(out["daily-eff"], 1100, 180))
     (HERE / "images" / "context-sawtooth.svg").write_text(standalone_svg(out["ctx-chart"], 600, 240))
     if "--tables" in sys.argv:
         for k in ("tile", "kpis", "models", "mod-eff", "matrix", "task-eff", "eff-legend", "parts-tbl", "ctx-read", "rate-tbl", "rate-note", "ctx-note", "ctx-tbl", "sess", "pager"):

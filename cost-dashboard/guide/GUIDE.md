@@ -161,6 +161,13 @@ model never ran at that effort.
 | claude-opus-5-5 | – | $7.58 | $3.25 | $10.83 |
 | claude-haiku-5-5 | – | $0.01 | – | $0.01 |
 
+### Cost per day by model and effort
+
+The Overview's daily chart with each bar split by model and effort, at full width above the task table. The colour is the model (gold is Sonnet, blue is Opus) and the shade is the effort
+(lighter is lower). The legend lists every model and effort pair that appears.
+
+![Cost per day, split by model and effort](images/effort-daily.svg)
+
 ### Cost per task by model and effort
 
 Each task is filed under the model and effort that cost the most inside it, then averaged. This answers "does a higher effort cost more per prompt
@@ -176,13 +183,6 @@ on the same model?". A row with fewer than 5 tasks is marked *small sample*, bec
 
 Calls per task and tokens per task are as telling as the dollars: here the one very long medium-effort Sonnet session drives the high average, which says
 more about that conversation's length than about the model.
-
-### Cost per day by model and effort
-
-The Overview's daily chart with each bar split by model and effort. The colour is the model (gold is Sonnet, blue is Opus) and the shade is the effort
-(lighter is lower). The legend lists every model and effort pair that appears.
-
-![Cost per day, split by model and effort](images/effort-daily.svg)
 
 ## Context tab
 
