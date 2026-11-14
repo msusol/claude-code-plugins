@@ -15,7 +15,7 @@
 #
 # Needs: git, gh (logged in), jq. Environment:
 #   AB_REVIEW_REPO              required. owner/name of a PRIVATE scratch repo you created (code is pushed there)
-#   AB_RUNS_DIR                 default ~/ab-runs
+#   AB_RUNS_DIR                 default ~/experiments/runs (or $AB_EXPERIMENTS_DIR/runs)
 #   AB_MAX_ROUNDS               default 5
 #   AB_REVIEW_TIMEOUT / _POLL   seconds to wait for Copilot (default 600) and between checks (default 15)
 #   AB_COPILOT_REVIEWER         reviewer login to request (default copilot-pull-request-reviewer[bot])
@@ -29,7 +29,7 @@
 
 set -euo pipefail
 
-RUNS_DIR="${AB_RUNS_DIR:-$HOME/ab-runs}"
+RUNS_DIR="${AB_RUNS_DIR:-${AB_EXPERIMENTS_DIR:-$HOME/experiments}/runs}"
 REPO="${AB_REVIEW_REPO:-}"
 REMOTE_URL="${AB_REVIEW_REMOTE_URL:-https://github.com/${REPO}.git}"
 REVIEWER="${AB_COPILOT_REVIEWER:-copilot-pull-request-reviewer[bot]}"

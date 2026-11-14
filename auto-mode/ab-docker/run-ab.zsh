@@ -1,6 +1,7 @@
 #!/usr/bin/env zsh
 # Run one A/B experiment arm in an isolated container.
 #
+#   run-ab.zsh init [dir]                         create the experiments folder from the template (default ~/experiments)
 #   run-ab.zsh build                              build the image (once, and after plugin changes)
 #   run-ab.zsh check                              prove the isolation (filesystem, network, tooling)
 #   run-ab.zsh run <name> <model> <src-repo> [ref]  start Claude Code on a fresh export of <ref> (default HEAD)
@@ -8,7 +9,7 @@
 #   run-ab.zsh review-round <name>                push the arm's branch, get a Copilot PR review, write REVIEW-N.md (see review-round.zsh)
 #   run-ab.zsh review-summary <name>...           table of review rounds and findings per arm
 #
-# <name> becomes the branch exp/<name> and the run folder $AB_RUNS_DIR/<name> (default ~/ab-runs/<name>).
+# <name> becomes the branch exp/<name> and the run folder $AB_RUNS_DIR/<name> (default ~/experiments/runs/<name>).
 # The container sees only that folder (as /work) and can reach only api.anthropic.com.
 # Auth for `run`: ANTHROPIC_API_KEY in the environment (pass it inline, not exported: ANTHROPIC_API_KEY=... run-ab.zsh run ...),
 # or AB_LOGIN=1 to sign in with a Claude account inside the container. Use a dedicated key with a spend limit:
@@ -19,13 +20,38 @@ set -euo pipefail
 SCRIPT_DIR="${0:A:h}"
 REPO_ROOT="${SCRIPT_DIR:h:h}"
 IMAGE="${AB_IMAGE:-ab-claude}"
-RUNS_DIR="${AB_RUNS_DIR:-$HOME/ab-runs}"
+EXP_DIR="${AB_EXPERIMENTS_DIR:-$HOME/experiments}"
+RUNS_DIR="${AB_RUNS_DIR:-$EXP_DIR/runs}"
 
 die() { print -u2 -- "run-ab: $*"; exit 1 }
 
 usage() {
-  print -u2 -- "usage: run-ab.zsh build | check | run <name> <model> <src-repo> [ref] | resume <name> <model> | review-round <name> | review-summary <name>..."
+  print -u2 -- "usage: run-ab.zsh init [dir] | build | check | run <name> <model> <src-repo> [ref] | resume <name> <model> | review-round <name> | review-summary <name>..."
   exit 2
+}
+
+# Copies experiments-template/ to <dir> without overwriting anything that exists, and creates the example plan repo.
+cmd_init() {
+  local dest="${1:-$EXP_DIR}" tpl="$SCRIPT_DIR/experiments-template" f
+  [[ -d "$tpl" ]] || die "template not found at $tpl"
+  mkdir -p "$dest"
+  for f in $(cd "$tpl" && find . -path ./examples -prune -o -type f -print); do
+    [[ -e "$dest/$f" ]] && continue
+    mkdir -p "$dest/${f:h}"
+    cp "$tpl/$f" "$dest/$f"
+  done
+  if [[ ! -e "$dest/plans/wordfreq" ]]; then
+    cp -R "$tpl/examples/wordfreq" "$dest/plans/wordfreq"
+    git -C "$dest/plans/wordfreq" init -q -b main
+    git -C "$dest/plans/wordfreq" add -A
+    print "created plans/wordfreq (git init, files staged, not committed)"
+  fi
+  print "experiments folder ready: $dest"
+  print "next:"
+  print "  git -C $dest/plans/wordfreq remote add origin https://github.com/<you>/wordfreq-plan   # never pushed; satisfies git-guard"
+  print "  git -C $dest/plans/wordfreq commit -m 'plan: wordfreq'"
+  print "  export AB_RUNS_DIR=$dest/runs   # only needed if $dest is not ~/experiments"
+  print "see $dest/README.md for the layout and naming"
 }
 
 cmd_build() {
@@ -109,6 +135,7 @@ cmd_resume() {
 (( $# >= 1 )) || usage
 sub="$1"; shift
 case "$sub" in
+  init)  cmd_init "$@" ;;
   build) cmd_build ;;
   check) cmd_check ;;
   run)   cmd_run "$@" ;;

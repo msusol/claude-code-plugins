@@ -29,24 +29,45 @@ but not a VM).
 ## Use
 
 ```zsh
+# once: create the experiments folder (plans/, runs/, results/, docs/) from the template, with .keep and .gitignore files
+auto-mode/ab-docker/run-ab.zsh init            # default ~/experiments; see experiments-template/README.md
+
 # once, from anywhere (builds with the repo root as context; installs git-guard + auto-mode from GitHub main)
 auto-mode/ab-docker/run-ab.zsh build
 
 # prove the isolation before a real run
 auto-mode/ab-docker/run-ab.zsh check
 
-# one terminal per arm; the plan must be committed in <src-repo> at <ref>.
+# one terminal per arm; name runs <plan>-<model>-r<N>; the plan must be committed in <src-repo> at <ref>.
 # Pass the key inline (do not export it): a shell-wide ANTHROPIC_API_KEY makes Claude Code use API billing
 # instead of your subscription everywhere you run it.
-ANTHROPIC_API_KEY=sk-ant-... auto-mode/ab-docker/run-ab.zsh run model-a <model-a> ~/code/ab-scratch main
-ANTHROPIC_API_KEY=sk-ant-... auto-mode/ab-docker/run-ab.zsh run model-b <model-b> ~/code/ab-scratch main
+ANTHROPIC_API_KEY=sk-ant-... auto-mode/ab-docker/run-ab.zsh run wordfreq-model-a-r1 <model-a> ~/experiments/plans/wordfreq main
+ANTHROPIC_API_KEY=sk-ant-... auto-mode/ab-docker/run-ab.zsh run wordfreq-model-b-r1 <model-b> ~/experiments/plans/wordfreq main
 ```
 
-`run` exports the files at `<ref>` to `~/ab-runs/<name>` (override with `AB_RUNS_DIR`; it must be outside the source
+`run` exports the files at `<ref>` to `~/experiments/runs/<name>` (override with `AB_RUNS_DIR`, or move everything with `AB_EXPERIMENTS_DIR`; it must be outside the source
 repo and must not already exist), mounts only that folder as `/work`, turns it into a fresh one-commit repo on
 `exp/<name>`, and starts Claude Code. Because the branch is `exp/*`, git-guard allows plain commits and auto-mode
 turns itself on. Paste the same prompt into both (see [../AB-SMOKE-TEST.md](../AB-SMOKE-TEST.md) for a cheap
 task). The first launch may show Claude Code's one-time setup prompts (API key, folder trust).
+
+## Experiments folder
+
+`run-ab.zsh init` copies [experiments-template/](experiments-template/README.md) to `~/experiments` (or the folder you
+name; it never overwrites a file that exists, so re-running is safe):
+
+```
+~/experiments/
+├── plans/    one git repo per plan (so an arm only sees its own plan); contents ignored, .keep tracked
+├── runs/     <plan>-<model>-r<N>/ run folders and their .reviews/ logs; contents ignored, .keep tracked
+├── results/  index.md, TEMPLATE-comparison.md, data/   <- what you keep
+└── docs/investigate/
+```
+
+It needs no git repo of its own. If you make it one, the `.gitignore` files in `runs/` and `plans/` keep every run folder
+and nested plan repo out, and `.env` and `.DS_Store` are ignored at the top. The template's README has the naming
+convention and the first-plan steps (`init` stages the example `plans/wordfreq` but does not commit it, because git-guard
+needs an allowlisted `origin`; give it one that is never pushed).
 
 ## Getting a spend-limited API key
 
@@ -88,13 +109,13 @@ This login path has not been tested. For a fair, cheap comparison, the personal 
 The run folders are ordinary repos on your host:
 
 ```zsh
-git -C ~/ab-runs/model-a log --oneline
-git -C ~/ab-runs/model-a diff --stat main
-git diff --no-index --stat ~/ab-runs/model-a ~/ab-runs/model-b
-(cd ~/ab-runs/model-a && pytest) ; (cd ~/ab-runs/model-b && pytest)
+git -C ~/experiments/runs/model-a log --oneline
+git -C ~/experiments/runs/model-a diff --stat main
+git diff --no-index --stat ~/experiments/runs/model-a ~/experiments/runs/model-b
+(cd ~/experiments/runs/model-a && pytest) ; (cd ~/experiments/runs/model-b && pytest)
 ```
 
-Delete a run with `rm -rf ~/ab-runs/<name>`. To keep a winner, copy the files you want into a normal branch of the
+Delete a run with `rm -rf ~/experiments/runs/<name>`. To keep a winner, copy the files you want into a normal branch of the
 real project and commit with `/git-commit`.
 
 ## Copilot review loop (host side)
@@ -107,13 +128,13 @@ logged in with your Copilot-licensed account. The Copilot code-review policy mus
 ```zsh
 export AB_REVIEW_REPO=msusol/ab-scratch            # owner/name of the scratch repo
 auto-mode/ab-docker/run-ab.zsh review-round model-a   # push exp/model-a, open the PR, request Copilot, wait,
-                                                      # write ~/ab-runs/model-a/REVIEW-1.md
+                                                      # write ~/experiments/runs/model-a/REVIEW-1.md
 auto-mode/ab-docker/run-ab.zsh resume model-a <model-a>   # new session on the same folder; paste the printed prompt
 auto-mode/ab-docker/run-ab.zsh review-round model-a   # round 2 ... until it prints CLEAN or hits AB_MAX_ROUNDS (5)
 auto-mode/ab-docker/run-ab.zsh review-summary model-a model-b
 ```
 
-Per arm it records `round, time, commit, pr, findings, status` in `~/ab-runs/<name>.reviews/rounds.csv` (outside the
+Per arm it records `round, time, commit, pr, findings, status` in `~/experiments/runs/<name>.reviews/rounds.csv` (outside the
 run folder, so the arm cannot touch it), and `review-summary` prints rounds, findings per round, and the round that
 first came back clean. Pair it with a separate API key per arm to compare model cost against Copilot rounds and
 premium requests (one per review).
@@ -144,6 +165,7 @@ Guard rails and caveats:
   `--cap-add NET_ADMIN`, which `run-ab.zsh` passes. IP addresses are resolved once at start.
 - `prepare-workdir.sh` — `git init`, a fake `origin` (`example.invalid`, allowlisted inside the image only), a
   baseline commit, branch `exp/<name>`.
+- `experiments-template/` — the folder scaffold `run-ab.zsh init` copies (`.keep` and `.gitignore` files included).
 - `isolation-check.sh` — the checks behind `run-ab.zsh check`.
 - `review-round.zsh` — the host-side Copilot review loop (`review-round`, `review-summary`); `run-ab.zsh resume` starts a new session on an existing run folder.
 

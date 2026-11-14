@@ -67,15 +67,17 @@ Claude config with only git-guard and auto-mode installed, and a firewall that a
 It does not need the fake-remote setup above, because the container creates its own scratch remote.
 This path has not been run end to end yet; the `check` step in 3 is what tells you whether it works on your machine.
 
-1. **Make the scratch repo with the plan committed** (the export contains only committed files):
+1. **Create the experiments folder and commit the plan.** `init` makes `~/experiments` from the template and an
+   example plan repo, `plans/wordfreq`, with the plan below already in it (staged, not committed):
 
    ```zsh
-   mkdir -p ~/code/ab-scratch && cd ~/code/ab-scratch && git init -b main
-   # write PLAN.md (above), then commit it (on main this needs /git-commit, or a one-off sanctioned commit)
+   auto-mode/ab-docker/run-ab.zsh init
+   git -C ~/experiments/plans/wordfreq remote add origin https://github.com/<you>/wordfreq-plan   # never pushed; satisfies git-guard
+   git -C ~/experiments/plans/wordfreq commit -m "plan: wordfreq"
    ```
 
-   Keep it outside the folder you open in your IDE if you want it kept out of IDE tooling. Isolation does not
-   depend on that, because the container mounts nothing but its own run folder.
+   Only committed files are exported to the arms. Each plan is its own repo so an arm never sees another plan.
+   See `experiments-template/README.md` for the layout, naming and what is gitignored.
 
 2. **Build the image** (once, and again after plugin changes). From the claude-code-plugins repo:
 
@@ -98,11 +100,11 @@ This path has not been run end to end yet; the `check` step in 3 is what tells y
    so Claude Code on your host keeps using your subscription:
 
    ```zsh
-   ANTHROPIC_API_KEY=sk-ant-... auto-mode/ab-docker/run-ab.zsh run model-a <model-a> ~/code/ab-scratch main
-   ANTHROPIC_API_KEY=sk-ant-... auto-mode/ab-docker/run-ab.zsh run model-b <model-b> ~/code/ab-scratch main
+   ANTHROPIC_API_KEY=sk-ant-... auto-mode/ab-docker/run-ab.zsh run wordfreq-model-a-r1 <model-a> ~/experiments/plans/wordfreq main
+   ANTHROPIC_API_KEY=sk-ant-... auto-mode/ab-docker/run-ab.zsh run wordfreq-model-b-r1 <model-b> ~/experiments/plans/wordfreq main
    ```
 
-   Each run lands in `~/ab-runs/<name>` on branch `exp/<name>`, with auto-mode already on. The first launch may
+   Each run (named `<plan>-<model>-r<N>`) lands in `~/experiments/runs/<name>` on branch `exp/<name>`, with auto-mode already on. The first launch may
    show Claude Code's one-time setup prompts.
 
 5. **Paste the same prompt into both** (see Prompt above) and let them run.
@@ -110,12 +112,15 @@ This path has not been run end to end yet; the `check` step in 3 is what tells y
 6. **Compare on the host.** The run folders are ordinary repos:
 
    ```zsh
-   git -C ~/ab-runs/model-a log --oneline ; git -C ~/ab-runs/model-b log --oneline
-   git diff --no-index --stat ~/ab-runs/model-a ~/ab-runs/model-b
-   (cd ~/ab-runs/model-a && pytest) ; (cd ~/ab-runs/model-b && pytest)
+   git -C ~/experiments/runs/wordfreq-model-a-r1 log --oneline ; git -C ~/experiments/runs/wordfreq-model-b-r1 log --oneline
+   git diff --no-index --stat ~/experiments/runs/wordfreq-model-a-r1 ~/experiments/runs/wordfreq-model-b-r1
+   (cd ~/experiments/runs/wordfreq-model-a-r1 && pytest) ; (cd ~/experiments/runs/wordfreq-model-b-r1 && pytest)
    ```
 
-7. **Clean up:** `rm -rf ~/ab-runs/model-a ~/ab-runs/model-b`. A name can't be reused until its folder is gone.
+7. **Optional: add the Copilot review loop** to compare how many review rounds each arm needs; see
+   [Copilot review loop](ab-docker/README.md#copilot-review-loop-host-side).
+
+8. **Clean up (and keep the results):** copy each `<run>.reviews/rounds.csv` into `~/experiments/results/data/` first, then `rm -rf ~/experiments/runs/wordfreq-model-a-r1 ~/experiments/runs/wordfreq-model-b-r1`. A name can't be reused until its folder is gone.
 
 Extra pass criteria for the container path:
 
