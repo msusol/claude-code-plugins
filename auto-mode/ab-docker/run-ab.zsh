@@ -4,6 +4,9 @@
 #   run-ab.zsh build                              build the image (once, and after plugin changes)
 #   run-ab.zsh check                              prove the isolation (filesystem, network, tooling)
 #   run-ab.zsh run <name> <model> <src-repo> [ref]  start Claude Code on a fresh export of <ref> (default HEAD)
+#   run-ab.zsh resume <name> <model>              start a new session on an existing run folder (e.g. to fix review findings)
+#   run-ab.zsh review-round <name>                push the arm's branch, get a Copilot PR review, write REVIEW-N.md (see review-round.zsh)
+#   run-ab.zsh review-summary <name>...           table of review rounds and findings per arm
 #
 # <name> becomes the branch exp/<name> and the run folder $AB_RUNS_DIR/<name> (default ~/ab-runs/<name>).
 # The container sees only that folder (as /work) and can reach only api.anthropic.com.
@@ -21,7 +24,7 @@ RUNS_DIR="${AB_RUNS_DIR:-$HOME/ab-runs}"
 die() { print -u2 -- "run-ab: $*"; exit 1 }
 
 usage() {
-  print -u2 -- "usage: run-ab.zsh build | check | run <name> <model> <src-repo> [ref]"
+  print -u2 -- "usage: run-ab.zsh build | check | run <name> <model> <src-repo> [ref] | resume <name> <model> | review-round <name> | review-summary <name>..."
   exit 2
 }
 
@@ -37,14 +40,11 @@ cmd_check() {
   return $rc
 }
 
-cmd_run() {
-  (( $# >= 3 )) || usage
-  local name="$1" model="$2" src="$3" ref="${4:-HEAD}"
-
-  [[ "$name" =~ '^[a-z0-9]+(-[a-z0-9]+)*$' ]] || die "name must be lowercase letters, digits and hyphens (got '$name')"
-  # Auth: an API key (default), or AB_LOGIN=1 to sign in inside the container (/login) with a Claude account,
-  # e.g. Enterprise. Login needs claude.ai and platform.claude.com reachable, so they join the firewall allowlist.
-  local -a auth_args
+# Sets the global auth_args array: an API key (default), or AB_LOGIN=1 to sign in inside the container (/login) with a
+# Claude account, e.g. Enterprise. Login needs claude.ai and platform.claude.com reachable, so they join the firewall allowlist.
+typeset -a auth_args
+auth_setup() {
+  auth_args=()
   local allow="api.anthropic.com ${AB_ALLOW_DOMAINS:-}"   # AB_ALLOW_DOMAINS adds to the API host, never replaces it
   if [[ "${AB_LOGIN:-0}" == 1 ]]; then
     allow="$allow claude.ai platform.claude.com"
@@ -54,6 +54,23 @@ cmd_run() {
     auth_args=(-e ANTHROPIC_API_KEY)
   fi
   auth_args+=(-e "AB_ALLOW_DOMAINS=${allow% }")
+}
+
+launch() {  # name model dir   (uses auth_args)
+  docker run --rm -it --name "ab-$1" \
+    --cap-add NET_ADMIN \
+    "${auth_args[@]}" \
+    -e "AB_NAME=$1" \
+    -v "$3:/work" \
+    "$IMAGE" claude --model "$2"
+}
+
+cmd_run() {
+  (( $# >= 3 )) || usage
+  local name="$1" model="$2" src="$3" ref="${4:-HEAD}"
+
+  [[ "$name" =~ '^[a-z0-9]+(-[a-z0-9]+)*$' ]] || die "name must be lowercase letters, digits and hyphens (got '$name')"
+  auth_setup
   git -C "$src" rev-parse --git-dir >/dev/null 2>&1 || die "$src is not a git repository"
   git -C "$src" rev-parse --verify --quiet "$ref^{commit}" >/dev/null || die "ref '$ref' not found in $src"
   docker image inspect "$IMAGE" >/dev/null 2>&1 || die "image '$IMAGE' not built; run: run-ab.zsh build"
@@ -71,14 +88,22 @@ cmd_run() {
   git -C "$src" archive "$ref" | tar -x -C "$dir"
   print "exported $(git -C "$src" rev-parse --short "$ref") to $dir (only this folder is mounted)"
 
-  docker run --rm -it --name "ab-$name" \
-    --cap-add NET_ADMIN \
-    "${auth_args[@]}" \
-    -e "AB_NAME=$name" \
-    -v "$dir:/work" \
-    "$IMAGE" claude --model "$model"
+  launch "$name" "$model" "$dir"
 
   print "run folder: $dir   (git -C $dir log --oneline)"
+}
+
+# New session on an existing run folder, e.g. to resolve a REVIEW-N.md. The repo, branch and history are kept;
+# only the container is new (so a /login session needs signing in again).
+cmd_resume() {
+  (( $# == 2 )) || usage
+  local name="$1" model="$2" dir="$RUNS_DIR/$1"
+  [[ "$name" =~ '^[a-z0-9]+(-[a-z0-9]+)*$' ]] || die "name must be lowercase letters, digits and hyphens (got '$name')"
+  [[ -d "$dir/.git" ]] || die "$dir is not a started run folder; use: run-ab.zsh run $name <model> <src-repo>"
+  auth_setup
+  docker image inspect "$IMAGE" >/dev/null 2>&1 || die "image '$IMAGE' not built; run: run-ab.zsh build"
+  docker ps --format '{{.Names}}' | grep -qx "ab-$name" && die "a container for '$name' is already running"
+  launch "$name" "$model" "$dir"
 }
 
 (( $# >= 1 )) || usage
@@ -87,5 +112,7 @@ case "$sub" in
   build) cmd_build ;;
   check) cmd_check ;;
   run)   cmd_run "$@" ;;
+  resume) cmd_resume "$@" ;;
+  review-round|review-summary) exec zsh "$SCRIPT_DIR/review-round.zsh" "$sub" "$@" ;;
   *)     usage ;;
 esac

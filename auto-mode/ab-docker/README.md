@@ -97,6 +97,42 @@ git diff --no-index --stat ~/ab-runs/model-a ~/ab-runs/model-b
 Delete a run with `rm -rf ~/ab-runs/<name>`. To keep a winner, copy the files you want into a normal branch of the
 real project and commit with `/git-commit`.
 
+## Copilot review loop (host side)
+
+To measure how many Copilot review rounds each arm needs, run the review from your host. The arm containers have no
+GitHub access, so findings reach the arm as a file. Setup once: a **private** scratch repo (`gh repo create ab-scratch
+--private`), its URL allowlisted in `~/.config/git-guard/allowlist` (pushes go through your normal `git`), and `gh`
+logged in with your Copilot-licensed account. The Copilot code-review policy must be enabled for your org.
+
+```zsh
+export AB_REVIEW_REPO=msusol/ab-scratch            # owner/name of the scratch repo
+auto-mode/ab-docker/run-ab.zsh review-round model-a   # push exp/model-a, open the PR, request Copilot, wait,
+                                                      # write ~/ab-runs/model-a/REVIEW-1.md
+auto-mode/ab-docker/run-ab.zsh resume model-a <model-a>   # new session on the same folder; paste the printed prompt
+auto-mode/ab-docker/run-ab.zsh review-round model-a   # round 2 ... until it prints CLEAN or hits AB_MAX_ROUNDS (5)
+auto-mode/ab-docker/run-ab.zsh review-summary model-a model-b
+```
+
+Per arm it records `round, time, commit, pr, findings, status` in `~/ab-runs/<name>.reviews/rounds.csv` (outside the
+run folder, so the arm cannot touch it), and `review-summary` prints rounds, findings per round, and the round that
+first came back clean. Pair it with a separate API key per arm to compare model cost against Copilot rounds and
+premium requests (one per review).
+
+Guard rails and caveats:
+
+- Each arm gets its own base branch (`base/<name>`, its baseline commit) and PR (`exp/<name>`), because the arms'
+  baselines are separate commits.
+- It refuses if the repo is not private, the run folder has uncommitted changes, there are no new commits since the
+  last round, or `.github/` differs from the baseline (Copilot reads review instructions from the PR's head branch,
+  so an arm could soften its own reviews; override with `AB_ALLOW_GITHUB_DIR_CHANGES=1` after inspecting the diff).
+- Copilot does not re-review on its own after a push, so each round requests it (`AB_COPILOT_REVIEWER`, default
+  `copilot-pull-request-reviewer[bot]`). If the API request fails you get a warning and the script keeps waiting while
+  you click Copilot in the PR's Reviewers menu. `AB_NO_REQUEST=1` skips the request for repos that review pushes automatically.
+- Copilot leaves "Comment" reviews only, so "clean" means no new inline comments, not an approval.
+- Copilot varies from run to run: repeat each arm 3 or more times before drawing a conclusion.
+- Tested with a stubbed `gh` and a local bare repo (`tests/test-review-round.zsh`). **Not tested against GitHub:** the
+  reviewer login, the requested-reviewers API call, and the shape of Copilot's review and comment objects.
+
 ## How it works
 
 - `Dockerfile` — Node + Claude Code, a `claude` user with your host uid (so mounted files stay yours), and the
@@ -109,6 +145,7 @@ real project and commit with `/git-commit`.
 - `prepare-workdir.sh` — `git init`, a fake `origin` (`example.invalid`, allowlisted inside the image only), a
   baseline commit, branch `exp/<name>`.
 - `isolation-check.sh` — the checks behind `run-ab.zsh check`.
+- `review-round.zsh` — the host-side Copilot review loop (`review-round`, `review-summary`); `run-ab.zsh resume` starts a new session on an existing run folder.
 
 ## Known unknowns to verify on first run
 
