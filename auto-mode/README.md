@@ -111,6 +111,8 @@ both installed (`./deploy-all.zsh git-guard auto-mode`, then restart Claude Code
    git branch -D exp/ab-a exp/ab-b
    ```
 
+A ready-made task for trying this out cheaply is in [AB-SMOKE-TEST.md](AB-SMOKE-TEST.md).
+
 Caveats: the two runs are not perfectly controlled (model sampling varies between runs), so repeat the
 experiment before concluding anything. The Stop hook sends both models the same continuation message.
 
