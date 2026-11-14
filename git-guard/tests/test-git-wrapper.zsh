@@ -51,6 +51,30 @@ print "=== the allowlist follows -C, not the cwd"
 tin "$repo"  "cwd approved, -C blocked: blocked" 1 -C "$other" commit --allow-empty -m g
 tin "$other" "cwd blocked, -C approved: allowed" 0 -C "$repo" commit --allow-empty -m h
 
+print "=== aliases that expand to a write are judged by what they expand to"
+for r in "$repo" "$other"; do
+  "$REAL" -C "$r" config alias.ci commit
+  "$REAL" -C "$r" config alias.pu push
+  "$REAL" -C "$r" config alias.st status
+  "$REAL" -C "$r" config alias.c2 ci                       # chain: c2 -> ci -> commit
+  "$REAL" -C "$r" config alias.cg '-c core.abbrev=8 commit' # global option inside the alias
+  "$REAL" -C "$r" config alias.sh '!git commit -m'          # shell-form
+  "$REAL" -C "$r" config alias.sx '!echo hi'                # shell-form, harmless
+done
+t "blocked: alias ci"            1 -C "$other" ci --allow-empty -m a
+t "blocked: alias pu (push)"     1 -C "$other" pu
+t "blocked: chained alias c2"    1 -C "$other" c2 --allow-empty -m a
+t "blocked: alias with -c opt"   1 -C "$other" cg --allow-empty -m a
+t "blocked: shell alias sh"      1 -C "$other" sh a --allow-empty
+t "blocked: inline -c alias"     1 -C "$other" -c alias.zz=commit zz --allow-empty -m a
+(cd "$work" && GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=alias.zz GIT_CONFIG_VALUE_0=commit "$work/git" -C "$other" zz --allow-empty -m a) >/dev/null 2>&1
+if (( $? == 1 )); then print 'PASS  blocked: GIT_CONFIG_* alias'; (( pass++ )); else print 'FAIL  blocked: GIT_CONFIG_* alias'; (( fail++ )); fi
+t "allowed: alias ci, approved"  0 -C "$repo" ci --allow-empty -m a
+t "allowed: chained, approved"   0 -C "$repo" c2 --allow-empty -m a
+t "allowed: inline alias, appr." 0 -C "$repo" -c alias.zz=commit zz --allow-empty -m a
+t "allowed: alias st (status)"   0 -C "$other" st
+t "allowed: harmless shell alias" 0 -C "$other" sx
+
 print "=== read-only and other commands pass through"
 t "-C blocked: status"        0 -C "$other" status
 t "-C blocked: rev-parse"     0 -C "$other" rev-parse --git-dir

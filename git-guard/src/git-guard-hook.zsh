@@ -37,14 +37,43 @@ fi
 GIT_GOPT='(-C[[:space:]]+[^[:space:]]+|-c[[:space:]]+[^[:space:]]+|--(git-dir|work-tree|namespace|config-env)[=[:space:]][^[:space:]]+|--[a-z][a-z-]*|-[pP])'
 GIT_PRE="git([[:space:]]+${GIT_GOPT})*[[:space:]]+"
 
-if echo "$cmd" | grep -qE "${GIT_PRE}push\\b"; then
+# --- Aliases ---
+# An alias can hide a write (`git -c alias.x=commit x`, `git ci` with ci = commit),
+# so (1) refuse to define one on the command line, in the environment, or via
+# `git config`, and (2) resolve the aliases this repo/user already has and
+# treat a call to one that expands to push/commit/tag as that operation.
+# Shell-form aliases are matched by looking for `git ... push|commit|tag` in the
+# body; scripts, wrappers and `python -c` are out of reach of a pattern match.
+if echo "$cmd" | grep -qiE "(^|[[:space:]])(-c[[:space:]]*|--config-env[=[:space:]]+)alias\\.|GIT_CONFIG_(KEY_[0-9]+|PARAMETERS)=[^[:space:]]*alias\\." \
+   || { echo "$cmd" | grep -qiE "${GIT_PRE}config[[:space:]].*alias\\." \
+        && ! echo "$cmd" | grep -qE -- '[[:space:]]--(get|get-all|get-regexp|list)([[:space:]]|$)|[[:space:]]-l([[:space:]]|$)'; }; then
+  echo "git-guard: defining a git alias is blocked in Claude Code sessions." >&2
+  echo "An alias can hide git commit/push/tag from the guard. Run the git command itself," >&2
+  echo "or use /git-commit or /git-push for the sanctioned path." >&2
+  exit 2
+fi
+
+alias_kind=""
+while IFS= read -r line; do
+  [[ -z "$line" ]] && continue
+  key="${line%% *}"; val="${line#* }"; name="${key#alias.}"
+  [[ "$name" =~ '^[A-Za-z0-9_-]+$' ]] || continue
+  echo "$cmd" | grep -qiE "${GIT_PRE}${name}([[:space:]]|\$)" || continue
+  if [[ "$val" == '!'* ]]; then body="${val#!}"; else body="git $val"; fi
+  if   echo "$body" | grep -qE "${GIT_PRE}push\\b";   then alias_kind=push; break
+  elif echo "$body" | grep -qE "${GIT_PRE}commit\\b"; then alias_kind=commit
+  elif echo "$body" | grep -qE "${GIT_PRE}tag\\b";    then [[ -z "$alias_kind" ]] && alias_kind=tag
+  fi
+done < <(git -C "${hook_cwd:-.}" config --get-regexp '^alias\.' 2>/dev/null)
+
+if [[ "$alias_kind" == push ]] || echo "$cmd" | grep -qE "${GIT_PRE}push\\b"; then
   echo "git-guard: git write operation intercepted by PreToolUse hook." >&2
   echo "Do NOT attempt this git command directly." >&2
   echo "Use the /git-push skill — it verifies the remote allowlist and requires explicit confirmation for this specific push." >&2
   exit 2
 fi
 
-if echo "$cmd" | grep -qE "${GIT_PRE}(commit|tag)\\b"; then
+if [[ "$alias_kind" == (commit|tag) ]] || echo "$cmd" | grep -qE "${GIT_PRE}(commit|tag)\\b"; then
   # Experiment-branch exemption: a plain `git commit` is allowed while the
   # session's working directory is on an `exp/*` branch (A/B experiments,
   # spikes). Scoped on purpose:
@@ -54,7 +83,7 @@ if echo "$cmd" | grep -qE "${GIT_PRE}(commit|tag)\\b"; then
   #     act on a different repo (`cd`, or `-C` / `--git-dir` / `--work-tree`
   #     before the subcommand) is not exempt;
   #   - the shell wrapper still enforces the remote allowlist on the commit.
-  if ! echo "$cmd" | grep -qE "${GIT_PRE}tag\\b" \
+  if [[ "$alias_kind" != tag ]] && ! echo "$cmd" | grep -qE "${GIT_PRE}tag\\b" \
      && ! echo "$cmd" | grep -qE '(^|[^[:alnum:]_-])cd[[:space:]]' \
      && ! echo "$cmd" | sed -E 's/[[:space:]](commit|tag|push)([[:space:]].*)?$//' | grep -qE '(^|[[:space:]])(-C[[:space:]]|--git-dir|--work-tree)' \
      && [[ -n "$hook_cwd" && -d "$hook_cwd" ]]; then

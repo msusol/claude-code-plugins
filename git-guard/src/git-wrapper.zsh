@@ -32,6 +32,34 @@ while (( i <= $# )); do
 done
 subcmd="${args[i]:-}"
 
+# Resolve aliases through git itself, using the same global options, so inline
+# (`-c alias.x=commit`), environment and config-file aliases are all seen.
+# Git ignores an alias that shadows a built-in, so only other names are looked up.
+# Follows alias-to-alias chains a few levels; a shell alias (`!...`) is judged by
+# whether its body runs `git ... commit|push|tag`.
+if [[ -n "$subcmd" && "$subcmd" != (commit|push|tag) ]]; then
+  for _ in 1 2 3 4 5; do
+    aval=$("$REAL_GIT" "${gopts[@]}" config --get "alias.$subcmd" 2>/dev/null) || break
+    [[ -z "$aval" ]] && break
+    if [[ "$aval" == '!'* ]]; then
+      shell_re='(^|[^[:alnum:]_-])git([[:space:]]+(-[^[:space:]]+|[^-[:space:]][^[:space:]]*=[^[:space:]]*))*[[:space:]]+(commit|push|tag)([^[:alnum:]_-]|$)'
+      [[ "$aval" =~ $shell_re ]] && subcmd="${match[4]}"
+      break
+    fi
+    words=("${(z)aval}")
+    j=1
+    while (( j <= ${#words} )); do          # skip global options at the head of the alias
+      case "${words[j]}" in
+        -C|-c|--git-dir|--work-tree|--namespace|--config-env) (( j += 2 )) ;;
+        -*) (( j += 1 )) ;;
+        *) break ;;
+      esac
+    done
+    subcmd="${words[j]:-}"
+    [[ -z "$subcmd" || "$subcmd" == (commit|push|tag) ]] && break
+  done
+fi
+
 case "$subcmd" in
   commit|push|tag)
     remote_url=$("$REAL_GIT" "${gopts[@]}" remote get-url origin 2>/dev/null || true)
