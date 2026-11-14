@@ -1,6 +1,6 @@
 {
   "name": "auto-mode",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "A Stop hook plus the /auto-mode skill: when enabled (flag file, or the session is on an exp/* branch), Claude keeps working through its own recommended next steps instead of stopping to ask, up to a capped number of continuations. Pushes, destructive actions and every git-guard / db-guard check stay as they are.",
   "author": {
     "name": "Mark Susol"

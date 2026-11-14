@@ -7,7 +7,8 @@
 #
 # <name> becomes the branch exp/<name> and the run folder $AB_RUNS_DIR/<name> (default ~/ab-runs/<name>).
 # The container sees only that folder (as /work) and can reach only api.anthropic.com.
-# Needs ANTHROPIC_API_KEY in your environment for `run`. Use a dedicated key with a spend limit:
+# Auth for `run`: ANTHROPIC_API_KEY in the environment (pass it inline, not exported: ANTHROPIC_API_KEY=... run-ab.zsh run ...),
+# or AB_LOGIN=1 to sign in with a Claude account inside the container. Use a dedicated key with a spend limit:
 # the model can read it inside the container.
 
 set -euo pipefail
@@ -41,7 +42,18 @@ cmd_run() {
   local name="$1" model="$2" src="$3" ref="${4:-HEAD}"
 
   [[ "$name" =~ '^[a-z0-9]+(-[a-z0-9]+)*$' ]] || die "name must be lowercase letters, digits and hyphens (got '$name')"
-  [[ -n "${ANTHROPIC_API_KEY:-}" ]] || die "ANTHROPIC_API_KEY is not set"
+  # Auth: an API key (default), or AB_LOGIN=1 to sign in inside the container (/login) with a Claude account,
+  # e.g. Enterprise. Login needs claude.ai and platform.claude.com reachable, so they join the firewall allowlist.
+  local -a auth_args
+  local allow="api.anthropic.com ${AB_ALLOW_DOMAINS:-}"   # AB_ALLOW_DOMAINS adds to the API host, never replaces it
+  if [[ "${AB_LOGIN:-0}" == 1 ]]; then
+    allow="$allow claude.ai platform.claude.com"
+    print "AB_LOGIN=1: not passing ANTHROPIC_API_KEY; run /login inside the session. claude.ai and platform.claude.com are allowed through the firewall."
+  else
+    [[ -n "${ANTHROPIC_API_KEY:-}" ]] || die "ANTHROPIC_API_KEY is not set (or use AB_LOGIN=1 to sign in with an account)"
+    auth_args=(-e ANTHROPIC_API_KEY)
+  fi
+  auth_args+=(-e "AB_ALLOW_DOMAINS=${allow% }")
   git -C "$src" rev-parse --git-dir >/dev/null 2>&1 || die "$src is not a git repository"
   git -C "$src" rev-parse --verify --quiet "$ref^{commit}" >/dev/null || die "ref '$ref' not found in $src"
   docker image inspect "$IMAGE" >/dev/null 2>&1 || die "image '$IMAGE' not built; run: run-ab.zsh build"
@@ -61,9 +73,8 @@ cmd_run() {
 
   docker run --rm -it --name "ab-$name" \
     --cap-add NET_ADMIN \
-    -e ANTHROPIC_API_KEY \
+    "${auth_args[@]}" \
     -e "AB_NAME=$name" \
-    ${AB_ALLOW_DOMAINS:+-e "AB_ALLOW_DOMAINS=$AB_ALLOW_DOMAINS"} \
     -v "$dir:/work" \
     "$IMAGE" claude --model "$model"
 

@@ -93,12 +93,13 @@ This path has not been run end to end yet; the `check` step in 3 is what tells y
    `api.anthropic.com` reachable, no firewall changes possible, both plugins installed, web tools denied). Fix any
    `FAIL` before going on.
 
-4. **Start one arm per terminal**, with a dedicated, spend-limited API key (the model can read it in the container):
+4. **Start one arm per terminal**, with a dedicated, spend-limited API key (the model can read it in the container; see
+   [Getting a spend-limited API key](ab-docker/README.md#getting-a-spend-limited-api-key)). Pass it inline, not exported,
+   so Claude Code on your host keeps using your subscription:
 
    ```zsh
-   export ANTHROPIC_API_KEY=sk-ant-...
-   auto-mode/ab-docker/run-ab.zsh run model-a <model-a> ~/code/ab-scratch main
-   auto-mode/ab-docker/run-ab.zsh run model-b <model-b> ~/code/ab-scratch main
+   ANTHROPIC_API_KEY=sk-ant-... auto-mode/ab-docker/run-ab.zsh run model-a <model-a> ~/code/ab-scratch main
+   ANTHROPIC_API_KEY=sk-ant-... auto-mode/ab-docker/run-ab.zsh run model-b <model-b> ~/code/ab-scratch main
    ```
 
    Each run lands in `~/ab-runs/<name>` on branch `exp/<name>`, with auto-mode already on. The first launch may

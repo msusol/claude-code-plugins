@@ -35,10 +35,11 @@ auto-mode/ab-docker/run-ab.zsh build
 # prove the isolation before a real run
 auto-mode/ab-docker/run-ab.zsh check
 
-# one terminal per arm; the plan must be committed in <src-repo> at <ref>
-export ANTHROPIC_API_KEY=sk-ant-...        # a dedicated, spend-limited key
-auto-mode/ab-docker/run-ab.zsh run model-a <model-a> ~/code/ab-scratch main
-auto-mode/ab-docker/run-ab.zsh run model-b <model-b> ~/code/ab-scratch main
+# one terminal per arm; the plan must be committed in <src-repo> at <ref>.
+# Pass the key inline (do not export it): a shell-wide ANTHROPIC_API_KEY makes Claude Code use API billing
+# instead of your subscription everywhere you run it.
+ANTHROPIC_API_KEY=sk-ant-... auto-mode/ab-docker/run-ab.zsh run model-a <model-a> ~/code/ab-scratch main
+ANTHROPIC_API_KEY=sk-ant-... auto-mode/ab-docker/run-ab.zsh run model-b <model-b> ~/code/ab-scratch main
 ```
 
 `run` exports the files at `<ref>` to `~/ab-runs/<name>` (override with `AB_RUNS_DIR`; it must be outside the source
@@ -46,6 +47,41 @@ repo and must not already exist), mounts only that folder as `/work`, turns it i
 `exp/<name>`, and starts Claude Code. Because the branch is `exp/*`, git-guard allows plain commits and auto-mode
 turns itself on. Paste the same prompt into both (see [../AB-SMOKE-TEST.md](../AB-SMOKE-TEST.md) for a cheap
 task). The first launch may show Claude Code's one-time setup prompts (API key, folder trust).
+
+## Getting a spend-limited API key
+
+A Claude subscription (Max, Team, Enterprise) and the Claude Console are separate products, and API usage is billed
+through the Console. For experiments, use a personal Console account:
+
+1. Sign in at platform.claude.com. One email address can create one Console organization.
+2. Add a small prepaid balance (say $10-20) and leave auto-reload off. The balance is itself a hard cap.
+3. Create a workspace such as `ab-experiments` (the Default Workspace cannot have limits).
+4. On the Workspaces page, open the workspace, choose Spend limits, and set a monthly cap with alerts. You can also
+   set an organization limit under Billing.
+5. Create the API key inside that workspace and use only it for experiments.
+
+Monthly API credits that come with some plans may not apply to Claude Code; check how they apply before relying on them.
+
+## Using a Claude account (e.g. Enterprise) instead of a key
+
+```zsh
+AB_LOGIN=1 auto-mode/ab-docker/run-ab.zsh run model-a <model-a> ~/code/ab-scratch main
+# then run /login inside the session and follow the URL it prints in your host browser
+```
+
+`AB_LOGIN=1` does not pass an API key and adds `claude.ai` and `platform.claude.com` to the firewall allowlist so
+sign-in works. Know the trade-offs:
+
+- Usage counts against that account's limits. You cannot set a spend cap yourself; for Enterprise it is set by your admin.
+- The sign-in token lives in the container's own `~/.claude` and the model can read it. It is discarded when the
+  container exits, so you sign in on every run.
+- Anything tied to the account (organization-managed settings, connectors) can follow you into the container and
+  weaken the isolation. Run `run-ab.zsh check` and ask the session what tools it has before trusting a result.
+- Opening `claude.ai` gives the model a general website to talk to, not just an API. The allowlist is IP-based and
+  resolved once at start, and sites behind shared CDNs can rotate addresses, so sign-in may be flaky.
+- Check your employer's policy before running experiments through a company account.
+
+This login path has not been tested. For a fair, cheap comparison, the personal key above is the simpler choice.
 
 ## Compare
 
