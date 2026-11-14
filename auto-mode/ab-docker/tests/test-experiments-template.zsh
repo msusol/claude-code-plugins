@@ -57,6 +57,16 @@ check "run repo ignores caches and REVIEW files" "[[ -z \"\$(git -C $R status --
 check "run branch is exp/<run>" "[[ \"\$(git -C $R branch --show-current)\" == exp/wordfreq-sonnet-r2 ]]"
 check "outer repo still sees nothing from the run" "[[ -z \"\$(git -C $E status --porcelain | grep 'runs/wordfreq-sonnet-r2')\" ]]"
 
+print "=== docs harness build option"
+printf '#!/bin/sh\necho "$@" >> %s/docker.log\n' "$T" > "$T/bin/docker"
+unset AB_DOCS; zsh "$RUN" build >/dev/null 2>&1
+check "plain build: WITH_DOCS=0 and tag ab-claude" "grep -q 'WITH_DOCS=0' $T/docker.log && grep -q -- '-t ab-claude ' $T/docker.log"
+: > "$T/docker.log"; AB_DOCS=1 zsh "$RUN" build >/dev/null 2>&1
+check "AB_DOCS=1 build: WITH_DOCS=1 and tag ab-claude-docs" "grep -q 'WITH_DOCS=1' $T/docker.log && grep -q -- '-t ab-claude-docs ' $T/docker.log"
+: > "$T/docker.log"; AB_DOCS=1 zsh "$RUN" run wordfreq-docs-r1 some-model "$E/plans/wordfreq" >/dev/null 2>&1
+check "AB_DOCS=1 run uses the docs image" "grep -q 'ab-claude-docs claude --model some-model' $T/docker.log"
+check "Dockerfile: docs deploy is conditional and docs removed when off" "grep -q 'WITH_DOCS\" = \"1\".*docs/deploy.zsh' $HERE/Dockerfile && grep -q 'rm -rf /opt/claude-code-plugins/docs' $HERE/Dockerfile"
+
 rm -rf "$T"
 print ""; printf '%d passed, %d failed\n' "$pass" "$fail"
 (( fail == 0 ))

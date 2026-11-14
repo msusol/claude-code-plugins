@@ -4,9 +4,12 @@
 #
 # Build from the repo root (run-ab.zsh does this for you):
 #   docker build -f auto-mode/ab-docker/Dockerfile --build-arg HOST_UID=$(id -u) -t ab-claude .
+# Add the docs/ harness (planning rules) with --build-arg WITH_DOCS=1; `AB_DOCS=1 run-ab.zsh build` does this and tags
+# the image ab-claude-docs, so both variants can coexist. Leave it off for the plain baseline (the smoke test).
 FROM node:22-bookworm-slim
 
 ARG HOST_UID=1000
+ARG WITH_DOCS=0
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
       zsh git jq python3 python3-pytest curl ca-certificates iptables ipset util-linux procps \
@@ -23,6 +26,10 @@ RUN userdel -r node 2>/dev/null || true \
 COPY .claude-plugin /opt/claude-code-plugins/.claude-plugin
 COPY git-guard      /opt/claude-code-plugins/git-guard
 COPY auto-mode      /opt/claude-code-plugins/auto-mode
+# docs/ is copied only so the optional step below can install it; the next RUN removes it when WITH_DOCS is not 1,
+# so the baseline image does not contain the planning rules at all.
+COPY docs           /opt/claude-code-plugins/docs
+RUN if [ "$WITH_DOCS" != "1" ]; then rm -rf /opt/claude-code-plugins/docs; fi
 RUN chown -R claude /opt/claude-code-plugins
 
 COPY auto-mode/ab-docker/entrypoint.sh auto-mode/ab-docker/init-firewall.sh \
@@ -39,6 +46,11 @@ ENV PATH=/home/claude/.local/bin:$PATH
 # fetched from GitHub (the marketplace points at msusol/claude-code-plugins), so the image gets what is on main.
 RUN zsh /opt/claude-code-plugins/git-guard/deploy.zsh \
  && zsh /opt/claude-code-plugins/auto-mode/deploy.zsh
+
+# Optional: the docs/ harness. Installs the planning-* rules into ~/.claude/rules/ and @-imports them from
+# ~/.claude/CLAUDE.md, so every session in the container loads them. Only with --build-arg WITH_DOCS=1.
+# The plan repo you export should carry its own docs/ folder (plans, ADRs) for the rules to work against.
+RUN if [ "$WITH_DOCS" = "1" ]; then zsh /opt/claude-code-plugins/docs/deploy.zsh; fi
 
 # Container-only config: the scratch remote is allowlisted, commits have an author, and the web tools are
 # denied (the firewall below is the enforcement; this stops the model from even trying).

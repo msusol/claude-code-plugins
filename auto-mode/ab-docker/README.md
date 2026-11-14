@@ -51,6 +51,24 @@ repo and must not already exist), mounts only that folder as `/work`, turns it i
 turns itself on. Paste the same prompt into both (see [../AB-SMOKE-TEST.md](../AB-SMOKE-TEST.md) for a cheap
 task). The first launch may show Claude Code's one-time setup prompts (API key, folder trust).
 
+## Adding the docs/ harness
+
+The default image has Claude Code, git-guard and auto-mode only. To test with the `docs/` plugin's planning rules too
+(installed to `~/.claude/rules/` and @-imported from `~/.claude/CLAUDE.md` inside the container):
+
+```zsh
+AB_DOCS=1 auto-mode/ab-docker/run-ab.zsh build     # image ab-claude-docs; the plain ab-claude image is untouched
+AB_DOCS=1 ANTHROPIC_API_KEY=... auto-mode/ab-docker/run-ab.zsh run wordfreq-sonnet-docs-r1 <model> ~/experiments/plans/wordfreq main
+```
+
+Use the same `AB_DOCS` value for `build`, `run` and `resume`; `review-round` needs no change. Notes:
+
+- Both arms of a comparison must use the same image, and the results file's `harness:` line should say so.
+- The rules work against the plan repo's own `docs/` folder (plans, ADRs), so the plan you export should include one.
+- The plain image deletes the docs sources at build time, so a baseline arm cannot read the planning rules.
+- The docs rules come from your checkout at build time (the plugin install itself fetches from GitHub `main`); rebuild after changing them.
+- Other plugins (e.g. docs-hub) can be added the same way: copy the folder, run its `deploy.zsh` under a build arg.
+
 ## Experiments folder
 
 `run-ab.zsh init` copies [experiments-template/](experiments-template/README.md) to `~/experiments` (or the folder you

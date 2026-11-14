@@ -3,6 +3,7 @@ plan: <plan-slug>
 plan-commit: <sha of plans/<plan> HEAD>
 models: {a: <exact model id>, b: <exact model id>}
 date: <YYYY-MM-DD>
+harness: <none | docs <plugin version> | ...>   # AB_DOCS=1 image has the docs/ plugin
 repeats: <N>
 copilot: code review via PR, same instructions for both arms; cap <N> rounds
 cost: arm API spend from separate keys; Copilot premium requests used

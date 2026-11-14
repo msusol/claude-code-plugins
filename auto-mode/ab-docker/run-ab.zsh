@@ -2,7 +2,7 @@
 # Run one A/B experiment arm in an isolated container.
 #
 #   run-ab.zsh init [dir]                         create the experiments folder from the template (default ~/experiments)
-#   run-ab.zsh build                              build the image (once, and after plugin changes)
+#   run-ab.zsh build                              build the image (once, and after plugin changes); AB_DOCS=1 adds the docs/ harness
 #   run-ab.zsh check                              prove the isolation (filesystem, network, tooling)
 #   run-ab.zsh run <name> <model> <src-repo> [ref]  start Claude Code on a fresh export of <ref> (default HEAD)
 #   run-ab.zsh resume <name> <model>              start a new session on an existing run folder (e.g. to fix review findings)
@@ -19,7 +19,8 @@ set -euo pipefail
 
 SCRIPT_DIR="${0:A:h}"
 REPO_ROOT="${SCRIPT_DIR:h:h}"
-IMAGE="${AB_IMAGE:-ab-claude}"
+# AB_DOCS=1 builds and uses the image with the docs/ harness (planning rules); it is a separate image tag.
+if [[ "${AB_DOCS:-0}" == 1 ]]; then IMAGE="${AB_IMAGE:-ab-claude-docs}"; else IMAGE="${AB_IMAGE:-ab-claude}"; fi
 EXP_DIR="${AB_EXPERIMENTS_DIR:-$HOME/experiments}"
 RUNS_DIR="${AB_RUNS_DIR:-$EXP_DIR/runs}"
 
@@ -55,7 +56,7 @@ cmd_init() {
 }
 
 cmd_build() {
-  docker build -f "$SCRIPT_DIR/Dockerfile" --build-arg "HOST_UID=$(id -u)" -t "$IMAGE" "$REPO_ROOT"
+  docker build -f "$SCRIPT_DIR/Dockerfile" --build-arg "HOST_UID=$(id -u)" --build-arg "WITH_DOCS=${AB_DOCS:-0}" -t "$IMAGE" "$REPO_ROOT"
 }
 
 cmd_check() {
