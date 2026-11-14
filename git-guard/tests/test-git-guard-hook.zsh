@@ -126,6 +126,91 @@ t "branch -a not name check" "$(cmd 'git branch -a')"                           
 t "branch no args (list)"    "$(cmd 'git branch')"                                                               0
 t "sentinel bypasses branch check" "$(cmd 'GIT_GUARD_SANCTIONED=1 git checkout -b my-quick-branch')"            0
 
+# Same as cmd(), plus the hook's cwd (the session's working directory)
+cmdc() { printf '{"cwd":"%s","tool_input":{"command":"%s"}}' "$1" "$2"; }
+
+print "=== blocked: global options before the subcommand (git -C dir commit, etc.)"
+t "-C dir commit"            "$(cmd 'git -C /tmp/other commit -m x')"           2
+t "-C dir push"              "$(cmd 'git -C /tmp/other push')"                  2
+t "-C dir tag"               "$(cmd 'git -C /tmp/other tag v1')"                2
+t "-c k=v commit"            "$(cmd 'git -c user.name=x commit -m x')"          2
+t "two -c then push"         "$(cmd 'git -c a=b -c c=d push origin main')"      2
+t "--git-dir= commit"        "$(cmd 'git --git-dir=/tmp/o/.git commit -m x')"   2
+t "--git-dir sp commit"      "$(cmd 'git --git-dir /tmp/o/.git commit -m x')"   2
+t "--work-tree tag"          "$(cmd 'git --work-tree=/tmp/o tag v1')"           2
+t "--no-pager commit"        "$(cmd 'git --no-pager commit -m x')"              2
+t "-p commit"                "$(cmd 'git -p commit -m x')"                      2
+t "-C then -c then commit"   "$(cmd 'git -C /tmp/o -c k=v commit -m x')"        2
+t "add && -C commit"         "$(cmd 'git add -A && git -C /tmp/o commit -m x')" 2
+
+print "=== allowed: global options with read-only subcommands, or the sentinel"
+t "-C dir status"            "$(cmd 'git -C /tmp/other status')"                0
+t "-C dir log"               "$(cmd 'git -C /tmp/other log --oneline')"         0
+t "-C dir add"               "$(cmd 'git -C /tmp/other add file.py')"           0
+t "-c k=v diff"              "$(cmd 'git -c color.ui=never diff')"              0
+t "sentinel -C commit"       "$(cmd 'GIT_GUARD_SANCTIONED=1 git -C /tmp/o commit -m x')" 0
+t "log --grep=commit"        "$(cmd 'git log --grep=commit')"                   0
+
+print "=== aliases: definitions are blocked, existing aliases are resolved"
+alias_repo=$(mktemp -d); git -C "$alias_repo" init -q
+git -C "$alias_repo" config alias.ci commit
+git -C "$alias_repo" config alias.pu push
+git -C "$alias_repo" config alias.tg tag
+git -C "$alias_repo" config alias.lg 'log --oneline'
+git -C "$alias_repo" config alias.sh '!git commit -am'
+git -C "$alias_repo" config alias.sx '!echo hi'
+git -C "$alias_repo" config alias.cx '-c core.abbrev=8 commit'
+t "inline -c alias.x=commit"     "$(cmd 'git -c alias.ci=commit ci -m x')"                  2
+t "inline -c Alias (case)"       "$(cmd 'git -c Alias.ci=commit ci -m x')"                  2
+t "inline -c alias, push"        "$(cmd 'git -c alias.p=push p')"                           2
+t "--config-env alias"           "$(cmd 'git --config-env=alias.ci=VAR ci -m x')"           2
+t "git config alias write"       "$(cmd 'git config alias.ci commit')"                      2
+t "git config --global alias"    "$(cmd 'git config --global alias.ci commit')"             2
+t "env GIT_CONFIG_KEY alias"     "$(cmd 'GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=alias.ci GIT_CONFIG_VALUE_0=commit git ci')" 2
+t "env GIT_CONFIG_PARAMETERS"    "$(cmd 'GIT_CONFIG_PARAMETERS=alias.ci=commit git ci -m x')" 2
+t "sentinel + inline alias"      "$(cmd 'GIT_GUARD_SANCTIONED=1 git -c alias.ci=commit ci -m x')" 0
+t "config --get alias is a read" "$(cmd 'git config --get alias.ci')"                       0
+t "config --list is a read"      "$(cmd 'git config --list')"                               0
+t "config user.name untouched"   "$(cmd 'git config user.name')"                            0
+t "alias ci -> commit"           "$(cmdc "$alias_repo" 'git ci -m x')"                      2
+t "alias pu -> push"             "$(cmdc "$alias_repo" 'git pu')"                           2
+t "alias tg -> tag"              "$(cmdc "$alias_repo" 'git tg v1')"                        2
+t "alias cx (-c opt) -> commit"  "$(cmdc "$alias_repo" 'git cx -m x')"                      2
+t "shell alias sh -> commit"     "$(cmdc "$alias_repo" 'git sh x')"                         2
+t "alias with global opts"       "$(cmdc "$alias_repo" 'git -c a=b ci -m x')"               2
+t "alias lg (log) allowed"       "$(cmdc "$alias_repo" 'git lg')"                           0
+t "harmless shell alias sx"      "$(cmdc "$alias_repo" 'git sx')"                           0
+t "alias name as plain text"     "$(cmdc "$alias_repo" 'echo ci pu')"                       0
+t "alias: no cwd, no aliases"    "$(cmd 'git ci -m x')"                                     0
+exp_alias=$(mktemp -d); git -C "$exp_alias" init -q -b exp/x 2>/dev/null || { git -C "$exp_alias" init -q; git -C "$exp_alias" checkout -q -b exp/x; }
+git -C "$exp_alias" config alias.ci commit; git -C "$exp_alias" config alias.tg tag; git -C "$exp_alias" config alias.pu push
+t "exp: alias ci -> commit ok"   "$(cmdc "$exp_alias" 'git ci -m x')"                       0
+t "exp: alias tg still blocked"  "$(cmdc "$exp_alias" 'git tg v1')"                         2
+t "exp: alias pu still blocked"  "$(cmdc "$exp_alias" 'git pu')"                            2
+rm -rf "$alias_repo" "$exp_alias"
+
+print "=== exp/* branches: plain git commit allowed, everything else still guarded"
+exp_repo=$(mktemp -d); main_repo=$(mktemp -d)
+git -C "$exp_repo" init -q -b exp/sonnet-vs-fable 2>/dev/null || { git -C "$exp_repo" init -q && git -C "$exp_repo" checkout -q -b exp/sonnet-vs-fable; }
+git -C "$main_repo" init -q -b main 2>/dev/null || git -C "$main_repo" init -q
+t "exp: commit allowed"          "$(cmdc "$exp_repo" 'git commit -m wip')"                    0
+t "exp: add && commit allowed"   "$(cmdc "$exp_repo" 'git add -A && git commit -m wip')"      0
+t "exp: push still blocked"      "$(cmdc "$exp_repo" 'git push')"                            2
+t "exp: commit && push blocked"  "$(cmdc "$exp_repo" 'git commit -m wip && git push')"       2
+t "exp: tag still blocked"       "$(cmdc "$exp_repo" 'git tag v1')"                          2
+t "exp: cd elsewhere blocked"    "$(cmdc "$exp_repo" 'cd /tmp/other && git commit -m wip')"  2
+t "exp: --git-dir blocked"       "$(cmdc "$exp_repo" 'git --git-dir=/tmp/o/.git commit -m w')" 2
+t "exp: git -C blocked"          "$(cmdc "$exp_repo" 'git -C /tmp/other commit -m wip')"     2
+t "exp: -c k=v commit allowed"   "$(cmdc "$exp_repo" 'git -c user.name=x commit -m wip')"     0
+t "exp: commit -C HEAD allowed"  "$(cmdc "$exp_repo" 'git commit -C HEAD')"                  0
+t "main: commit blocked"         "$(cmdc "$main_repo" 'git commit -m wip')"                  2
+t "no cwd: commit blocked"       "$(cmd 'git commit -m wip')"                                2
+t "bad cwd: commit blocked"      "$(cmdc /nonexistent/dir 'git commit -m wip')"              2
+t "exp: branch name allowed"     "$(cmd 'git checkout -b exp/sonnet-vs-fable')"              0
+t "exp: bad slug blocked"        "$(cmd 'git checkout -b exp/Bad_Name')"                     2
+t "exp: worktree add -b name"    "$(cmd 'git branch exp/fable-run')"                         0
+rm -rf "$exp_repo" "$main_repo"
+
 print "=== fallback: grep/sed extraction when jq is unavailable"
 nojq_info=("${(f)$(_make_nojq_path)}")
 nojq_path="${nojq_info[1]}"

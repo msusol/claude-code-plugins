@@ -127,6 +127,17 @@
       },
       "description": "/docs-hub:hub — builds a docs hub page from a repo's docs/ folder (plan progress, decisions, investigations, open work), linked to the local files, with a live-reloading local server.",
       "category": "development"
+    },
+    {
+      "name": "auto-mode",
+      "source": {
+        "source": "git-subdir",
+        "url": "msusol/claude-code-plugins",
+        "path": "auto-mode/plugins/auto-mode",
+        "ref": "main"
+      },
+      "description": "Stop hook plus /auto-mode skill: Claude keeps working through its own recommended next steps (capped), on a flag or on exp/* branches. Grants no permissions.",
+      "category": "development"
     }
   ]
 }

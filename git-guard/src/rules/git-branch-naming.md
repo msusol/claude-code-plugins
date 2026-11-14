@@ -49,6 +49,7 @@ personal/other repos (it doesn't).
 | `chore/*` | `develop` | `develop` | Non-functional work: dependency bumps, refactors, CI/tooling, docs. |
 | `release/*` | `develop` | `main` **and** `develop` | Stabilizes a release candidate; no new features. |
 | `hotfix/*` | `main` | `main` **and** `develop` | Urgent production fix that can't wait for the release train. |
+| `exp/*` | any | nothing (discard or cherry-pick) | Throwaway experiments and A/B runs, e.g. `exp/sonnet-vs-fable`. Plain `git commit` is allowed here; never pushed or merged as-is. |
 
 ## Naming pattern — this is what gets enforced
 
@@ -72,6 +73,8 @@ chore/PROJ-1310-bump-node-20
 release/2.4.0
 hotfix/2.3.1
 ```
+
+`exp/<slug>` takes a lowercase hyphenated slug and no ticket key. Never use it for work that should ship.
 
 `main` and `develop` are the two permanent branches — never invent a
 ticket-suffixed variant of either.

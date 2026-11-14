@@ -35,6 +35,20 @@ A `zsh` script placed ahead of `/usr/bin/git` in `PATH`. When Claude (or any pro
 If the current repo's remote URL doesn't match an approved pattern, it exits non-zero with a clear message.
 All read-only operations (`status`, `diff`, `log`, etc.) pass through to the real git untouched.
 
+Git global options before the subcommand are understood: `git -C <dir> commit`, `git -c k=v push`,
+`git --git-dir=<x> tag` and `git --no-pager commit` are guarded like the bare forms, and the allowlist
+is checked against the repo git will actually act on (`-C` / `--git-dir`), not just the current directory.
+
+**Aliases.** The wrapper resolves aliases through git itself (same global options), so an alias that
+expands to `commit`, `push` or `tag` is judged as that command — config-file aliases, chains, aliases
+with options (`-c core.abbrev=8 commit`), inline `-c alias.x=commit x` and `GIT_CONFIG_*` environment
+aliases alike. The hook additionally blocks *defining* an alias in a Claude session (`-c alias.*`,
+`--config-env=alias.*`, `git config alias.*` writes, `GIT_CONFIG_KEY_*` / `GIT_CONFIG_PARAMETERS`
+carrying `alias.`) and resolves the aliases in the session's repo and user config. Reading aliases
+(`git config --get alias.x`, `--list`) is fine. Out of reach of any pattern match: scripts, shell
+functions and `python -c "subprocess..."` that run git — keep `permissions.ask` and server-side branch
+protection as the backstop.
+
 This layer fires at the OS level — it cannot be bypassed by approving a permission prompt.
 
 ### Layer 2 — PreToolUse hook
@@ -185,6 +199,29 @@ claude plugin enable git-guard        # re-enable
 claude plugin uninstall git-guard     # remove (deploy.zsh handles this too)
 ```
 
+## Experiment branches (`exp/*`)
+
+For A/B experiments and spikes (say, the same task run by two models in two worktrees) the
+`/git-commit` ceremony is overkill. A plain `git commit` is allowed — no skill, no sentinel —
+when the session's working directory is on a branch named `exp/<slug>`:
+
+```zsh
+git worktree add ../run-sonnet -b exp/sonnet-vs-fable-a
+git worktree add ../run-fable  -b exp/sonnet-vs-fable-b
+```
+
+What stays guarded, on purpose:
+
+- `git push` and `git tag` — unchanged; a `git commit && git push` is still blocked.
+- The remote allowlist — the shell wrapper still checks it on every commit.
+- Any command that could act on a different repo (`cd ...`, `--git-dir`, `--work-tree`) — not exempt,
+  because the branch is read from the hook's `cwd`, not from the command.
+- `main`, `develop` and every other branch — unchanged.
+
+`exp/<slug>` (lowercase, hyphenated) is also accepted by the branch-naming check, so creating the
+branch needs no sentinel. Pair with the `auto-mode` plugin to let Claude keep working without
+stopping to ask.
+
 ## Configuring the allowlist
 
 `~/.config/git-guard/allowlist` — one substring pattern per line. Comments start with `#`.
@@ -256,13 +293,19 @@ The suite covers:
 - Sentinel with leading whitespace — still bypasses
 - Heredoc commit message with sentinel — still bypasses
 - Sentinel after leading `cd <dir> &&` prefixes — bypasses; anything else (`echo`, `;`) before it — still blocked
+- Global options before the subcommand (`git -C dir commit`, `-c k=v push`, `--git-dir=x commit`, `--no-pager tag`) — blocked like the bare forms; read-only subcommands with the same options still allowed
+- Alias definitions (`-c alias.x=commit`, `--config-env=alias.*`, `git config alias.*` writes, `GIT_CONFIG_*` with an `alias.` key) — blocked; reads (`--get`, `--list`) allowed
+- Existing aliases that expand to commit/push/tag (plain, with options, shell-form) — blocked like the command itself; `exp/*` still allows a commit alias but not tag/push
 - Read-only commands (`git status`, `git add`, `git diff`, `git log`, etc.) — allowed
 - Malformed / empty JSON input — allowed (no false positives)
 - Sentinel without required trailing space — still blocked
 - Branch creation with a non-conforming name (`checkout -b`, `switch -c`, `branch <name>`) — blocked (exit 2)
-- Branch creation matching the convention, `main`/`develop`, or a start-point argument after the name — allowed
+- Branch creation matching the convention, `main`/`develop`, `exp/<slug>`, or a start-point argument after the name — allowed
+- `git commit` on an `exp/*` branch (judged from the hook's `cwd`) — allowed; push, tag, `cd`/`--git-dir` forms, other branches, missing/bad `cwd` — still blocked
 - Non-creation `git branch` invocations (`-d`, `-a`, `--show-current`, bare `branch`) — never treated as a name to validate
 - Sentinel bypasses the branch-naming check the same way it bypasses commit/push
+
+The wrapper has its own suite, `tests/test-git-wrapper.zsh` (allowlist follows `-C` / `--git-dir`, not the cwd; alias resolution).
 
 The grep/sed fallback path (used when `jq` is unavailable) is tested automatically
 when `jq` lives in an isolated directory (e.g. MacPorts at `/opt/local/bin`). It is
