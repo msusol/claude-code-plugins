@@ -126,6 +126,28 @@ t "branch -a not name check" "$(cmd 'git branch -a')"                           
 t "branch no args (list)"    "$(cmd 'git branch')"                                                               0
 t "sentinel bypasses branch check" "$(cmd 'GIT_GUARD_SANCTIONED=1 git checkout -b my-quick-branch')"            0
 
+print "=== blocked: global options before the subcommand (git -C dir commit, etc.)"
+t "-C dir commit"            "$(cmd 'git -C /tmp/other commit -m x')"           2
+t "-C dir push"              "$(cmd 'git -C /tmp/other push')"                  2
+t "-C dir tag"               "$(cmd 'git -C /tmp/other tag v1')"                2
+t "-c k=v commit"            "$(cmd 'git -c user.name=x commit -m x')"          2
+t "two -c then push"         "$(cmd 'git -c a=b -c c=d push origin main')"      2
+t "--git-dir= commit"        "$(cmd 'git --git-dir=/tmp/o/.git commit -m x')"   2
+t "--git-dir sp commit"      "$(cmd 'git --git-dir /tmp/o/.git commit -m x')"   2
+t "--work-tree tag"          "$(cmd 'git --work-tree=/tmp/o tag v1')"           2
+t "--no-pager commit"        "$(cmd 'git --no-pager commit -m x')"              2
+t "-p commit"                "$(cmd 'git -p commit -m x')"                      2
+t "-C then -c then commit"   "$(cmd 'git -C /tmp/o -c k=v commit -m x')"        2
+t "add && -C commit"         "$(cmd 'git add -A && git -C /tmp/o commit -m x')" 2
+
+print "=== allowed: global options with read-only subcommands, or the sentinel"
+t "-C dir status"            "$(cmd 'git -C /tmp/other status')"                0
+t "-C dir log"               "$(cmd 'git -C /tmp/other log --oneline')"         0
+t "-C dir add"               "$(cmd 'git -C /tmp/other add file.py')"           0
+t "-c k=v diff"              "$(cmd 'git -c color.ui=never diff')"              0
+t "sentinel -C commit"       "$(cmd 'GIT_GUARD_SANCTIONED=1 git -C /tmp/o commit -m x')" 0
+t "log --grep=commit"        "$(cmd 'git log --grep=commit')"                   0
+
 print "=== exp/* branches: plain git commit allowed, everything else still guarded"
 exp_repo=$(mktemp -d); main_repo=$(mktemp -d)
 git -C "$exp_repo" init -q -b exp/sonnet-vs-fable 2>/dev/null || { git -C "$exp_repo" init -q && git -C "$exp_repo" checkout -q -b exp/sonnet-vs-fable; }
@@ -138,6 +160,9 @@ t "exp: commit && push blocked"  "$(cmdc "$exp_repo" 'git commit -m wip && git p
 t "exp: tag still blocked"       "$(cmdc "$exp_repo" 'git tag v1')"                          2
 t "exp: cd elsewhere blocked"    "$(cmdc "$exp_repo" 'cd /tmp/other && git commit -m wip')"  2
 t "exp: --git-dir blocked"       "$(cmdc "$exp_repo" 'git --git-dir=/tmp/o/.git commit -m w')" 2
+t "exp: git -C blocked"          "$(cmdc "$exp_repo" 'git -C /tmp/other commit -m wip')"     2
+t "exp: -c k=v commit allowed"   "$(cmdc "$exp_repo" 'git -c user.name=x commit -m wip')"     0
+t "exp: commit -C HEAD allowed"  "$(cmdc "$exp_repo" 'git commit -C HEAD')"                  0
 t "main: commit blocked"         "$(cmdc "$main_repo" 'git commit -m wip')"                  2
 t "no cwd: commit blocked"       "$(cmd 'git commit -m wip')"                                2
 t "bad cwd: commit blocked"      "$(cmdc /nonexistent/dir 'git commit -m wip')"              2

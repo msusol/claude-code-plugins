@@ -31,25 +31,32 @@ if echo "$stripped" | grep -qE '^[[:space:]]*GIT_GUARD_SANCTIONED=1[[:space:]]+'
   exit 0
 fi
 
-if echo "$cmd" | grep -qE 'git[[:space:]]+push\b'; then
+# git accepts global options between `git` and the subcommand
+# (`git -C dir commit`, `git -c k=v push`, `git --git-dir=x tag`, `git --no-pager commit`).
+# Match them, or those forms slip past the subcommand checks below.
+GIT_GOPT='(-C[[:space:]]+[^[:space:]]+|-c[[:space:]]+[^[:space:]]+|--(git-dir|work-tree|namespace|config-env)[=[:space:]][^[:space:]]+|--[a-z][a-z-]*|-[pP])'
+GIT_PRE="git([[:space:]]+${GIT_GOPT})*[[:space:]]+"
+
+if echo "$cmd" | grep -qE "${GIT_PRE}push\\b"; then
   echo "git-guard: git write operation intercepted by PreToolUse hook." >&2
   echo "Do NOT attempt this git command directly." >&2
   echo "Use the /git-push skill — it verifies the remote allowlist and requires explicit confirmation for this specific push." >&2
   exit 2
 fi
 
-if echo "$cmd" | grep -qE 'git[[:space:]]+(commit|tag)\b'; then
+if echo "$cmd" | grep -qE "${GIT_PRE}(commit|tag)\\b"; then
   # Experiment-branch exemption: a plain `git commit` is allowed while the
   # session's working directory is on an `exp/*` branch (A/B experiments,
   # spikes). Scoped on purpose:
   #   - commit only — `git tag` stays guarded, and the push check above has
   #     already run, so `git commit && git push` is still blocked;
   #   - the branch is read from the hook's own `cwd`, so a command that could
-  #     act on a different repo (`cd`, `git -C`, `--git-dir`, `--work-tree`)
-  #     is not exempt;
+  #     act on a different repo (`cd`, or `-C` / `--git-dir` / `--work-tree`
+  #     before the subcommand) is not exempt;
   #   - the shell wrapper still enforces the remote allowlist on the commit.
-  if ! echo "$cmd" | grep -qE 'git[[:space:]]+tag\b' \
-     && ! echo "$cmd" | grep -qE '(^|[^[:alnum:]_-])cd[[:space:]]|git[[:space:]]+(-C|--git-dir|--work-tree)|--git-dir|--work-tree' \
+  if ! echo "$cmd" | grep -qE "${GIT_PRE}tag\\b" \
+     && ! echo "$cmd" | grep -qE '(^|[^[:alnum:]_-])cd[[:space:]]' \
+     && ! echo "$cmd" | sed -E 's/[[:space:]](commit|tag|push)([[:space:]].*)?$//' | grep -qE '(^|[[:space:]])(-C[[:space:]]|--git-dir|--work-tree)' \
      && [[ -n "$hook_cwd" && -d "$hook_cwd" ]]; then
     cur_branch=$(git -C "$hook_cwd" branch --show-current 2>/dev/null)
     if [[ "$cur_branch" == exp/* ]]; then
