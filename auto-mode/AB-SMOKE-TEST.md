@@ -5,6 +5,13 @@ auto-commits on `exp/*` branches, auto-mode continuing between steps. Expect a f
 per model. The full procedure is in the "Running an A/B experiment" section of [README.md](README.md); this
 file is the test case to run it with.
 
+There are two ways to run it:
+
+- **Host worktrees** (the Setup section below): quick, but each arm runs as you and could see your global
+  `~/.claude`, other projects and the other arm's branch.
+- **Isolated containers** ([Running it in containers](#running-it-in-containers-true-isolation)): each arm sees
+  only its own files and can reach only the Anthropic API. Use this when the result has to be a fair comparison.
+
 ## Setup (once)
 
 Use a throwaway repo, not a real project.
@@ -52,6 +59,69 @@ Four steps with a commit each give the Stop hook reason to continue, and `pytest
 
 Compare the two runs with `git log --oneline main..exp/ab-a`, `git diff --stat main exp/ab-a` (and the same for
 `ab-b`), and `git diff exp/ab-a exp/ab-b`.
+
+## Running it in containers (true isolation)
+
+Uses [ab-docker/](ab-docker/README.md). Each arm gets a fresh export of one commit (no git history), a clean
+Claude config with only git-guard and auto-mode installed, and a firewall that allows only `api.anthropic.com`.
+It does not need the fake-remote setup above, because the container creates its own scratch remote.
+This path has not been run end to end yet; the `check` step in 3 is what tells you whether it works on your machine.
+
+1. **Make the scratch repo with the plan committed** (the export contains only committed files):
+
+   ```zsh
+   mkdir -p ~/code/ab-scratch && cd ~/code/ab-scratch && git init -b main
+   # write PLAN.md (above), then commit it (on main this needs /git-commit, or a one-off sanctioned commit)
+   ```
+
+   Keep it outside the folder you open in your IDE if you want it kept out of IDE tooling. Isolation does not
+   depend on that, because the container mounts nothing but its own run folder.
+
+2. **Build the image** (once, and again after plugin changes). From the claude-code-plugins repo:
+
+   ```zsh
+   auto-mode/ab-docker/run-ab.zsh build
+   ```
+
+3. **Check the isolation before spending anything on models:**
+
+   ```zsh
+   auto-mode/ab-docker/run-ab.zsh check
+   ```
+
+   Every line should say `PASS` (no host folders or Claude history, `example.com` and `github.com` unreachable,
+   `api.anthropic.com` reachable, no firewall changes possible, both plugins installed, web tools denied). Fix any
+   `FAIL` before going on.
+
+4. **Start one arm per terminal**, with a dedicated, spend-limited API key (the model can read it in the container):
+
+   ```zsh
+   export ANTHROPIC_API_KEY=sk-ant-...
+   auto-mode/ab-docker/run-ab.zsh run model-a <model-a> ~/code/ab-scratch main
+   auto-mode/ab-docker/run-ab.zsh run model-b <model-b> ~/code/ab-scratch main
+   ```
+
+   Each run lands in `~/ab-runs/<name>` on branch `exp/<name>`, with auto-mode already on. The first launch may
+   show Claude Code's one-time setup prompts.
+
+5. **Paste the same prompt into both** (see Prompt above) and let them run.
+
+6. **Compare on the host.** The run folders are ordinary repos:
+
+   ```zsh
+   git -C ~/ab-runs/model-a log --oneline ; git -C ~/ab-runs/model-b log --oneline
+   git diff --no-index --stat ~/ab-runs/model-a ~/ab-runs/model-b
+   (cd ~/ab-runs/model-a && pytest) ; (cd ~/ab-runs/model-b && pytest)
+   ```
+
+7. **Clean up:** `rm -rf ~/ab-runs/model-a ~/ab-runs/model-b`. A name can't be reused until its folder is gone.
+
+Extra pass criteria for the container path:
+
+- [ ] `run-ab.zsh check` ends with `0 failed`
+- [ ] Each run folder has at least 4 commits (baseline plus the plan's steps) on its `exp/*` branch
+- [ ] In a session, `curl https://example.com` and `git clone https://github.com/...` fail
+- [ ] In a session, `ls ~` shows only the container's own files, and `ls /home` shows only `claude`
 
 ## Testing each piece alone
 
