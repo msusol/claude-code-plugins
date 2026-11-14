@@ -113,6 +113,9 @@ both installed (`./deploy-all.zsh git-guard auto-mode`, then restart Claude Code
 
 A ready-made task for trying this out cheaply is in [AB-SMOKE-TEST.md](AB-SMOKE-TEST.md).
 
+For true isolation (the model cannot see your global `~/.claude`, other projects, the other arm, or any existing
+solution), run each arm in a container instead: see [ab-docker/README.md](ab-docker/README.md).
+
 Caveats: the two runs are not perfectly controlled (model sampling varies between runs), so repeat the
 experiment before concluding anything. The Stop hook sends both models the same continuation message.
 

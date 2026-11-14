@@ -10,7 +10,7 @@ Personal collection of [Claude Code](https://claude.ai/code) plugins.
 
 | Plugin | Version | Description |
 |--------|---------|-------------|
-| [auto-mode](auto-mode/) | 1.0.1 | Stop hook + `/auto-mode` skill: Claude keeps working through its own recommended next steps (capped) when switched on or on an `exp/*` branch; grants no permissions |
+| [auto-mode](auto-mode/) | 1.1.0 | Stop hook + `/auto-mode` skill: Claude keeps working through its own recommended next steps (capped) when switched on or on an `exp/*` branch; grants no permissions |
 | [bug-bash](bug-bash/) | 1.0.0 | The `/bug-bash` skill: given a ticket key, sweeps `docs/plans/` and `TODO.md` for stale entries tied to that ticket and archives what is done |
 | [db-guard](db-guard/) | 1.0.0 | Two-layer guard against unauthorized `DROP TABLE`, `TRUNCATE`, `DROP DATABASE`, `DROP SCHEMA`, and `DROP COLUMN` |
 | [dgx-spark](dgx-spark/) | 1.0.0 | Global `dgx-spark-*` rules for the DGX Spark host: Docker context/daemon gotchas and other host-level facts |
