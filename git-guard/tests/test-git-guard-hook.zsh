@@ -126,6 +126,26 @@ t "branch -a not name check" "$(cmd 'git branch -a')"                           
 t "branch no args (list)"    "$(cmd 'git branch')"                                                               0
 t "sentinel bypasses branch check" "$(cmd 'GIT_GUARD_SANCTIONED=1 git checkout -b my-quick-branch')"            0
 
+print "=== exp/* branches: plain git commit allowed, everything else still guarded"
+exp_repo=$(mktemp -d); main_repo=$(mktemp -d)
+git -C "$exp_repo" init -q -b exp/sonnet-vs-fable 2>/dev/null || { git -C "$exp_repo" init -q && git -C "$exp_repo" checkout -q -b exp/sonnet-vs-fable; }
+git -C "$main_repo" init -q -b main 2>/dev/null || git -C "$main_repo" init -q
+cmdc() { printf '{"cwd":"%s","tool_input":{"command":"%s"}}' "$1" "$2"; }
+t "exp: commit allowed"          "$(cmdc "$exp_repo" 'git commit -m wip')"                    0
+t "exp: add && commit allowed"   "$(cmdc "$exp_repo" 'git add -A && git commit -m wip')"      0
+t "exp: push still blocked"      "$(cmdc "$exp_repo" 'git push')"                            2
+t "exp: commit && push blocked"  "$(cmdc "$exp_repo" 'git commit -m wip && git push')"       2
+t "exp: tag still blocked"       "$(cmdc "$exp_repo" 'git tag v1')"                          2
+t "exp: cd elsewhere blocked"    "$(cmdc "$exp_repo" 'cd /tmp/other && git commit -m wip')"  2
+t "exp: --git-dir blocked"       "$(cmdc "$exp_repo" 'git --git-dir=/tmp/o/.git commit -m w')" 2
+t "main: commit blocked"         "$(cmdc "$main_repo" 'git commit -m wip')"                  2
+t "no cwd: commit blocked"       "$(cmd 'git commit -m wip')"                                2
+t "bad cwd: commit blocked"      "$(cmdc /nonexistent/dir 'git commit -m wip')"              2
+t "exp: branch name allowed"     "$(cmd 'git checkout -b exp/sonnet-vs-fable')"              0
+t "exp: bad slug blocked"        "$(cmd 'git checkout -b exp/Bad_Name')"                     2
+t "exp: worktree add -b name"    "$(cmd 'git branch exp/fable-run')"                         0
+rm -rf "$exp_repo" "$main_repo"
+
 print "=== fallback: grep/sed extraction when jq is unavailable"
 nojq_info=("${(f)$(_make_nojq_path)}")
 nojq_path="${nojq_info[1]}"

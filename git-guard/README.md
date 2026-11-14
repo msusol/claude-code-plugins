@@ -185,6 +185,29 @@ claude plugin enable git-guard        # re-enable
 claude plugin uninstall git-guard     # remove (deploy.zsh handles this too)
 ```
 
+## Experiment branches (`exp/*`)
+
+For A/B experiments and spikes (say, the same task run by two models in two worktrees) the
+`/git-commit` ceremony is overkill. A plain `git commit` is allowed — no skill, no sentinel —
+when the session's working directory is on a branch named `exp/<slug>`:
+
+```zsh
+git worktree add ../run-sonnet -b exp/sonnet-vs-fable-a
+git worktree add ../run-fable  -b exp/sonnet-vs-fable-b
+```
+
+What stays guarded, on purpose:
+
+- `git push` and `git tag` — unchanged; a `git commit && git push` is still blocked.
+- The remote allowlist — the shell wrapper still checks it on every commit.
+- Any command that could act on a different repo (`cd ...`, `--git-dir`, `--work-tree`) — not exempt,
+  because the branch is read from the hook's `cwd`, not from the command.
+- `main`, `develop` and every other branch — unchanged.
+
+`exp/<slug>` (lowercase, hyphenated) is also accepted by the branch-naming check, so creating the
+branch needs no sentinel. Pair with the `auto-mode` plugin to let Claude keep working without
+stopping to ask.
+
 ## Configuring the allowlist
 
 `~/.config/git-guard/allowlist` — one substring pattern per line. Comments start with `#`.
@@ -260,7 +283,8 @@ The suite covers:
 - Malformed / empty JSON input — allowed (no false positives)
 - Sentinel without required trailing space — still blocked
 - Branch creation with a non-conforming name (`checkout -b`, `switch -c`, `branch <name>`) — blocked (exit 2)
-- Branch creation matching the convention, `main`/`develop`, or a start-point argument after the name — allowed
+- Branch creation matching the convention, `main`/`develop`, `exp/<slug>`, or a start-point argument after the name — allowed
+- `git commit` on an `exp/*` branch (judged from the hook's `cwd`) — allowed; push, tag, `cd`/`--git-dir` forms, other branches, missing/bad `cwd` — still blocked
 - Non-creation `git branch` invocations (`-d`, `-a`, `--show-current`, bare `branch`) — never treated as a name to validate
 - Sentinel bypasses the branch-naming check the same way it bypasses commit/push
 
