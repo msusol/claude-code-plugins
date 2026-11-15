@@ -3,7 +3,7 @@
 
 One project:
 
-    serve_hub.py [DOCS_DIR] [--host 127.0.0.1] [--port 8765]
+    serve_hub.py [DOCS_DIR] [--host 127.0.0.1] [--port 8781]
 
     Open http://HOST:PORT/<project>/.hub/index.html (the project is the folder
     that holds docs/). Pages are built in memory, nothing is written.
@@ -11,7 +11,7 @@ One project:
 Many projects under one port:
 
     serve_hub.py --find NAME         # print NAME's docs dir, searched from here upward
-    serve_hub.py --root PROJECTS_DIR [--port 8766]
+    serve_hub.py --root PROJECTS_DIR [--port 8781]
 
     Finds every <project>/docs (up to two levels below PROJECTS_DIR) and serves
     http://HOST:PORT/<project>/.hub/index.html. http://HOST:PORT/ lists them.
@@ -207,7 +207,7 @@ def main():
     ap.add_argument("--root", help="serve every <project>/docs found under this folder")
     ap.add_argument("--find", metavar="NAME", help="print the docs dir of project NAME (searched from the current directory upward) and exit")
     ap.add_argument("--host", default="127.0.0.1")
-    ap.add_argument("--port", type=int, default=8765)
+    ap.add_argument("--port", type=int, default=8781)
     args = ap.parse_args()
     if args.find:
         hit = find_docs(args.find, Path.cwd())
