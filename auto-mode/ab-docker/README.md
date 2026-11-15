@@ -29,24 +29,80 @@ but not a VM).
 ## Use
 
 ```zsh
+# once: create the experiments folder (plans/, runs/, results/, docs/) from the template, with .keep and .gitignore files
+auto-mode/ab-docker/run-ab.zsh init            # default ~/experiments; see experiments-template/README.md
+
 # once, from anywhere (builds with the repo root as context; installs git-guard + auto-mode from GitHub main)
 auto-mode/ab-docker/run-ab.zsh build
 
 # prove the isolation before a real run
 auto-mode/ab-docker/run-ab.zsh check
 
-# one terminal per arm; the plan must be committed in <src-repo> at <ref>.
+# one terminal per arm; name runs <plan>-<model>-r<N>; the plan must be committed in <src-repo> at <ref>.
 # Pass the key inline (do not export it): a shell-wide ANTHROPIC_API_KEY makes Claude Code use API billing
 # instead of your subscription everywhere you run it.
-ANTHROPIC_API_KEY=sk-ant-... auto-mode/ab-docker/run-ab.zsh run model-a <model-a> ~/code/ab-scratch main
-ANTHROPIC_API_KEY=sk-ant-... auto-mode/ab-docker/run-ab.zsh run model-b <model-b> ~/code/ab-scratch main
+ANTHROPIC_API_KEY=sk-ant-... auto-mode/ab-docker/run-ab.zsh run wordfreq-model-a-r1 <model-a> ~/experiments/plans/wordfreq main
+ANTHROPIC_API_KEY=sk-ant-... auto-mode/ab-docker/run-ab.zsh run wordfreq-model-b-r1 <model-b> ~/experiments/plans/wordfreq main
 ```
 
-`run` exports the files at `<ref>` to `~/ab-runs/<name>` (override with `AB_RUNS_DIR`; it must be outside the source
+`run` exports the files at `<ref>` to `~/experiments/runs/<name>` (override with `AB_RUNS_DIR`, or move everything with `AB_EXPERIMENTS_DIR`; it must be outside the source
 repo and must not already exist), mounts only that folder as `/work`, turns it into a fresh one-commit repo on
 `exp/<name>`, and starts Claude Code. Because the branch is `exp/*`, git-guard allows plain commits and auto-mode
 turns itself on. Paste the same prompt into both (see [../AB-SMOKE-TEST.md](../AB-SMOKE-TEST.md) for a cheap
 task). The first launch may show Claude Code's one-time setup prompts (API key, folder trust).
+
+## Adding the docs/ harness
+
+The default image has Claude Code, git-guard and auto-mode only. To test with the `docs/` plugin's planning rules too
+(installed to `~/.claude/rules/` and @-imported from `~/.claude/CLAUDE.md` inside the container):
+
+```zsh
+AB_DOCS=1 auto-mode/ab-docker/run-ab.zsh build     # image ab-claude-docs; the plain ab-claude image is untouched
+AB_DOCS=1 ANTHROPIC_API_KEY=... auto-mode/ab-docker/run-ab.zsh run wordfreq-sonnet-docs-r1 <model> ~/experiments/plans/wordfreq main
+```
+
+Use the same `AB_DOCS` value for `build`, `run` and `resume`; `review-round` needs no change. Notes:
+
+- Both arms of a comparison must use the same image, and the results file's `harness:` line should say so.
+- The rules work against the plan repo's own `docs/` folder (plans, ADRs), so the plan you export should include one.
+- The plain image deletes the docs sources at build time, so a baseline arm cannot read the planning rules. `run-ab.zsh check`
+  verifies this: with `AB_DOCS=1` it requires the rules, their imports and the plugin; without it, it requires their absence.
+- The docs rules come from your checkout at build time (the plugin install itself fetches from GitHub `main`); rebuild after changing them.
+- Other plugins (e.g. docs-hub) can be added the same way: copy the folder, run its `deploy.zsh` under a build arg.
+
+## Experiments folder
+
+`run-ab.zsh init` copies [experiments-template/](experiments-template/README.md) to `~/experiments` (or the folder you
+name; it never overwrites a file that exists, so re-running is safe):
+
+```
+~/experiments/
+├── plans/    one git repo per plan (so an arm only sees its own plan); contents ignored, .keep tracked
+├── runs/     <plan>-<model>-r<N>/ run folders and their .reviews/ logs; contents ignored, .keep tracked
+├── results/  index.md, TEMPLATE-comparison.md, data/   <- what you keep
+└── docs/investigate/
+```
+
+It needs no git repo of its own. If you make it one, the `.gitignore` files in `runs/` and `plans/` keep every run folder
+and nested plan repo out, and `.env` and `.DS_Store` are ignored at the top. The template's README has the naming
+convention and the first-plan steps (`init` stages the example `plans/wordfreq` but does not commit it, because git-guard
+needs an allowlisted `origin`; give it one that is never pushed).
+
+## Python libraries for a task
+
+The container has no network at run time, so a task cannot `pip install` anything; the libraries it needs go into the
+image at build time. List them in [requirements.txt](requirements.txt) (one per line, versions pinned so every arm gets the
+same ones), then rebuild with `run-ab.zsh build`. The file ships with no requirements, which is right for a task that uses
+only the standard library, like the wordfreq smoke test.
+
+- They are installed into a virtualenv at `~/.venv` in the image that also sees the OS packages (pytest), and it is
+  first on `PATH`, so `python`, `python3` and `pip` all work and mean the same thing.
+- The exact installed set is recorded in `~/.ab-pip-freeze.txt` in the image; read it with
+  `docker run --rm --entrypoint "" ab-claude cat /home/claude/.ab-pip-freeze.txt`.
+- Changing the file changes the image, so arms built before and after it are not on the same image. Build once, run
+  every arm of a comparison on that image, and note the image id and `requirements.txt` with the results.
+- Libraries are fetched from PyPI during the build, where the network is open. Packages that need system libraries
+  (compilers, headers) may also need an `apt-get` line in the Dockerfile.
 
 ## Getting a spend-limited API key
 
@@ -62,40 +118,88 @@ through the Console. For experiments, use a personal Console account:
 
 Monthly API credits that come with some plans may not apply to Claude Code; check how they apply before relying on them.
 
-## Using a Claude account (e.g. Enterprise) instead of a key
+## Using a Claude subscription (Pro, Max, Team, Enterprise) instead of a key
+
+If you have a personal subscription such as Claude Max, you can run the test with no Console account and no key:
 
 ```zsh
-AB_LOGIN=1 auto-mode/ab-docker/run-ab.zsh run model-a <model-a> ~/code/ab-scratch main
+AB_LOGIN=1 auto-mode/ab-docker/run-ab.zsh run wordfreq-model-a-r1 <model-a> ~/experiments/plans/wordfreq main
 # then run /login inside the session and follow the URL it prints in your host browser
 ```
 
-`AB_LOGIN=1` does not pass an API key and adds `claude.ai` and `platform.claude.com` to the firewall allowlist so
-sign-in works. Know the trade-offs:
+`AB_LOGIN=1` never passes `ANTHROPIC_API_KEY` into the container, even if your shell has one exported, so the
+session bills your subscription. It also adds `claude.ai` and `platform.claude.com` to the firewall allowlist so
+sign-in works. Start the second arm the same way in its own terminal; each container needs its own `/login`.
 
-- Usage counts against that account's limits. You cannot set a spend cap yourself; for Enterprise it is set by your admin.
-- The sign-in token lives in the container's own `~/.claude` and the model can read it. It is discarded when the
-  container exits, so you sign in on every run.
-- Anything tied to the account (organization-managed settings, connectors) can follow you into the container and
-  weaken the isolation. Run `run-ab.zsh check` and ask the session what tools it has before trusting a result.
-- Opening `claude.ai` gives the model a general website to talk to, not just an API. The allowlist is IP-based and
-  resolved once at start, and sites behind shared CDNs can rotate addresses, so sign-in may be flaky.
-- Check your employer's policy before running experiments through a company account.
+What to expect with a personal plan such as Max:
 
-This login path has not been tested. For a fair, cheap comparison, the personal key above is the simpler choice.
+- **Limits, not dollars.** Usage counts against your plan's usage limits, shared with claude.ai and Claude Code on
+  your host. There is no spend cap to set, but a runaway arm can use up your current window and lock you out of your
+  everyday sessions until it resets. The smoke test is small (four steps per arm, and auto-mode's continuation cap
+  stops a loop), so run it when you don't need the headroom, and check your plan's usage view afterward.
+- **Check extra-usage billing.** If your plan allows paid extra usage beyond the limits, make sure it is off, or
+  capped, in your account settings before the run, so hitting a limit stops the run instead of billing you.
+- **Model access depends on the plan.** Pick two models your plan includes for `<model-a>` and `<model-b>`.
+- **Sign in every run.** The token lives in the container's own `~/.claude` and is discarded when the container
+  exits. The model can read it while the session runs, which is the main isolation cost of this path.
+- **Weaker isolation than a key.** Opening `claude.ai` gives the model a general website to talk to, not just an
+  API. The allowlist is IP-based and resolved once at start, and sites behind shared CDNs can rotate addresses, so
+  sign-in may be flaky. Run `run-ab.zsh check` and ask the session what tools it has before trusting a result.
+- **Team and Enterprise accounts** can also bring organization-managed settings and connectors into the container,
+  and the spend cap is set by an admin. Check your employer's policy before using a company account.
+
+This login path has not been tested. For the fairest, most contained comparison, the spend-limited key above is
+still the safer choice; the subscription is the convenient one.
 
 ## Compare
 
 The run folders are ordinary repos on your host:
 
 ```zsh
-git -C ~/ab-runs/model-a log --oneline
-git -C ~/ab-runs/model-a diff --stat main
-git diff --no-index --stat ~/ab-runs/model-a ~/ab-runs/model-b
-(cd ~/ab-runs/model-a && pytest) ; (cd ~/ab-runs/model-b && pytest)
+git -C ~/experiments/runs/model-a log --oneline
+git -C ~/experiments/runs/model-a diff --stat main
+git diff --no-index --stat ~/experiments/runs/model-a ~/experiments/runs/model-b
+(cd ~/experiments/runs/model-a && pytest) ; (cd ~/experiments/runs/model-b && pytest)
 ```
 
-Delete a run with `rm -rf ~/ab-runs/<name>`. To keep a winner, copy the files you want into a normal branch of the
+Delete a run with `rm -rf ~/experiments/runs/<name>`. To keep a winner, copy the files you want into a normal branch of the
 real project and commit with `/git-commit`.
+
+## Copilot review loop (host side)
+
+To measure how many Copilot review rounds each arm needs, run the review from your host. The arm containers have no
+GitHub access, so findings reach the arm as a file. Setup once: a **private** scratch repo (`gh repo create ab-scratch
+--private`), its URL allowlisted in `~/.config/git-guard/allowlist` (pushes go through your normal `git`), and `gh`
+logged in with your Copilot-licensed account. The Copilot code-review policy must be enabled for your org.
+
+```zsh
+export AB_REVIEW_REPO=msusol/ab-scratch            # owner/name of the scratch repo
+auto-mode/ab-docker/run-ab.zsh review-round model-a   # push exp/model-a, open the PR, request Copilot, wait,
+                                                      # write ~/experiments/runs/model-a/REVIEW-1.md
+auto-mode/ab-docker/run-ab.zsh resume model-a <model-a>   # new session on the same folder; paste the printed prompt
+auto-mode/ab-docker/run-ab.zsh review-round model-a   # round 2 ... until it prints CLEAN or hits AB_MAX_ROUNDS (5)
+auto-mode/ab-docker/run-ab.zsh review-summary model-a model-b
+```
+
+Per arm it records `round, time, commit, pr, findings, status` in `~/experiments/runs/<name>.reviews/rounds.csv` (outside the
+run folder, so the arm cannot touch it), and `review-summary` prints rounds, findings per round, and the round that
+first came back clean. Pair it with a separate API key per arm to compare model cost against Copilot rounds and
+premium requests (one per review).
+
+Guard rails and caveats:
+
+- Each arm gets its own base branch (`base/<name>`, its baseline commit) and PR (`exp/<name>`), because the arms'
+  baselines are separate commits.
+- It refuses if the repo is not private, the run folder has uncommitted changes, there are no new commits since the
+  last round, or `.github/` differs from the baseline (Copilot reads review instructions from the PR's head branch,
+  so an arm could soften its own reviews; override with `AB_ALLOW_GITHUB_DIR_CHANGES=1` after inspecting the diff).
+- Copilot does not re-review on its own after a push, so each round requests it (`AB_COPILOT_REVIEWER`, default
+  `copilot-pull-request-reviewer[bot]`). If the API request fails you get a warning and the script keeps waiting while
+  you click Copilot in the PR's Reviewers menu. `AB_NO_REQUEST=1` skips the request for repos that review pushes automatically.
+- Copilot leaves "Comment" reviews only, so "clean" means no new inline comments, not an approval.
+- Copilot varies from run to run: repeat each arm 3 or more times before drawing a conclusion.
+- Tested with a stubbed `gh` and a local bare repo (`tests/test-review-round.zsh`). **Not tested against GitHub:** the
+  reviewer login, the requested-reviewers API call, and the shape of Copilot's review and comment objects.
 
 ## How it works
 
@@ -108,7 +212,9 @@ real project and commit with `/git-commit`.
   `--cap-add NET_ADMIN`, which `run-ab.zsh` passes. IP addresses are resolved once at start.
 - `prepare-workdir.sh` — `git init`, a fake `origin` (`example.invalid`, allowlisted inside the image only), a
   baseline commit, branch `exp/<name>`.
+- `experiments-template/` — the folder scaffold `run-ab.zsh init` copies (`.keep` and `.gitignore` files included).
 - `isolation-check.sh` — the checks behind `run-ab.zsh check`.
+- `review-round.zsh` — the host-side Copilot review loop (`review-round`, `review-summary`); `run-ab.zsh resume` starts a new session on an existing run folder.
 
 ## Known unknowns to verify on first run
 

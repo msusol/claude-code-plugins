@@ -1,0 +1,4 @@
+# Each plan is its own git repo (run-ab.zsh exports from it). Only this folder structure is tracked.
+*
+!.gitignore
+!.keep

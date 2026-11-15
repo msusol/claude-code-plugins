@@ -1,0 +1,8 @@
+# Python libraries available to the A/B experiments' tasks (installed into the image at build time).
+#
+# The container has no network at run time, so a task can only use what is listed here. Add one requirement per line
+# (pin versions so every arm gets the same libraries), then rebuild with `run-ab build`. pytest comes from the OS
+# packages and needs no entry. Leave this file with no requirements for tasks that use only the standard library.
+#
+# Example:
+# numpy==2.1.3
