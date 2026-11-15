@@ -87,6 +87,11 @@ RUN python3 -m venv --system-site-packages "$HOME/.venv" \
  && "$HOME/.venv/bin/pip" install --no-cache-dir -r "$HOME/.ab-requirements.txt" \
  && "$HOME/.venv/bin/pip" freeze > "$HOME/.ab-pip-freeze.txt"
 
+# `pip install -e .` on an arm's pyproject.toml works offline: with build isolation pip tries to download setuptools (blocked by the
+# firewall), so turn isolation off. The setuptools and wheel already in the venv do the build. (pip reads PIP_NO_BUILD_ISOLATION=0 as
+# "no build isolation"; a pip.conf entry did not work in testing.) Set after the build-time pip install above, so it only affects arms.
+ENV PIP_NO_BUILD_ISOLATION=0
+
 # Keep non-essential outbound traffic off (names as documented by Claude Code; verify on your version).
 ENV CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \
     DISABLE_TELEMETRY=1 \

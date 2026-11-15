@@ -117,6 +117,8 @@ only the standard library, like the wordfreq smoke test.
   first on `PATH`, so `python`, `python3` and `pip` all work and mean the same thing.
 - The exact installed set is recorded in `~/.ab-pip-freeze.txt` in the image; read it with
   `docker run --rm --entrypoint "" ab-claude cat /home/claude/.ab-pip-freeze.txt`.
+- The image sets `PIP_NO_BUILD_ISOLATION=0`, so an arm can run `pip install -e .` on its own `pyproject.toml` offline (setuptools and wheel are in the venv; with isolation pip would try to
+  download setuptools and the firewall blocks it). No `PYTHONPATH` is set, so an arm that relies on one still has to document it.
 - Changing the file changes the image, so arms built before and after it are not on the same image. Build once, run
   every arm of a comparison on that image, and note the image id and `requirements.txt` with the results.
 - Libraries are fetched from PyPI during the build, where the network is open. Packages that need system libraries
