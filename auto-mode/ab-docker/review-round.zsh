@@ -70,9 +70,15 @@ cmd_round() {
   fi
 
   # Push the arm's baseline as its own base branch (each arm has its own baseline commit) and its work branch.
-  [[ "$(git -C "$dir" remote get-url origin 2>/dev/null)" == "$REMOTE_URL" ]] || git -C "$dir" remote set-url origin "$REMOTE_URL"
-  (( round > 1 )) || git -C "$dir" push -q origin "main:refs/heads/$base"
-  git -C "$dir" push -q origin "$branch"
+  # origin is switched to the scratch repo only for the pushes and put back afterwards: the run folder is mounted into the
+  # arm's container, whose git-guard only allows the container's own fake origin, so a lingering GitHub URL blocks its commits.
+  local prev_origin push_rc=0
+  prev_origin=$(git -C "$dir" remote get-url origin 2>/dev/null || true)
+  [[ "$prev_origin" == "$REMOTE_URL" ]] || git -C "$dir" remote set-url origin "$REMOTE_URL"
+  if (( round == 1 )); then git -C "$dir" push -q origin "main:refs/heads/$base" || push_rc=$?; fi
+  (( push_rc != 0 )) || git -C "$dir" push -q origin "$branch" || push_rc=$?
+  [[ -z "$prev_origin" || "$prev_origin" == "$REMOTE_URL" ]] || git -C "$dir" remote set-url origin "$prev_origin"
+  (( push_rc == 0 )) || die "push to $REMOTE_URL failed (is it in ~/.config/git-guard/allowlist?)"
 
   local pr; pr=$(gh pr list --repo "$REPO" --head "$branch" --state open --json number | jq -r '.[0].number // empty')
   if [[ -z "$pr" ]]; then
@@ -131,7 +137,8 @@ cmd_round() {
 
   print "round $round: $count findings -> $dir/REVIEW-$round.md"
   print
-  print "Next: run-ab.zsh resume $name <model>   (or use the session that is still open), then paste:"
+  print "Next: run-ab.zsh review-loop $name <model> does the rest unattended (needs ANTHROPIC_API_KEY), or by hand:"
+  print "run-ab.zsh resume $name <model>   (or use the session that is still open), then paste:"
   print
   print "  Read REVIEW-$round.md and resolve every finding: fix the code or add the missing test. If you disagree with"
   print "  one, say why in your commit message. Run the tests, commit, and end with AUTO-MODE: DONE."

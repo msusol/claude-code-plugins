@@ -8,6 +8,10 @@ pass=0; fail=0
 T=$(mktemp -d)
 export AB_RUNS_DIR="$T/runs" AB_REVIEW_REPO=me/scratch AB_REVIEW_REMOTE_URL="$T/remote.git" AB_REVIEW_POLL=1 AB_REVIEW_TIMEOUT=3
 export STUBDIR="$T/stub"; mkdir -p "$T/bin" "$STUBDIR" "$AB_RUNS_DIR/t1"
+# Hermetic git: the fixtures here are throwaway repos in $T with a fake origin and a local bare remote, so use the real git
+# binary instead of any git-guard wrapper earlier in PATH (the wrapper guards real repos and would block these fixtures).
+printf '#!/bin/sh\nexec "%s" "$@"\n' "$(command -p -v git)" > "$T/bin/git"
+chmod +x "$T/bin/git"; export PATH="$T/bin:$PATH"
 git init -q --bare "$T/remote.git"
 D="$AB_RUNS_DIR/t1"; export RUNDIR="$D"
 git -C "$D" init -q -b main; git -C "$D" remote add origin https://example.invalid/ab/scratch
@@ -33,7 +37,24 @@ case "$*" in
   *) echo "unexpected gh call: $*" >&2; exit 9 ;;
 esac
 STUB
-printf '#!/bin/sh\necho "DOCKER $*" >> "$STUBDIR/docker.log"\n[ "$1" = ps ] && cat "$STUBDIR/ps" 2>/dev/null\nexit 0\n' > "$T/bin/docker"
+cat > "$T/bin/docker" <<'STUB'
+#!/bin/sh
+echo "DOCKER $*" >> "$STUBDIR/docker.log"
+echo "KEY=$ANTHROPIC_API_KEY" >> "$STUBDIR/docker.log"
+[ "$1" = ps ] && cat "$STUBDIR/ps" 2>/dev/null
+case "$*" in
+  *"claude -p"*)
+    [ -f "$STUBDIR/failmode" ] && exit 1
+    # a headless fix session: with fixmode it commits a change, and Copilot's next review comes back clean
+    if [ -f "$STUBDIR/fixmode" ]; then
+      echo fix >> "$RUNDIR/wordfreq.py"; git -C "$RUNDIR" add -A
+      git -C "$RUNDIR" -c user.name=t -c user.email=t@t commit -qm "fix findings"
+      echo '[]' > "$STUBDIR/comments.json"; echo "Copilot generated no comments." > "$STUBDIR/body"
+      echo $(( $(cat "$STUBDIR/rid") + 1 )) > "$STUBDIR/rid"
+    fi ;;
+esac
+exit 0
+STUB
 chmod +x "$T/bin/gh" "$T/bin/docker"; export PATH="$T/bin:$PATH"
 
 ok()   { printf 'PASS  %s\n' "$1"; (( pass++ )) }
@@ -74,6 +95,7 @@ check "log kept outside the run folder" "[[ -f $AB_RUNS_DIR/t1.reviews/REVIEW-1.
 check "base and work branches pushed" "git -C $T/remote.git branch --list | grep -q base/t1 && git -C $T/remote.git branch --list | grep -q exp/t1"
 check "PR created once and Copilot requested" "[[ \$(grep -c 'pr create' $STUBDIR/calls) == 1 && \$(grep -c requested_reviewers $STUBDIR/calls) == 1 ]]"
 expect_fail "no new commits since the last round" "no new commits" zsh "$RR" review-round t1
+check "origin is restored to the container remote after the pushes" "[[ \$(git -C $D remote get-url origin) == https://example.invalid/ab/scratch ]]"
 
 print "=== round 2: clean"
 echo more >> "$D/wordfreq.py"; gcommit "fix findings"
@@ -109,6 +131,55 @@ echo "ab-t1" > "$STUBDIR/ps"
 expect_fail "resume refuses when the container is already running" "already running" zsh "$RUN" resume t1 m
 rm "$STUBDIR/ps"
 expect_ok "run-ab.zsh dispatches review-summary" "ARM" zsh "$RUN" review-summary t1
+
+
+print "=== review-loop (unattended)"
+mkarm() {  # name: a started run folder with one commit beyond the baseline
+  local d="$AB_RUNS_DIR/$1"; mkdir -p "$d"
+  git -C "$d" init -q -b main; git -C "$d" remote add origin https://example.invalid/ab/scratch
+  echo plan > "$d/PLAN.md"; git -C "$d" add -A; git -C "$d" -c user.name=t -c user.email=t@t commit -qm baseline
+  git -C "$d" checkout -q -b "exp/$1"; echo code > "$d/wordfreq.py"; git -C "$d" add -A
+  git -C "$d" -c user.name=t -c user.email=t@t commit -qm "step 1"
+}
+setfindings() {  # rid: Copilot's next review has one finding
+  echo "$1" > "$STUBDIR/rid"; echo "Copilot generated 1 comment." > "$STUBDIR/body"
+  print -r -- "[{\"pull_request_review_id\":$1,\"path\":\"wordfreq.py\",\"line\":1,\"body\":\"Fix me.\"}]" > "$STUBDIR/comments.json"
+}
+expect_fail "loop refuses AB_LOGIN" "needs ANTHROPIC_API_KEY" env AB_LOGIN=1 zsh "$RUN" review-loop t1 m
+expect_fail "loop refuses a folder that was never started" "not a started run" zsh "$RUN" review-loop raw m
+expect_fail "loop needs a key" "ANTHROPIC_API_KEY is not set" env -u ANTHROPIC_API_KEY AB_ENV_FILE="$T/none.env" zsh "$RUN" review-loop t1 m
+
+mkarm t2; export RUNDIR="$AB_RUNS_DIR/t2"; D2="$RUNDIR"; setfindings 21; touch "$STUBDIR/fixmode"; : > "$STUBDIR/docker.log"
+expect_ok "loop: findings, headless fix, then CLEAN" "t2 CLEAN after 2 round" zsh "$RUN" review-loop t2 some-model
+check "loop recorded both rounds" "[[ \$(tail -n +2 $AB_RUNS_DIR/t2.reviews/rounds.csv | wc -l) == 2 ]]"
+check "fix session ran headless (no TTY) with the fix prompt" "grep -q 'run --rm --name ab-t2 ' $STUBDIR/docker.log && ! grep -q 'run --rm -it --name ab-t2' $STUBDIR/docker.log && grep -q 'claude -p Read REVIEW-1.md' $STUBDIR/docker.log"
+check "fix session passes model, permission skip and a budget cap" "grep -q -- '--model some-model' $STUBDIR/docker.log && grep -q -- '--dangerously-skip-permissions' $STUBDIR/docker.log && grep -q -- '--max-budget-usd 2' $STUBDIR/docker.log"
+check "fix log kept outside the run folder" "[[ -f $AB_RUNS_DIR/t2.reviews/fix-1.log ]]"
+check "origin is still the container remote" "[[ \$(git -C $D2 remote get-url origin) == https://example.invalid/ab/scratch ]]"
+
+mkarm t3; export RUNDIR="$AB_RUNS_DIR/t3"; D3="$RUNDIR"; setfindings 31; rm -f "$STUBDIR/fixmode"
+expect_fail "loop stops when the fix session makes no commit" "no new commit" zsh "$RUN" review-loop t3 m
+touch "$STUBDIR/fixmode"
+expect_ok "re-running continues at the fix, then reaches CLEAN" "resuming at the fix" zsh "$RUN" review-loop t3 m
+check "t3 ended clean" "[[ \$(tail -1 $AB_RUNS_DIR/t3.reviews/rounds.csv | cut -d, -f6) == clean ]]"
+
+mkarm t4; export RUNDIR="$AB_RUNS_DIR/t4"; setfindings 41
+expect_fail "loop stops at the round cap" "round cap (1) reached" env AB_MAX_ROUNDS=1 zsh "$RUN" review-loop t4 m
+
+mkarm t5; export RUNDIR="$AB_RUNS_DIR/t5"; setfindings 51; touch "$STUBDIR/failmode"
+expect_fail "a failing fix session stops the loop" "fix session failed" zsh "$RUN" review-loop t5 m
+rm -f "$STUBDIR/failmode"
+
+print "=== API key from an env file"
+print -r -- 'ANTHROPIC_API_KEY="sk-ant-fromfile"' > "$T/key.env"; chmod 644 "$T/key.env"
+expect_fail "env file readable by others is refused" "chmod 600" env -u ANTHROPIC_API_KEY AB_ENV_FILE="$T/key.env" zsh "$RUN" resume t1 m
+chmod 600 "$T/key.env"; : > "$STUBDIR/docker.log"
+expect_ok "key is read from a 600 env file" "" env -u ANTHROPIC_API_KEY AB_ENV_FILE="$T/key.env" zsh "$RUN" resume t1 m
+check "the quoted key value reached docker" "grep -q 'KEY=sk-ant-fromfile' $STUBDIR/docker.log"
+print -r -- 'OTHER=1; touch '"$T"'/pwned' > "$T/evil.env"; chmod 600 "$T/evil.env"
+expect_fail "an env file without the key is not executed" "ANTHROPIC_API_KEY is not set" env -u ANTHROPIC_API_KEY AB_ENV_FILE="$T/evil.env" zsh "$RUN" resume t1 m
+check "nothing in the env file ran" "[[ ! -e $T/pwned ]]"
+expect_ok "AB_LOGIN ignores the env file" "AB_LOGIN=1" env -u ANTHROPIC_API_KEY AB_LOGIN=1 AB_ENV_FILE="$T/key.env" zsh "$RUN" resume t1 m
 
 rm -rf "$T"
 print ""; printf '%d passed, %d failed\n' "$pass" "$fail"
