@@ -101,6 +101,9 @@ This path has not been run end to end yet; the `check` step in 3 is what tells y
    auto-mode/ab-docker/run-ab.zsh build
    ```
 
+   **Docs variant:** `AB_DOCS=1 auto-mode/ab-docker/run-ab.zsh build` builds a separate image, `ab-claude-docs`, with the
+   docs/ planning rules installed. Use the same `AB_DOCS=1` on every later command in the docs variant.
+
 3. **Check the isolation before spending anything on models:**
 
    ```zsh
@@ -111,6 +114,14 @@ This path has not been run end to end yet; the `check` step in 3 is what tells y
    `api.anthropic.com` reachable, no firewall changes possible, both plugins installed, web tools denied). Fix any
    `FAIL` before going on.
 
+   **Docs variant:** run it as `AB_DOCS=1 auto-mode/ab-docker/run-ab.zsh check`, then confirm the rules are in the image
+   (and absent from the plain one):
+
+   ```zsh
+   docker run --rm --entrypoint ls ab-claude-docs /home/claude/.claude/rules
+   docker run --rm --entrypoint ls ab-claude      /home/claude/.claude/rules   # should list nothing, or fail
+   ```
+
 4. **Start one arm per terminal**, with a dedicated, spend-limited API key (the model can read it in the container; see
    [Getting a spend-limited API key](ab-docker/README.md#getting-a-spend-limited-api-key)). Pass it inline, not exported,
    so Claude Code on your host keeps using your subscription:
@@ -120,10 +131,18 @@ This path has not been run end to end yet; the `check` step in 3 is what tells y
    ANTHROPIC_API_KEY=sk-ant-... auto-mode/ab-docker/run-ab.zsh run wordfreq-model-b-r1 <model-b> ~/experiments/plans/wordfreq main
    ```
 
+   **Docs variant:** same commands with `AB_DOCS=1` in front, the `wordfreq-docs` plan, and the plan in the run name:
+
+   ```zsh
+   AB_DOCS=1 ANTHROPIC_API_KEY=sk-ant-... auto-mode/ab-docker/run-ab.zsh run wordfreq-docs-model-a-r1 <model-a> ~/experiments/plans/wordfreq-docs main
+   AB_DOCS=1 ANTHROPIC_API_KEY=sk-ant-... auto-mode/ab-docker/run-ab.zsh run wordfreq-docs-model-b-r1 <model-b> ~/experiments/plans/wordfreq-docs main
+   ```
+
    Each run (named `<plan>-<model>-r<N>`) lands in `~/experiments/runs/<name>` on branch `exp/<name>`, with auto-mode already on. The first launch may
    show Claude Code's one-time setup prompts.
 
-5. **Paste the same prompt into both** (see Prompt above) and let them run.
+5. **Paste the same prompt into both** and let them run: the first prompt under "Prompt" for the plain variant, the one
+   under "With the docs/ harness" for the docs variant.
 
 6. **Compare on the host.** The run folders are ordinary repos:
 
@@ -133,10 +152,13 @@ This path has not been run end to end yet; the `check` step in 3 is what tells y
    (cd ~/experiments/runs/wordfreq-model-a-r1 && pytest) ; (cd ~/experiments/runs/wordfreq-model-b-r1 && pytest)
    ```
 
+   **Docs variant:** also check the plan's boxes, `status` and `TODO.md` against the docs criteria above, for example
+   `git -C ~/experiments/runs/wordfreq-docs-model-a-r1 diff <baseline>..HEAD -- docs/` (`<baseline>` is the run's first commit).
+
 7. **Optional: add the Copilot review loop** to compare how many review rounds each arm needs; see
    [Copilot review loop](ab-docker/README.md#copilot-review-loop-host-side).
 
-8. **Clean up (and keep the results):** copy each `<run>.reviews/rounds.csv` into `~/experiments/results/data/` first, then `rm -rf ~/experiments/runs/wordfreq-model-a-r1 ~/experiments/runs/wordfreq-model-b-r1`. A name can't be reused until its folder is gone.
+8. **Clean up (and keep the results):** copy each `<run>.reviews/rounds.csv` into `~/experiments/results/data/` first, then `rm -rf` the two run folders (and their `.reviews` folders). A name can't be reused until its folder is gone.
 
 Extra pass criteria for the container path:
 
