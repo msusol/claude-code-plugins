@@ -26,6 +26,14 @@ Stops when **any** of:
 
 It fails open: without `jq`, or on bad input, Claude just stops normally.
 
+## Telling Claude the stop protocol up front (`SessionStart`)
+
+The Stop hook only speaks after Claude's first turn ends, and its message says "carry on with your next steps". A model that finished the asked-for work without the `AUTO-MODE: DONE` marker was
+therefore sent on to its own next steps; after a planning phase that means implementing. So a prompt had to say "end with `AUTO-MODE: DONE`" itself. `plugins/auto-mode/hooks/session-protocol.zsh` (a
+`SessionStart` hook) adds the protocol to the session's context from turn 1: finish with `AUTO-MODE: DONE` and a 2-line summary, finish at the point the request and project rules call for (do not widen
+the task), or `AUTO-MODE: BLOCKED` with what you need. It is on whenever auto-mode is on; turn it off with `AUTO_MODE_PROTOCOL=off` or a file `~/.config/auto-mode/protocol` containing `off`. It only adds
+context, grants nothing, and fails open (no `jq` or bad input adds nothing).
+
 ## Answering questions when nobody is there (`AskUserQuestion`)
 
 The Stop hook only nudges Claude to continue. A model can still open the interactive question form (`AskUserQuestion`) and wait for a person, which stalls an unattended run.
