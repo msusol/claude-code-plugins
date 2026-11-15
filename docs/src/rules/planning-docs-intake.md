@@ -33,7 +33,7 @@ It does not apply to a bug fix, a small change, a question, a pasted error log, 
    - Leave ADRs `proposed` and plan tasks that depend on an owner decision unchecked.
    - Treat claims copied from another AI session as unverified, as `planning-ai-skepticism.md` requires, and say so in the spec.
 5. **Check the tree.** If a new directory was created, update any directory listing in the nearest `CLAUDE.md` (`planning-directory-index-sync.md`).
-6. **Commit the documents** under the commit rules, with the check recorded.
+6. **Commit the documents** under the commit rules, with the check recorded. On an `exp/*` branch a plain `git commit` is allowed (`git-branch-naming.md`); do not use the sanctioned-commit skill or its override sentinel just to commit documents there, since an unattended session cannot give the per-step confirmations it asks for.
 
 ## Where to stop
 
