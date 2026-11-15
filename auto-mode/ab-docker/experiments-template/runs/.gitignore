@@ -1,0 +1,4 @@
+# Everything in here is a nested repo or a disposable run folder; none of it belongs to the outer repo.
+*
+!.gitignore
+!.keep

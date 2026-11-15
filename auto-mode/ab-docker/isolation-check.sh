@@ -6,6 +6,25 @@ bad() { printf 'FAIL  %s\n' "$1"; fail=$((fail + 1)); }
 check() { local desc="$1"; shift; if "$@" >/dev/null 2>&1; then ok "$desc"; else bad "$desc"; fi; }
 refuse() { local desc="$1"; shift; if "$@" >/dev/null 2>&1; then bad "$desc"; else ok "$desc"; fi; }
 
+# The docs/ harness must be present in the docs image (AB_DOCS=1) and absent from the plain one, so a baseline
+# arm cannot be running with planning rules by accident. AB_PLUGINS_DIR is only overridden by the tests.
+docs_checks() {
+  local rules="$HOME/.claude/rules" md="$HOME/.claude/CLAUDE.md" src="${AB_PLUGINS_DIR:-/opt/claude-code-plugins}/docs"
+  echo "=== docs/ harness (AB_DOCS=${AB_DOCS:-0})"
+  if [[ "${AB_DOCS:-0}" == 1 ]]; then
+    check  "docs rules installed in ~/.claude/rules"        bash -c "ls '$rules'/planning-docs-plans.md"
+    check  "docs rules @-imported from ~/.claude/CLAUDE.md" bash -c "grep -q 'BEGIN docs-imports' '$md' && grep -q 'planning-docs-plans.md' '$md'"
+    check  "docs source present in the image"               test -d "$src"
+  else
+    refuse "no planning rules in ~/.claude/rules"           bash -c "ls '$rules'/planning-*.md"
+    refuse "no docs-imports block in ~/.claude/CLAUDE.md"   bash -c "grep -q 'BEGIN docs-imports' '$md'"
+    refuse "docs source removed from the image"             test -e "$src"
+  fi
+}
+if [[ "${AB_CHECK_ONLY:-}" == docs ]]; then
+  docs_checks; echo; printf '%d passed, %d failed\n' "$pass" "$fail"; [[ "$fail" -eq 0 ]]; exit
+fi
+
 echo "=== filesystem"
 check  "running as an unprivileged user"             test "$(id -u)" -ne 0
 check  "home holds only this container's user"       test "$(ls /home)" = "claude"
@@ -27,6 +46,11 @@ echo "=== tooling"
 check  "git-guard installed"                         bash -c 'claude plugin list 2>/dev/null | grep -q git-guard'
 check  "auto-mode installed"                         bash -c 'claude plugin list 2>/dev/null | grep -q auto-mode'
 check  "WebFetch and WebSearch denied"               jq -e '(.permissions.deny // []) | (index("WebFetch") != null) and (index("WebSearch") != null)' "$HOME/.claude/settings.json"
+
+docs_checks
+if [[ "${AB_DOCS:-0}" == 1 ]]; then
+  check "docs plugin installed" bash -c 'claude plugin list 2>/dev/null | grep -qw docs'
+fi
 
 echo
 printf '%d passed, %d failed\n' "$pass" "$fail"
