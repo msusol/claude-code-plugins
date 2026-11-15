@@ -88,6 +88,22 @@ and nested plan repo out, and `.env` and `.DS_Store` are ignored at the top. The
 convention and the first-plan steps (`init` stages the example `plans/wordfreq` but does not commit it, because git-guard
 needs an allowlisted `origin`; give it one that is never pushed).
 
+## Python libraries for a task
+
+The container has no network at run time, so a task cannot `pip install` anything; the libraries it needs go into the
+image at build time. List them in [requirements.txt](requirements.txt) (one per line, versions pinned so every arm gets the
+same ones), then rebuild with `run-ab.zsh build`. The file ships with no requirements, which is right for a task that uses
+only the standard library, like the wordfreq smoke test.
+
+- They are installed into a virtualenv at `~/.venv` in the image that also sees the OS packages (pytest), and it is
+  first on `PATH`, so `python`, `python3` and `pip` all work and mean the same thing.
+- The exact installed set is recorded in `~/.ab-pip-freeze.txt` in the image; read it with
+  `docker run --rm --entrypoint "" ab-claude cat /home/claude/.ab-pip-freeze.txt`.
+- Changing the file changes the image, so arms built before and after it are not on the same image. Build once, run
+  every arm of a comparison on that image, and note the image id and `requirements.txt` with the results.
+- Libraries are fetched from PyPI during the build, where the network is open. Packages that need system libraries
+  (compilers, headers) may also need an `apt-get` line in the Dockerfile.
+
 ## Getting a spend-limited API key
 
 A Claude subscription (Max, Team, Enterprise) and the Claude Console are separate products, and API usage is billed
@@ -102,26 +118,38 @@ through the Console. For experiments, use a personal Console account:
 
 Monthly API credits that come with some plans may not apply to Claude Code; check how they apply before relying on them.
 
-## Using a Claude account (e.g. Enterprise) instead of a key
+## Using a Claude subscription (Pro, Max, Team, Enterprise) instead of a key
+
+If you have a personal subscription such as Claude Max, you can run the test with no Console account and no key:
 
 ```zsh
-AB_LOGIN=1 auto-mode/ab-docker/run-ab.zsh run model-a <model-a> ~/code/ab-scratch main
+AB_LOGIN=1 auto-mode/ab-docker/run-ab.zsh run wordfreq-model-a-r1 <model-a> ~/experiments/plans/wordfreq main
 # then run /login inside the session and follow the URL it prints in your host browser
 ```
 
-`AB_LOGIN=1` does not pass an API key and adds `claude.ai` and `platform.claude.com` to the firewall allowlist so
-sign-in works. Know the trade-offs:
+`AB_LOGIN=1` never passes `ANTHROPIC_API_KEY` into the container, even if your shell has one exported, so the
+session bills your subscription. It also adds `claude.ai` and `platform.claude.com` to the firewall allowlist so
+sign-in works. Start the second arm the same way in its own terminal; each container needs its own `/login`.
 
-- Usage counts against that account's limits. You cannot set a spend cap yourself; for Enterprise it is set by your admin.
-- The sign-in token lives in the container's own `~/.claude` and the model can read it. It is discarded when the
-  container exits, so you sign in on every run.
-- Anything tied to the account (organization-managed settings, connectors) can follow you into the container and
-  weaken the isolation. Run `run-ab.zsh check` and ask the session what tools it has before trusting a result.
-- Opening `claude.ai` gives the model a general website to talk to, not just an API. The allowlist is IP-based and
-  resolved once at start, and sites behind shared CDNs can rotate addresses, so sign-in may be flaky.
-- Check your employer's policy before running experiments through a company account.
+What to expect with a personal plan such as Max:
 
-This login path has not been tested. For a fair, cheap comparison, the personal key above is the simpler choice.
+- **Limits, not dollars.** Usage counts against your plan's usage limits, shared with claude.ai and Claude Code on
+  your host. There is no spend cap to set, but a runaway arm can use up your current window and lock you out of your
+  everyday sessions until it resets. The smoke test is small (four steps per arm, and auto-mode's continuation cap
+  stops a loop), so run it when you don't need the headroom, and check your plan's usage view afterward.
+- **Check extra-usage billing.** If your plan allows paid extra usage beyond the limits, make sure it is off, or
+  capped, in your account settings before the run, so hitting a limit stops the run instead of billing you.
+- **Model access depends on the plan.** Pick two models your plan includes for `<model-a>` and `<model-b>`.
+- **Sign in every run.** The token lives in the container's own `~/.claude` and is discarded when the container
+  exits. The model can read it while the session runs, which is the main isolation cost of this path.
+- **Weaker isolation than a key.** Opening `claude.ai` gives the model a general website to talk to, not just an
+  API. The allowlist is IP-based and resolved once at start, and sites behind shared CDNs can rotate addresses, so
+  sign-in may be flaky. Run `run-ab.zsh check` and ask the session what tools it has before trusting a result.
+- **Team and Enterprise accounts** can also bring organization-managed settings and connectors into the container,
+  and the spend cap is set by an admin. Check your employer's policy before using a company account.
+
+This login path has not been tested. For the fairest, most contained comparison, the spend-limited key above is
+still the safer choice; the subscription is the convenient one.
 
 ## Compare
 

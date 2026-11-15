@@ -71,7 +71,7 @@ cmd_check() {
 }
 
 # Sets the global auth_args array: an API key (default), or AB_LOGIN=1 to sign in inside the container (/login) with a
-# Claude account, e.g. Enterprise. Login needs claude.ai and platform.claude.com reachable, so they join the firewall allowlist.
+# Claude account, e.g. a Pro, Max or Enterprise plan. Login needs claude.ai and platform.claude.com reachable, so they join the firewall allowlist.
 typeset -a auth_args
 auth_setup() {
   auth_args=()
