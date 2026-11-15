@@ -157,7 +157,11 @@ def add_tokens(t, u):
     t["cache_read"] += u.get("cache_read_input_tokens", 0) or 0
 
 
-def process_file(path, sessions):
+CALL_SINK = None    # ab_steps sets this to a list to receive every priced call (ts, model, cost, tokens); None in normal builds
+
+
+def process_file(path, sessions, project_name=None, ab=None):
+    """Parse one log into `sessions`. project_name and ab (a run name) label the sessions of an A/B run, whose container always logs as /work."""
     p = Path(path)
     parts = p.parts
     is_sub_file = "subagents" in parts
@@ -168,6 +172,8 @@ def process_file(path, sessions):
     else:
         file_session = p.stem
         project = p.parent.name
+    if project_name:
+        project = project_name
 
     seen = {}   # dedupe streamed duplicates: key -> record
     order = []
@@ -227,6 +233,8 @@ def process_file(path, sessions):
             "cost": 0.0, "sub_cost": 0.0, "tokens": blank_tokens(), "models": {}, "turns": [], "calls": 0,
             "matrix": {}, "daily_me": {},
             "parts": blank_tokens(), "ctx_series": [], "cw1h": 0, "stamps": []})
+        if ab:
+            s["ab"] = ab
         if cwd and not s["cwd"]:
             s["cwd"] = cwd
         c = cost_of(rec["model"], rec["u"])
@@ -246,6 +254,10 @@ def process_file(path, sessions):
         m["cost"] += c
         m["calls"] += 1
         parts = cost_parts(rec["model"], rec["u"])
+        if CALL_SINK is not None and ts:
+            CALL_SINK.append({"ts": ts, "model": rec["model"], "cost": c, "in_tok": context_tokens(rec["u"]),
+                              "out_tok": rec["u"].get("output_tokens", 0) or 0,
+                              "in_cost": parts["input"] + parts["cache_write"] + parts["cache_read"], "out_cost": parts["output"]})
         m["ctx_tokens"] += context_tokens(rec["u"])
         m["ctx_cost"] += parts["input"] + parts["cache_write"] + parts["cache_read"]
         s["cw1h"] += write_split(rec["u"])[1]
@@ -333,8 +345,12 @@ def newest_mtime(root):
     return newest
 
 
-def collect(root, days=30, project="", now=None):
+def collect(root, days=30, project="", now=None, ab_root=None, ab_sessions=True):
     """Parse the logs under root and return the dashboard data dict.
+
+    ab_root is the folder of A/B runs (<run>.reviews/steps.csv and <run>.session); when it holds any, the data gets an "ab" section, and
+    (unless ab_sessions is False) each run's session logs also count as ordinary sessions, tagged "ab" and named after the run, so every
+    tab includes what the A/B runs cost. Their containers are not under `root`, which is why they need reading from here.
 
     Pure with respect to the filesystem: reads logs, writes nothing. `now` is the
     clock (a datetime) and only exists so tests can fix `generated`.
@@ -342,8 +358,17 @@ def collect(root, days=30, project="", now=None):
     UNPRICED.clear()
     SPEED_FLAGS.clear()
     sessions = {}
+    ab_dirs = sorted(glob.glob(os.path.join(ab_root, "*.session"))) if ab_root and os.path.isdir(ab_root) else []
+    ab_real = [os.path.realpath(d) + os.sep for d in ab_dirs]
     for f in log_files(root):
+        if ab_real and os.path.realpath(f).startswith(tuple(ab_real)):
+            continue    # --root happens to contain the runs folder: read those below, tagged, or not at all, never twice
         process_file(f, sessions)
+    if ab_sessions:
+        for d in ab_dirs:
+            run = os.path.basename(d)[: -len(".session")]
+            for f in log_files(d):
+                process_file(f, sessions, project_name=run, ab=run)
 
     cutoff = None
     if days > 0:
@@ -357,7 +382,7 @@ def collect(root, days=30, project="", now=None):
         turns = sorted(s["turns"], key=lambda t: t["ts"] or "")
         first_prompt = turns[0]["prompt"] if turns else "(no prompt found)"
         rows.append({
-            "id": s["id"], "project": os.path.basename(s["cwd"] or "") or s["project"],
+            "id": s["id"], "project": s.get("ab") or os.path.basename(s["cwd"] or "") or s["project"],
             "title": first_prompt,
             "first": s["first"].isoformat() if s["first"] else None,
             "last": s["last"].isoformat() if s["last"] else None,
@@ -377,12 +402,22 @@ def collect(root, days=30, project="", now=None):
                        "me": {m: rounded_cells(e) for m, e in t["me"].items()}}
                       for t in turns],
         })
+        if s.get("ab"):
+            rows[-1]["ab"] = s["ab"]     # only A/B sessions carry this, so the data is unchanged for everyone else
     rows.sort(key=lambda r: r["last"] or "", reverse=True)
 
+    ab = None
+    if ab_root and os.path.isdir(ab_root):
+        import ab_steps
+        ab = ab_steps.collect_ab(ab_root, sys.modules[__name__], PRICING.get("copilot_usd_per_review"))
+
     seen = sorted({m for r in rows for m in r["models"]})
-    return {"generated": (now or datetime.now()).isoformat(timespec="seconds"), "days": days,
+    data = {"generated": (now or datetime.now()).isoformat(timespec="seconds"), "days": days,
             "unpriced": sorted(UNPRICED), "speed_flags": sorted(SPEED_FLAGS), "sessions": rows,
             "rates": {m: rate_card(m) for m in seen}, "rates_source": PRICING.get("source", ""), "rates_verified": PRICING.get("verified", "")}
+    if ab:
+        data["ab"] = ab     # only present when there are A/B runs, so the data is unchanged for everyone else
+    return data
 
 
 def render(data):
@@ -411,6 +446,18 @@ def summary(data, out):
         lines.append("By model and effort:")
         for (m, e), v in sorted(by_me.items(), key=lambda kv: -kv[1]["cost"])[:6]:
             lines.append(f"  {m} · {e}: ${v['cost']:,.2f} ({v['calls']} calls)")
+    if data.get("ab"):
+        lines.append("A/B runs:")
+        for r in data["ab"]["runs"]:
+            t = r["totals"]
+            clean = "round %d" % t["clean_round"] if t["clean_round"] else "not clean"
+            if not r["claude_known"]:
+                cost = "no session logs, so no cost"
+            elif t["copilot_usd"] is not None:
+                cost = "$%.2f (Claude $%.2f + Copilot ~$%.2f)" % (t["cost"], t["claude"]["cost"], t["copilot_usd"])
+            else:
+                cost = "Claude $%.2f (Copilot not priced)" % t["claude"]["cost"]
+            lines.append(f"  {r['name']}: {cost}, {t['copilot_requests']} Copilot review(s), clean at {clean}")
     if data["speed_flags"]:
         lines.append("Non-standard speed/tier seen (priced at standard rates): " + ", ".join(data["speed_flags"]))
     if data["unpriced"]:
@@ -419,11 +466,18 @@ def summary(data, out):
     return "\n".join(lines)
 
 
+def default_ab_root():
+    return os.environ.get("AB_RUNS_DIR") or os.path.expanduser("~/experiments/runs")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--root", default=os.path.expanduser("~/.claude/projects"))
     ap.add_argument("--days", type=int, default=30, help="only sessions active in the last N days (0 = all)")
     ap.add_argument("--project", default="", help="substring filter on project dir / cwd")
+    ap.add_argument("--ab-root", default=default_ab_root(),
+                    help="folder of A/B runs (<run>.reviews/steps.csv, <run>.session); default $AB_RUNS_DIR or ~/experiments/runs; shows an A/B tab when it has any")
+    ap.add_argument("--no-ab-sessions", action="store_true", help="do not count the A/B runs' sessions in the other tabs (the A/B tab still shows them)")
     ap.add_argument("--out", default=os.path.expanduser("~/.claude/cost-dashboard.html"))
     args = ap.parse_args()
 
@@ -431,7 +485,7 @@ def main():
         print(f"No session logs found under {args.root}")
         sys.exit(1)
 
-    data = collect(args.root, args.days, args.project)
+    data = collect(args.root, args.days, args.project, ab_root=args.ab_root, ab_sessions=not args.no_ab_sessions)
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(render(data))

@@ -42,6 +42,7 @@ body { padding: 1.5rem 1rem; }
 .cd-lab { font-size: var(--cd-caption); color: var(--mut); }
 .cd-num { font-weight: 700; font-size: 2rem; line-height: 1.1; font-variant-numeric: tabular-nums; min-height: 2.5rem; }
 .cd-note { font-size: var(--cd-caption); color: var(--mut); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cd-tag { font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.06em; color: var(--mut); border: 1px solid var(--gold); border-radius: 2px; padding: 0 0.375rem; margin-left: 0.375rem; }
 .cd-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr)); gap: var(--cd-gap-md); }
 .cd-card { background: var(--panel); border: 1px solid var(--line); border-radius: 2px; padding: var(--cd-pad-lg); display: flex; flex-direction: column; gap: var(--cd-gap-sm); min-width: 0; }
 .cd-card h2 { margin: 0; font-size: var(--cd-heading); font-weight: 700; }
@@ -114,6 +115,7 @@ body { padding: 1.5rem 1rem; }
         <button role="tab" data-tab="effort" aria-selected="false">Model &amp; effort</button>
         <button role="tab" data-tab="context" aria-selected="false">Context</button>
         <button role="tab" data-tab="sessions" aria-selected="false">Sessions</button>
+        <button role="tab" data-tab="ab" id="tab-ab-btn" aria-selected="false" hidden>A/B</button>
       </nav>
     </div>
     <div class="cd-tile" id="tile"></div>
@@ -152,10 +154,16 @@ body { padding: 1.5rem 1rem; }
   <section id="tab-sessions" class="cd-main" hidden>
     <div class="cd-card">
       <h2>Sessions</h2>
-      <p class="cd-sub">Click a header to sort and a row to expand its tasks (one user prompt and everything Claude did in response). Only Project shows by default; click its ▸ to split it into Project and First prompt, after which the table scrolls sideways. Search by project, prompt, model or effort.</p>
+      <p class="cd-sub">Click a header to sort and a row to expand its tasks (one user prompt and everything Claude did in response). Only Project shows by default; click its ▸ to split it into Project and First prompt, after which the table scrolls sideways. Search by project, prompt, model or effort; search a/b for the A/B runs.</p>
       <div class="cd-tools"><input class="cd-search" id="q" type="search" placeholder="Search sessions"></div>
       <div class="cd-box"><table class="cd-table" id="sess"></table></div>
       <div class="cd-pager" id="pager"></div>
+    </div>
+  </section>
+  <section id="tab-ab" class="cd-main" hidden>
+    <div class="cd-grid">
+      <div class="cd-card cd-span"><h2>A/B runs side by side</h2><p class="cd-sub">One row per run that logged its steps: what the whole run cost (Claude across all its sessions, plus Copilot's reviews), how many Copilot reviews it used, and how many review rounds it took to come back clean. Dollars are estimates: Claude from the session logs, Copilot as an average per review.</p><div class="cd-box"><table class="cd-table" id="ab-runs"></table></div><p class="cd-sub" id="ab-note"></p></div>
+      <div class="cd-card cd-span"><h2>Steps</h2><p class="cd-sub">Every step of one run in order: Claude sessions are priced from their logs, one Cost column for every step, Claude or Copilot; a review row shows what Copilot found.</p><label class="cd-sub">Run <select class="cd-search" id="ab-sel" style="flex:none;min-width:0"></select></label><div class="cd-box"><table class="cd-table" id="ab-steps"></table></div></div>
     </div>
   </section>
   <p class="cd-foot" id="foot"></p>
@@ -316,7 +324,7 @@ $('parts-tbl').innerHTML = ses.length
 const ctxSes = ses.filter(s => s.ctx && s.ctx.calls).sort((a,b) => b.cost - a.cost);
 const cacheHitOf = s => { const t = s.tokens, d = t.cache_read + t.input + t.cache_write; return d ? t.cache_read / d : 0; };
 let ctxPick = ctxSes.length ? ctxSes[0].id : null;
-$('ctx-sel').innerHTML = ctxSes.map(s => `<option value="${esc(s.id)}">${esc(s.project)} · ${esc(s.title.slice(0,60))} · ${usd(s.cost)}</option>`).join('');
+$('ctx-sel').innerHTML = ctxSes.map(s => `<option value="${esc(s.id)}">${s.ab ? '[A/B] ' : ''}${esc(s.project)} · ${esc(s.title.slice(0,60))} · ${usd(s.cost)}</option>`).join('');
 $('ctx-sel').value = ctxPick || '';
 function drawCtx() {
   const s = ctxSes.find(x => x.id === ctxPick), sv = $('ctx-chart');
@@ -339,7 +347,7 @@ function drawCtx() {
 function drawCtxTable() {
   $('ctx-tbl').innerHTML = ctxSes.length
     ? '<thead><tr><th>Session</th><th class="n">Calls</th><th class="n">Avg context</th><th class="n">Peak</th><th class="n">Resets</th><th class="n">Cache hit</th><th class="n">Avg output / call</th><th class="n">Cost</th></tr></thead><tbody>' +
-      ctxSes.map(s => `<tr class="s${s.id===ctxPick?' open':''}" data-id="${esc(s.id)}" tabindex="0"><td class="cd-trunc">${esc(s.project)} · ${esc(s.title)}</td><td class="n">${s.ctx.calls}</td><td class="n">${kfmt(s.ctx.avg)}</td><td class="n">${kfmt(s.ctx.peak)}</td><td class="n">${s.ctx.resets}</td><td class="n">${Math.round(100*cacheHitOf(s))}%</td><td class="n">${Math.round(s.tokens.output/(s.calls||1))}</td><td class="n">${usd(s.cost)}</td></tr>`).join('') + '</tbody>'
+      ctxSes.map(s => `<tr class="s${s.id===ctxPick?' open':''}" data-id="${esc(s.id)}" tabindex="0"><td class="cd-trunc">${esc(s.project)}${s.ab ? ' <span class="cd-tag">A/B</span>' : ''} · ${esc(s.title)}</td><td class="n">${s.ctx.calls}</td><td class="n">${kfmt(s.ctx.avg)}</td><td class="n">${kfmt(s.ctx.peak)}</td><td class="n">${s.ctx.resets}</td><td class="n">${Math.round(100*cacheHitOf(s))}%</td><td class="n">${Math.round(s.tokens.output/(s.calls||1))}</td><td class="n">${usd(s.cost)}</td></tr>`).join('') + '</tbody>'
     : emptyRow(8, 'No main-conversation calls in this period.');
 }
 function pickCtx(id) { ctxPick = id; $('ctx-sel').value = id; drawCtx(); drawCtxTable(); }
@@ -365,7 +373,7 @@ const headCell = ([k,l]) => {
 };
 function render(){
   const q = $('q').value.toLowerCase(), cols = colsNow();
-  const rows = ses.filter(s=>!q||(s.project+' '+s.title+' '+Object.keys(s.models).join(' ')+' '+Object.values(s.matrix).flatMap(o=>Object.keys(o)).join(' ')).toLowerCase().includes(q))
+  const rows = ses.filter(s=>!q||(s.project+' '+(s.ab ? 'a/b ' : '')+s.title+' '+Object.keys(s.models).join(' ')+' '+Object.values(s.matrix).flatMap(o=>Object.keys(o)).join(' ')).toLowerCase().includes(q))
     .sort((a,b)=>{const x=val(a,sortKey),y=val(b,sortKey);return (x>y?1:x<y?-1:0)*sortDir});
   const pages = Math.max(1, Math.ceil(rows.length / pageSize));
   page = Math.min(Math.max(page, 0), pages - 1);
@@ -375,7 +383,7 @@ function render(){
   const head = '<thead><tr>'+cols.map(headCell).join('')+'</tr></thead>';
   let h = head + '<tbody>';
   for(const s of shown){
-    h += `<tr class="s${open.has(s.id)?' open':''}" data-id="${esc(s.id)}" tabindex="0"><td class="nw">${s.last?s.last.slice(0,16).replace('T',' '):''}</td><td class="nw">${esc(s.project)}</td>` +
+    h += `<tr class="s${open.has(s.id)?' open':''}" data-id="${esc(s.id)}" tabindex="0"><td class="nw">${s.last?s.last.slice(0,16).replace('T',' '):''}</td><td class="nw">${esc(s.project)}${s.ab ? ' <span class="cd-tag">A/B</span>' : ''}</td>` +
       (showPrompt ? `<td class="p"><div class="cd-pc" title="${esc(s.title)}">${esc(s.title)}</div></td>` : '') +
       `<td class="nw">${(()=>{const c=topCombo(s.matrix); return c ? sw(c[0],c[1])+' ' : '';})()}${esc(comboOf(s))}</td>
       <td class="n">${s.turns.length}</td><td class="n">${s.calls}</td>${ioCells(s.io)}
@@ -409,9 +417,48 @@ $('q').addEventListener('input',()=>{ page = 0; render(); });
 // keyboard: Enter or Space expands the focused session row
 $('sess').addEventListener('keydown',e=>{ if((e.key==='Enter'||e.key===' ')&&e.target.matches('tr.s')){e.preventDefault(); e.target.click();} });
 
+// ---- A/B tab: runs side by side, and the steps of one run (only when the data has A/B runs) ----
+const AB = DATA.ab;
+let abPick = AB && AB.runs.length ? AB.runs[0].name : '';
+const dur = s => s >= 3600 ? Math.floor(s/3600)+'h '+Math.floor(s%3600/60)+'m' : s >= 60 ? Math.floor(s/60)+'m '+(s%60)+'s' : s+'s';
+const abBar = (v, max) => `<span style="display:inline-block;height:6px;width:${max ? Math.round(60*v/max) : 0}px;background:var(--bar);margin-right:6px;border-radius:1px"></span>`;
+const abCost = (c, est, max) => c == null ? '–' : abBar(c, max) + (est ? '~' : '') + usd(c);
+function drawAB() {
+  $('tab-ab-btn').hidden = !AB;
+  if (!AB) return;
+  const rate = AB.copilot_usd_per_review, runs = AB.runs, maxC = Math.max(...runs.map(r => r.totals.cost || 0), 0);
+  $('ab-runs').innerHTML = '<thead><tr><th>Run</th><th>Model</th><th class="n">Claude in</th><th class="n">Claude out</th><th class="n">Cost</th><th class="n">Copilot reviews</th><th>Rounds to clean</th><th>Findings per round</th><th class="n">Fixes</th><th class="n">Wall time</th></tr></thead><tbody>' +
+    runs.map(r => { const t = r.totals, k = r.claude_known;
+      return `<tr><td>${esc(r.name)}</td><td>${esc(r.arm_model || '–')}</td><td class="n">${k ? kfmt(t.claude.in_tok) : '–'}</td><td class="n">${k ? kfmt(t.claude.out_tok) : '–'}</td>` +
+        `<td class="n">${abCost(t.cost, t.cost_est, maxC)}</td><td class="n">${t.copilot_requests}</td>` +
+        `<td>${t.clean_round ? 'round ' + t.clean_round : (t.reviews ? 'not clean after ' + t.rounds : '–')}</td><td>${t.findings.length ? esc(t.findings.join(' → ')) : '–'}</td><td class="n">${t.fixes}</td><td class="n">${dur(r.wall_s)}</td></tr>`; }).join('') + '</tbody>';
+  const notes = ['Cost is one figure for every step, whoever incurred it: a Claude step is priced from its session log, a Copilot review is an average.'];
+  if (runs.some(r => !r.claude_known)) notes.push('A run with no session logs (it ran before session capture, or its .session folder was removed) shows – for cost: that cost is unknown, not zero.');
+  notes.push(rate == null ? 'Copilot has no per-review price in any API, so its reviews have no cost here and a run total is Claude only. Set copilot_usd_per_review in pricing.json to include an estimate.' : `A ~ marks a figure that includes Copilot: reviews x $${rate}, the average GitHub AI-credit cost of a code review (copilot_usd_per_review in pricing.json). GitHub bills in AI credits and a review's cost varies with its size, so a single review can cost more or less; with included credits you may be charged nothing.`);
+  $('ab-note').textContent = notes.join(' ');
+  $('ab-sel').innerHTML = runs.map(r => `<option value="${esc(r.name)}"${r.name === abPick ? ' selected' : ''}>${esc(r.name)}</option>`).join('');
+  drawABSteps();
+}
+function drawABSteps() {
+  const r = AB.runs.find(x => x.name === abPick); if (!r) return;
+  const maxC = Math.max(...r.steps.map(s => s.cost || 0), 0), k = r.claude_known;
+  const who = s => s.type === 'review' ? 'Copilot' + (s.copilot && s.copilot.effort ? ' · ' + s.copilot.effort : '') : esc(s.model || '–');
+  const label = s => s.type === 'review' ? `Review ${s.round}` : s.type === 'fix' ? `Fix ${s.round}` : s.type === 'resume' ? 'Resume' : 'Arm session';
+  const cop = s => s.copilot ? (s.copilot.status === 'clean' ? 'clean' : `${s.copilot.findings} finding${s.copilot.findings === 1 ? '' : 's'}`) : '';
+  const tok = (s, f) => s.type === 'review' || !k ? '–' : f(s.claude);
+  $('ab-steps').innerHTML = '<thead><tr><th>#</th><th>Step</th><th>Who</th><th class="n">Duration</th><th class="n">Calls</th><th class="n">In tokens</th><th class="n">Out tokens</th><th class="n">Cost</th><th>Review</th><th>Commit</th></tr></thead><tbody>' +
+    r.steps.map((s, i) => `<tr><td>${i+1}</td><td>${label(s)}${s.exit ? ` <span class="cd-note">exit ${s.exit}</span>` : ''}</td><td>${who(s)}</td><td class="n">${dur(s.dur_s)}</td>` +
+      `<td class="n">${tok(s, c => c.calls)}</td><td class="n">${tok(s, c => kfmt(c.in_tok))}</td><td class="n">${tok(s, c => kfmt(c.out_tok))}</td><td class="n">${abCost(s.cost, s.cost_est, maxC)}</td>` +
+      `<td>${cop(s)}</td><td>${esc(s.commit || '')}</td></tr>`).join('') +
+    (k && r.unassigned.calls ? `<tr><td></td><td>Outside any step</td><td></td><td></td><td class="n">${r.unassigned.calls}</td><td class="n">${kfmt(r.unassigned.in_tok)}</td><td class="n">${kfmt(r.unassigned.out_tok)}</td><td class="n">${usd(r.unassigned.cost)}</td><td></td><td></td></tr>` : '') +
+    `<tr class="tot"><td></td><td>Total</td><td></td><td class="n">${dur(r.wall_s)}</td><td class="n">${k ? r.totals.claude.calls : '–'}</td><td class="n">${k ? kfmt(r.totals.claude.in_tok) : '–'}</td><td class="n">${k ? kfmt(r.totals.claude.out_tok) : '–'}</td><td class="n">${r.totals.cost == null ? '–' : (r.totals.cost_est ? '~' : '') + usd(r.totals.cost)}</td><td>${r.totals.copilot_requests} review${r.totals.copilot_requests === 1 ? '' : 's'}</td><td></td></tr></tbody>`;
+}
+$('ab-sel').addEventListener('change', e => { abPick = e.target.value; drawABSteps(); });
+drawAB();
+
 // tabs, kept in the URL hash so a reload keeps the tab
 function showTab(name){
-  if(!document.getElementById('tab-'+name)) name='overview';
+  if(!document.getElementById('tab-'+name) || (name==='ab' && !AB)) name='overview';
   for(const b of document.querySelectorAll('#tabs button')) b.setAttribute('aria-selected', String(b.dataset.tab===name));
   for(const s of document.querySelectorAll('.cd-main')) s.hidden = s.id!=='tab-'+name;
 }

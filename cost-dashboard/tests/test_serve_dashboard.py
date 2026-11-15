@@ -136,8 +136,19 @@ class Rebuilding(ServerCase):
         with mock.patch.object(sd, "code_mtime", return_value=sd.code_mtime() + 100), \
                 mock.patch.object(sd.importlib, "reload") as reload_mock:
             self.get("/")
-        reload_mock.assert_called_once_with(sd.build_dashboard)
+        reload_mock.assert_any_call(sd.build_dashboard)
         self.assertEqual(self.server.state.builds, 2)
+
+    def test_the_ab_reader_is_reloaded_with_the_generator_and_watched_for_changes(self):
+        import ab_steps
+        self.assertIn(Path(ab_steps.__file__), sd.code_files(), "a changed ab_steps.py must count as a plugin change")
+        self.get("/")
+        with mock.patch.object(sd, "code_mtime", return_value=sd.code_mtime() + 100), \
+                mock.patch.object(sd.importlib, "reload") as reload_mock:
+            self.get("/")
+        reloaded = [c.args[0] for c in reload_mock.call_args_list]
+        self.assertIn(sd.build_dashboard, reloaded)
+        self.assertIn(sys.modules["ab_steps"], reloaded, "otherwise a running server keeps the old A/B code until restarted")
 
     def test_a_failed_build_returns_500_and_the_server_keeps_serving(self):
         with mock.patch.object(b, "collect", side_effect=RuntimeError("boom")):
@@ -146,6 +157,74 @@ class Rebuilding(ServerCase):
         self.assertIn(b"boom", data)
         resp, _ = self.get("/data.json")
         self.assertEqual(resp.status, 200)
+
+
+class AbRuns(ServerCase):
+    """The A/B tab: the server passes --ab-root through and rebuilds when a run's steps.csv or session log changes."""
+
+    STEPS = ("start,end,type,round,model,commit,detail\n"
+             "2026-01-01T00:00:00Z,2026-01-01T00:10:00Z,review,1,copilot,abc,pr=1;findings=0;status=clean;premium_requests=1;effort=balanced\n")
+
+    def setUp(self):
+        super().setUp()
+        self._runs_tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._runs_tmp.cleanup)
+        self.runs = Path(self._runs_tmp.name)        # outside the main root, like ~/experiments/runs
+        (self.runs / "r1.reviews").mkdir(parents=True)
+        self.steps = self.runs / "r1.reviews" / "steps.csv"
+        self.steps.write_text(self.STEPS)
+        os.utime(self.steps, (4_000, 4_000))
+        self.ab_server = sd.make_server(self.root, days=0, port=0, ab_root=str(self.runs))
+        self.ab_port = self.ab_server.server_address[1]
+        self.ab_thread = threading.Thread(target=self.ab_server.serve_forever, daemon=True)
+        self.ab_thread.start()
+        self.addCleanup(self.stop_ab)
+
+    def stop_ab(self):
+        self.ab_server.shutdown()
+        self.ab_server.server_close()
+        self.ab_thread.join(5)
+
+    def data(self):
+        conn = http.client.HTTPConnection("127.0.0.1", self.ab_port, timeout=10)
+        conn.request("GET", "/data.json")
+        out = json.loads(conn.getresponse().read())
+        conn.close()
+        return out
+
+    def test_the_data_has_the_ab_section_only_when_a_root_is_given(self):
+        self.assertEqual(self.data()["ab"]["runs"][0]["name"], "r1")
+        resp, body = self.get("/data.json")
+        self.assertNotIn("ab", json.loads(body))
+
+    def test_a_run_session_counts_in_the_main_data_unless_the_flag_is_off(self):
+        write_log(self.runs / "r1.session", "-work/ab1.jsonl",
+                  [dict(user(0, "go"), sessionId="ab1"), assistant(1, "claude-opus-4-9", OPUS_USAGE, "x1", "rx1", sid="ab1")])
+        ids = [s["id"] for s in self.data()["sessions"]]
+        self.assertIn("ab1", ids)
+        server = sd.make_server(self.root, days=0, port=0, ab_root=str(self.runs), ab_sessions=False)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(lambda: (server.shutdown(), server.server_close(), thread.join(5)))
+        conn = http.client.HTTPConnection("127.0.0.1", server.server_address[1], timeout=10)
+        conn.request("GET", "/data.json")
+        off = json.loads(conn.getresponse().read())
+        conn.close()
+        self.assertNotIn("ab1", [s["id"] for s in off["sessions"]])
+        self.assertEqual(len(off["ab"]["runs"]), 1, "the A/B tab is still there")
+
+    def test_a_changed_steps_file_triggers_a_rebuild(self):
+        self.assertEqual(len(self.data()["ab"]["runs"][0]["steps"]), 1)
+        builds = self.ab_server.state.builds
+        self.steps.write_text(self.STEPS + self.STEPS.split("\n")[1] + "\n")
+        os.utime(self.steps, (5_000, 5_000))
+        self.assertEqual(len(self.data()["ab"]["runs"][0]["steps"]), 2)
+        self.assertEqual(self.ab_server.state.builds, builds + 1)
+
+    def test_no_change_means_no_rebuild(self):
+        self.data()
+        self.data()
+        self.assertEqual(self.ab_server.state.builds, 1)
 
 
 class Refusing(ServerCase):
@@ -195,7 +274,8 @@ class Binding(unittest.TestCase):
             with mock.patch.object(sd, "make_server", return_value=fake) as made, \
                     mock.patch.object(sys, "argv", ["serve_dashboard.py", "--root", tmp]):
                 sd.main()
-        self.assertEqual(made.call_args.args, (tmp, 30, "", "127.0.0.1", 8766))
+        self.assertEqual(made.call_args.args, (tmp, 30, "", "127.0.0.1", 8766, sd.build_dashboard.default_ab_root()))
+        self.assertEqual(made.call_args.kwargs, {"ab_sessions": True}, "A/B sessions count by default")
         fake.server_close.assert_called_once()
 
     def test_host_header_rules(self):
