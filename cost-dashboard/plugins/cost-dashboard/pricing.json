@@ -5,7 +5,9 @@
   "cache_write_multiplier": 1.25,
   "cache_write_1h_multiplier": 2.0,
   "cache_read_multiplier": 0.1,
-  "copilot_usd_per_request": null,
+  "copilot_usd_per_review": 0.29,
+  "copilot_rate_note": "Average cost of one GitHub Copilot code review: 234.92 AI credits ($2.35 at $0.01 per credit) over 8 reviews, from github.com/settings/billing/ai_usage (Code Review model, Nov 1-15 2026). GitHub bills in AI credits, not per request, and a review's cost varies with its size; on a plan with included credits you may be charged nothing. Set to null to show review counts only.",
+  "copilot_rate_checked": "2026-11-15",
   "models": {
     "fable-5-2":  { "input": 8.0,  "output": 40.0, "cache_read_multiplier": 0.025 },
     "mythos-5-2": { "input": 8.0,  "output": 40.0, "cache_read_multiplier": 0.025 },

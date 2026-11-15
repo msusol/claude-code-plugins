@@ -7,11 +7,11 @@ auto-mode's ab-docker scripts write two things per run, next to the run folder (
 
 type is arm (the first interactive session), resume, fix (a headless fix session) or review (a Copilot review round).
 Times are UTC. detail is ;-separated key=value pairs plus bare words; a review row carries pr, findings, status,
-premium_requests and effort.
+premium_requests (the number of review requests; the name is historical, GitHub bills code review in AI credits) and effort.
 
 collect_ab() prices every Claude call in <run>.session with the dashboard's own rate table (so it matches the other tabs),
-assigns each call to the step whose time window it falls in, and adds up the Copilot side as a request count. Copilot has
-no per-review price in any API, so dollars appear only if pricing.json sets copilot_usd_per_request.
+assigns each call to the step whose time window it falls in, and adds up the Copilot side as a review count. Copilot has
+no per-review price in any API, so its dollars are an estimate: reviews x copilot_usd_per_review from pricing.json (an average of what GitHub's AI usage page showed), and are omitted when that is null.
 """
 import csv
 import glob
@@ -145,7 +145,7 @@ def _int(v, default=0):
         return default
 
 
-def collect_ab(runs_dir, bd, usd_per_request=None):
+def collect_ab(runs_dir, bd, usd_per_review=None):
     """The dashboard's A/B section: one entry per run with its steps and totals, or None when no run logged steps."""
     runs = []
     for name, csv_path in discover(runs_dir):
@@ -168,7 +168,10 @@ def collect_ab(runs_dir, bd, usd_per_request=None):
                    "dur_s": int((s["end"] - s["start"]).total_seconds()),
                    "mode": s["words"][0] if s["words"] else "",
                    "exit": _int(s["pairs"].get("exit"), None) if "exit" in s["pairs"] else None,
-                   "claude": bd.rounded_cell(_cell(bd, cs)), "copilot": None}
+                   "claude": bd.rounded_cell(_cell(bd, cs)), "copilot": None,
+                   # one cost for any step, whoever incurred it: a Claude step's priced calls, or a review's average (an estimate)
+                   "cost": round(sum(c["cost"] for c in cs), 4) if have_logs and s["type"] in CLAUDE_TYPES else None,
+                   "cost_est": False}
             if s["type"] == "review":
                 n = _int(s["pairs"].get("premium_requests"), 1)
                 requests += n
@@ -178,9 +181,14 @@ def collect_ab(runs_dir, bd, usd_per_request=None):
                     clean_round = s["round"]
                 row["copilot"] = {"requests": n, "findings": _int(s["pairs"].get("findings")), "status": status,
                                   "effort": s["pairs"].get("effort", ""), "pr": s["pairs"].get("pr", "")}
+                row["cost"] = round(n * usd_per_review, 4) if usd_per_review else None
+                row["cost_est"] = row["cost"] is not None
             out_steps.append(row)
 
         claude = _cell(bd, calls)
+        copilot_usd = round(requests * usd_per_review, 4) if usd_per_review else None
+        # the run's total is Claude (known only with session logs) plus Copilot's estimate; one number whoever incurred it
+        total = round(claude["cost"] + (copilot_usd or 0.0), 4) if have_logs else None
         arm_model = next((s["model"] for s in steps if s["type"] in CLAUDE_TYPES and s["model"]), "")
         reviews = [s for s in steps if s["type"] == "review"]
         runs.append({
@@ -189,11 +197,11 @@ def collect_ab(runs_dir, bd, usd_per_request=None):
             "wall_s": int((steps[-1]["end"] - steps[0]["start"]).total_seconds()),
             "steps": out_steps, "unassigned": bd.rounded_cell(_cell(bd, loose)),
             "totals": {"claude": bd.rounded_cell(claude), "copilot_requests": requests,
-                       "copilot_usd": round(requests * usd_per_request, 4) if usd_per_request else None,
+                       "copilot_usd": copilot_usd, "cost": total, "cost_est": total is not None and bool(copilot_usd),
                        "reviews": len(reviews), "fixes": sum(1 for s in steps if s["type"] == "fix"),
                        "rounds": max((s["round"] for s in reviews), default=0), "clean_round": clean_round,
                        "findings": [findings[k] for k in sorted(findings)]},
         })
     if not runs:
         return None
-    return {"copilot_usd_per_request": usd_per_request, "runs": runs}
+    return {"copilot_usd_per_review": usd_per_review, "runs": runs}

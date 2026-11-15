@@ -28,6 +28,7 @@ claude plugin install cost-dashboard@losus-ai
 /cost-dashboard:dashboard --project re-lead  # filter by project dir / cwd substring
 /cost-dashboard:dashboard --days 0           # everything
 /cost-dashboard:dashboard --ab-root ~/experiments/runs   # point the A/B tab at another runs folder
+/cost-dashboard:dashboard --no-ab-sessions               # keep A/B runs out of the other tabs
 /cost-dashboard:dashboard serve              # a live page on http://127.0.0.1:8766/, rebuilt as your logs grow
 /cost-dashboard:dashboard serve --port 8770 --days 0
 ```
@@ -53,8 +54,9 @@ A "task" is one user prompt and everything Claude did in response, including sub
 ### A/B tab (only when there are A/B runs)
 
 When `--ab-root` (default `$AB_RUNS_DIR`, else `~/experiments/runs`) holds runs from auto-mode's `ab-docker` scripts, a fifth tab,
-**A/B**, shows them side by side: Claude cost per run (tokens in and out, dollars in and out), Copilot review requests, rounds to clean,
-findings per round, and wall time. Pick a run to see its steps in order: the arm session, each Copilot review round, each headless fix.
+**A/B**, shows them side by side: one **Cost** per run (Claude and Copilot together), Claude tokens in and out, Copilot reviews, rounds to
+clean, findings per round, and wall time. Pick a run to see its steps in order: the arm session, each Copilot review round, each headless fix.
+Every step has a single Cost, whoever incurred it: a Claude step's cost is priced from its session log, and a Copilot review's is an average.
 
 It reads two things per run, both written by `run-ab.zsh` (auto-mode 1.9.0 or later):
 
@@ -67,9 +69,21 @@ Each Claude call is assigned to the step whose time window it falls in (a few se
 shown on their own line and still count in the run's total. A run with no session logs (it ran before session capture) shows – for Claude
 cost, because that cost is unknown, not zero.
 
-**Copilot is a request count, not dollars.** No GitHub API gives a per-review price. Set `copilot_usd_per_request` in `pricing.json` to
-show an estimate (requests x rate); it is `null` by default. Check GitHub's billing page for what a premium request costs on your plan.
+**Copilot is a review count, plus an estimated average cost.** GitHub bills code review in AI credits ($0.01 each), not per request, and no
+API gives a per-review price. `pricing.json` ships `copilot_usd_per_review` at 0.29: the average from GitHub's AI usage page (234.92 credits,
+$2.35, over 8 reviews in Nov 2026), with its source and date beside it. A review step's Cost is that rate and is marked `~`; a run total that
+includes one is marked `~` too. A real review costs more or less with its size, and on a plan with included credits you may be charged nothing.
+Set it to `null` and reviews have no cost, so a run total is Claude only (a run with no session logs has no total, because leaving Claude
+out would mislead). Re-measure it from github.com/settings/billing/ai_usage. In `steps.csv` the review count is written under the
+historical name `premium_requests`.
 With no A/B runs the tab is hidden and the data is unchanged.
+
+**A/B sessions count in every tab.** The arms' containers log outside `--root`, so the other tabs would otherwise leave out what the A/B runs cost.
+Each `<run>.session` folder under `--ab-root` is also read as ordinary sessions, named after the run (not the container's `work` folder) and
+tagged **A/B** in the Sessions and Context tabs; search `a/b` to list them. Each session is counted once: the A/B tab's Claude total for a run
+equals the sum of that run's sessions. A run folder with session logs but no `steps.csv` (for example an earlier smoke test) counts in the other tabs
+and has no A/B tab entry. Pass `--no-ab-sessions` to leave them out of the other tabs; the A/B tab still shows them. If `--root` itself contains the
+runs folder, those logs are read once, tagged, and not a second time.
 
 **[guide/GUIDE.md](guide/GUIDE.md)** walks through each tab with example data and charts, and explains the concepts behind the numbers
 (in vs out tokens, context, prompt caching, compaction, effort). [guide/example-dashboard.html](guide/example-dashboard.html) is the example

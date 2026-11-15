@@ -181,6 +181,36 @@ class Totals(AbBase):
         self.assertEqual(r["arm_model"], "claude-opus-4-9")
         self.assertEqual((r["steps"][0]["exit"], r["steps"][2]["exit"], r["steps"][0]["mode"]), (0, 1, "interactive"))
 
+    def test_every_step_has_one_cost_whoever_incurred_it(self):
+        self.make_run(calls=self.standard_calls())
+        with mock.patch.object(b, "PRICING", dict(FIXED_PRICING, copilot_usd_per_review=0.04)):
+            r = self.run0()
+        costs = [(s["type"], s["cost"], s["cost_est"]) for s in r["steps"]]
+        self.assertEqual(costs, [("arm", OPUS_COST, False), ("review", 0.04, True), ("fix", OPUS_COST, False), ("review", 0.04, True)])
+
+    def test_the_run_total_is_claude_plus_copilot_and_flags_the_estimate(self):
+        self.make_run(calls=self.standard_calls())
+        with mock.patch.object(b, "PRICING", dict(FIXED_PRICING, copilot_usd_per_review=0.04)):
+            t = self.run0()["totals"]
+        self.assertAlmostEqual(t["cost"], 3 * OPUS_COST + 2 * 0.04, places=4)
+        self.assertTrue(t["cost_est"])
+        self.assertAlmostEqual(t["claude"]["cost"], 3 * OPUS_COST, msg="the Claude side stays available on its own")
+
+    def test_without_a_rate_reviews_have_no_cost_and_the_total_is_claude_only(self):
+        self.make_run(calls=self.standard_calls())
+        r = self.run0()
+        self.assertEqual([s["cost"] for s in r["steps"] if s["type"] == "review"], [None, None])
+        self.assertAlmostEqual(r["totals"]["cost"], 3 * OPUS_COST)
+        self.assertFalse(r["totals"]["cost_est"], "nothing in the total is an estimate when Copilot is not priced")
+
+    def test_without_session_logs_claude_steps_and_the_total_have_no_cost_but_reviews_still_do(self):
+        self.make_run()
+        with mock.patch.object(b, "PRICING", dict(FIXED_PRICING, copilot_usd_per_review=0.04)):
+            r = self.run0()
+        self.assertEqual([s["cost"] for s in r["steps"]], [None, 0.04, None, 0.04])
+        self.assertIsNone(r["totals"]["cost"], "a total that leaves out Claude would mislead; it is unknown")
+        self.assertAlmostEqual(r["totals"]["copilot_usd"], 0.08)
+
     def test_wall_time_runs_from_the_first_start_to_the_last_end(self):
         self.make_run()
         self.assertEqual(self.run0()["wall_s"], 16 * 60)
@@ -188,7 +218,7 @@ class Totals(AbBase):
     def test_copilot_dollars_appear_only_when_a_rate_is_set(self):
         self.make_run()
         self.assertIsNone(self.run0()["totals"]["copilot_usd"])
-        rated = dict(FIXED_PRICING, copilot_usd_per_request=0.04)
+        rated = dict(FIXED_PRICING, copilot_usd_per_review=0.04)
         with mock.patch.object(b, "PRICING", rated):
             self.assertAlmostEqual(self.run0()["totals"]["copilot_usd"], 0.08)
 
@@ -236,7 +266,13 @@ class Robustness(AbBase):
         self.make_run(calls=self.standard_calls())
         text = b.summary(b.collect(self.main, days=0, ab_root=self.runs), "out.html")
         self.assertIn("A/B runs:", text)
-        self.assertIn("r1: Claude $2.25, 2 Copilot request(s), clean at round 2", text)
+        self.assertIn("r1: Claude $2.25 (Copilot not priced), 2 Copilot review(s), clean at round 2", text)
+
+    def test_summary_gives_one_total_when_copilot_is_priced(self):
+        self.make_run(calls=self.standard_calls())
+        with mock.patch.object(b, "PRICING", dict(FIXED_PRICING, copilot_usd_per_review=0.04)):
+            text = b.summary(b.collect(self.main, days=0, ab_root=self.runs), "out.html")
+        self.assertIn("r1: $2.33 (Claude $2.25 + Copilot ~$0.08), 2 Copilot review(s), clean at round 2", text)
 
     def test_summary_says_when_a_run_has_no_session_logs(self):
         self.make_run()
@@ -266,7 +302,7 @@ class Page(AbBase):
         self.make_run(calls=self.standard_calls())
         out = self.draw()
         t = self.text(out, "ab-steps")
-        for want in ("Arm session", "Review 1", "Fix 1", "Review 2", "Copilot · balanced", "2 findings · findings", "0 findings · clean", "Outside any step", "Total"):
+        for want in ("Arm session", "Review 1", "Fix 1", "Review 2", "Copilot · balanced", "2 findings", "clean", "Outside any step", "Total"):
             self.assertIn(want, t)
         self.assertEqual(out["ab-steps"].count('<tr class="tot"'), 1)
 
@@ -282,13 +318,52 @@ class Page(AbBase):
         self.assertIn("unknown, not zero", out["ab-note"])
         self.assertNotIn("$0.00", self.text(out, "ab-runs"))
 
-    def test_the_note_says_copilot_is_a_request_count_unless_a_rate_is_set(self):
+    def test_without_a_rate_a_run_total_is_claude_only_and_the_note_says_so(self):
         self.make_run(calls=self.standard_calls())
-        self.assertIn("request count", self.draw()["ab-note"])
-        with mock.patch.object(b, "PRICING", dict(FIXED_PRICING, copilot_usd_per_request=0.04)):
+        out = self.draw()
+        self.assertIn("Claude only", out["ab-note"])
+        self.assertNotIn("~$", self.text(out, "ab-runs") + self.text(out, "ab-steps"))
+        self.assertIn("$2.25", self.text(out, "ab-runs"))
+
+    def test_with_a_rate_the_note_and_the_estimates_appear(self):
+        self.make_run(calls=self.standard_calls())
+        with mock.patch.object(b, "PRICING", dict(FIXED_PRICING, copilot_usd_per_review=0.04)):
             out = self.draw()
-        self.assertIn("requests x $0.04", out["ab-note"])
-        self.assertIn("($0.08)", self.text(out, "ab-runs"))
+        self.assertIn("reviews x $0.04", out["ab-note"])
+        self.assertIn("AI credits", out["ab-note"], "the note says how GitHub actually bills it")
+        self.assertIn("~$2.33", self.text(out, "ab-runs"), "Claude $2.25 + two reviews at $0.04")
+        self.assertIn("~$2.33", self.text(out, "ab-steps"), "the total row carries the same figure")
+
+    def test_there_is_one_cost_column_for_claude_and_copilot_steps(self):
+        self.make_run(calls=self.standard_calls())
+        with mock.patch.object(b, "PRICING", dict(FIXED_PRICING, copilot_usd_per_review=0.04)):
+            out = self.draw()
+        for table in ("ab-runs", "ab-steps"):
+            head = re.findall(r"<th[^>]*>(.*?)</th>", out[table])
+            self.assertIn("Cost", head)
+            self.assertNotIn("Claude $", head, "no per-vendor cost column")
+            self.assertFalse([h for h in head if "Copilot $" in h])
+        rows = [re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", r)).strip() for r in re.findall(r"<tr><td>\d.*?</tr>", out["ab-steps"])]
+        self.assertEqual(len(rows), 4)
+        self.assertIn("$0.75", rows[0], "a Claude step's cost")
+        self.assertNotIn("~", rows[0], "a Claude step is priced from its log, not estimated")
+        self.assertIn("~$0.04", rows[1], "a Copilot review's cost sits in the same column, marked as an estimate")
+        self.assertIn("$0.75", rows[2])
+        self.assertIn("~$0.04", rows[3])
+
+    def test_the_page_says_reviews_not_requests(self):
+        self.make_run(calls=self.standard_calls())
+        out = self.draw()
+        self.assertIn("Copilot reviews", out["ab-runs"])
+        self.assertIn("2 findings", self.text(out, "ab-steps"))
+        self.assertNotIn("request", self.text(out, "ab-runs") + self.text(out, "ab-steps") + out["ab-note"])
+
+    def test_the_shipped_rate_is_a_positive_number_with_its_source_and_date(self):
+        shipped = json.loads((PLUGIN / "pricing.json").read_text())
+        self.assertGreater(shipped["copilot_usd_per_review"], 0)
+        self.assertLess(shipped["copilot_usd_per_review"], 5, "a per-review rate, not a monthly total")
+        self.assertIn("AI credits", shipped["copilot_rate_note"])
+        self.assertRegex(shipped["copilot_rate_checked"], r"^\d{4}-\d{2}-\d{2}$")
 
     def test_no_ab_data_draws_nothing_and_changes_nothing_else(self):
         out = run_page(self, b.render(b.collect(self.main, days=0)))
@@ -298,6 +373,112 @@ class Page(AbBase):
     def test_run_names_are_escaped(self):
         self.make_run('x"><b>y')
         self.assertNotIn("<b>y", self.draw()["ab-runs"])
+
+
+def ab_user(minutes, text, sid):
+    return dict(user(minutes, text), sessionId=sid)
+
+
+class AbSessions(AbBase):
+    """The A/B runs' sessions also count in the other tabs: tagged, named after the run, once."""
+
+    def two_session_run(self, name="r1"):
+        """An arm session and a fix session: one log file each, as Claude Code writes them (the file name is the session id)."""
+        self.make_run(name)
+        sess = Path(self.runs) / (name + ".session")
+        write_log(sess, "-work/arm1.jsonl", [ab_user(0, "Implement plan 0001", "arm1"), assistant(5, "claude-opus-4-9", OPUS_USAGE, "a1", "ra1", sid="arm1")])
+        write_log(sess, "-work/fix1.jsonl", [ab_user(12, "Read REVIEW-1.md", "fix1"), assistant(13, "claude-opus-4-9", OPUS_USAGE, "f1", "rf1", sid="fix1")])
+
+    def sessions(self, **kw):
+        return {s["id"]: s for s in b.collect(self.main, days=0, ab_root=self.runs, **kw)["sessions"]}
+
+    def test_the_runs_sessions_are_listed_named_after_the_run_and_tagged(self):
+        self.two_session_run()
+        ses = self.sessions()
+        self.assertEqual(set(ses), {"s1", "arm1", "fix1"})
+        for sid in ("arm1", "fix1"):
+            self.assertEqual((ses[sid]["project"], ses[sid]["ab"]), ("r1", "r1"), "the container always logs as /work; the run name is the label")
+            self.assertAlmostEqual(ses[sid]["cost"], OPUS_COST)
+        self.assertEqual(ses["arm1"]["title"], "Implement plan 0001")
+
+    def test_other_sessions_carry_no_ab_key(self):
+        self.two_session_run()
+        self.assertNotIn("ab", self.sessions()["s1"])
+
+    def test_the_other_tabs_include_the_cost_and_the_model(self):
+        self.two_session_run()
+        with_ab = b.collect(self.main, days=0, ab_root=self.runs)
+        without = b.collect(self.main, days=0)
+        total = lambda d: sum(s["cost"] for s in d["sessions"])
+        self.assertAlmostEqual(total(with_ab) - total(without), 2 * OPUS_COST, places=4)
+        calls = lambda d: sum(c["calls"] for s in d["sessions"] for e in s["matrix"].values() for c in e.values())
+        self.assertEqual(calls(with_ab) - calls(without), 2, "the model x effort grid counts them too")
+
+    def test_the_ab_tab_and_the_session_list_agree_so_nothing_is_counted_twice(self):
+        self.two_session_run()
+        data = b.collect(self.main, days=0, ab_root=self.runs)
+        in_sessions = sum(s["cost"] for s in data["sessions"] if s.get("ab") == "r1")
+        self.assertAlmostEqual(in_sessions, data["ab"]["runs"][0]["totals"]["claude"]["cost"], places=4)
+        self.assertEqual(len([s for s in data["sessions"] if s.get("ab")]), 2, "each A/B session appears once")
+
+    def test_a_root_that_contains_the_runs_folder_does_not_count_them_twice(self):
+        self.two_session_run()
+        inside = Path(self._tmp.name)                # the main root and the runs folder's parent
+        shutil_root = str(inside)
+        data = b.collect(shutil_root, days=0, ab_root=self.runs)
+        self.assertEqual(sorted(s["id"] for s in data["sessions"]), ["arm1", "fix1", "s1"], "each session once, not once per scan")
+        self.assertTrue(all(s.get("ab") == "r1" for s in data["sessions"] if s["id"] != "s1"))
+        self.assertAlmostEqual(sum(s["cost"] for s in data["sessions"] if s.get("ab")), 2 * OPUS_COST, places=4)
+        off = b.collect(shutil_root, days=0, ab_root=self.runs, ab_sessions=False)
+        self.assertEqual([s["id"] for s in off["sessions"]], ["s1"], "with the flag off they are left out even when the root holds them")
+
+    def test_the_flag_leaves_them_out_of_the_other_tabs_but_not_the_ab_tab(self):
+        self.two_session_run()
+        data = b.collect(self.main, days=0, ab_root=self.runs, ab_sessions=False)
+        self.assertEqual([s["id"] for s in data["sessions"]], ["s1"])
+        self.assertAlmostEqual(data["ab"]["runs"][0]["totals"]["claude"]["cost"], 2 * OPUS_COST, places=4)
+
+    def test_without_an_ab_root_nothing_changes(self):
+        self.two_session_run()
+        plain = b.collect(self.main, days=0)
+        self.assertEqual([s["id"] for s in plain["sessions"]], ["s1"])
+        self.assertNotIn("ab", plain)
+
+    def test_a_subagent_log_in_a_run_session_counts_in_that_session(self):
+        self.two_session_run()
+        write_log(Path(self.runs) / "r1.session", "-work/arm1/subagents/agent-1.jsonl",
+                  [assistant(6, "claude-opus-4-9", OPUS_USAGE, "sub", "rs", side=True, sid="arm1")])
+        self.assertAlmostEqual(self.sessions()["arm1"]["cost"], 2 * OPUS_COST)
+
+    def test_two_runs_stay_separate(self):
+        self.two_session_run("a-run")
+        write_log(Path(self.runs) / "b-run.session", "-work/other.jsonl",
+                  [ab_user(0, "go", "other"), assistant(1, "claude-opus-4-9", OPUS_USAGE, "o1", "ro1", sid="other")])
+        (Path(self.runs) / "b-run.reviews").mkdir()
+        ses = self.sessions()
+        self.assertEqual((ses["arm1"]["ab"], ses["other"]["ab"]), ("a-run", "b-run"))
+
+    def test_the_project_filter_finds_a_run_by_name(self):
+        self.two_session_run("wordfreq-docs-x")
+        ids = {s["id"] for s in b.collect(self.main, days=0, project="wordfreq", ab_root=self.runs)["sessions"]}
+        self.assertEqual(ids, {"arm1", "fix1"})
+
+    def test_a_runs_folder_with_session_logs_but_no_steps_still_counts_its_sessions(self):
+        write_log(Path(self.runs) / "old.session", "-work/x.jsonl",
+                  [ab_user(0, "go", "old1"), assistant(1, "claude-opus-4-9", OPUS_USAGE, "x1", "rx1", sid="old1")])
+        self.assertEqual(self.sessions()["old1"]["ab"], "old")
+        self.assertNotIn("ab", b.collect(self.main, days=0, ab_root=self.runs), "no steps.csv, so no A/B tab, but the cost is still counted")
+
+    def test_the_session_table_tags_ab_rows_and_search_finds_them(self):
+        self.two_session_run()
+        html = b.render(b.collect(self.main, days=0, ab_root=self.runs))
+        out = run_page(self, html)
+        self.assertEqual(out["sess"].count('class="cd-tag">A/B<'), 2, "one tag per A/B session, none on the ordinary one")
+        found = run_page(self, html, [{"search": "a/b"}])
+        self.assertEqual(found["sess"].count('class="cd-tag">A/B<'), 2)
+        self.assertNotIn("proj", re.sub(r"<[^>]+>", " ", found["sess"]), "the ordinary session is filtered out")
+        self.assertIn("[A/B] r1", out["ctx-sel"], "the context picker marks them too")
+        self.assertIn('class="cd-tag">A/B<', out["ctx-tbl"])
 
 
 if __name__ == "__main__":
