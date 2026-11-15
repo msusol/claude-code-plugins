@@ -123,11 +123,19 @@ SLACK_AFTER_TD = timedelta(seconds=SLACK_AFTER)
 
 
 def _step_index(steps, when):
-    hit = None
-    for i, s in enumerate(steps):
-        if s["start"] - SLACK_BEFORE_TD <= when <= s["end"] + SLACK_AFTER_TD:
-            hit = i
-    return hit
+    """Index of the Claude step (arm, resume or fix) that a call belongs to, else None.
+
+    A review step is Copilot's, so it never owns a Claude call. A step whose recorded window holds the call wins; only when none does
+    is the slack used, so a call stamped just after a fix ends is not pulled into whatever step starts next.
+    """
+    claude = [i for i, s in enumerate(steps) if s["type"] in CLAUDE_TYPES]
+    for i in reversed(claude):
+        if steps[i]["start"] <= when <= steps[i]["end"]:
+            return i
+    for i in reversed(claude):
+        if steps[i]["start"] - SLACK_BEFORE_TD <= when <= steps[i]["end"] + SLACK_AFTER_TD:
+            return i
+    return None
 
 
 def _int(v, default=0):

@@ -96,6 +96,27 @@ class Assignment(AbBase):
         self.assertEqual(r["steps"][0]["claude"]["calls"], 1)
         self.assertEqual(r["unassigned"]["calls"], 1)
 
+    def test_a_call_never_belongs_to_a_review_step(self):
+        # 11.5 min is inside the 10-11 min review's slack window but that is Copilot's step: it is outside every Claude step
+        self.make_run(calls=[assistant(10.5, "claude-opus-4-9", OPUS_USAGE, "r", "r1")])
+        r = self.run0()
+        self.assertEqual([s["claude"]["calls"] for s in r["steps"]], [0, 0, 0, 0])
+        self.assertEqual(r["unassigned"]["calls"], 1)
+
+    def test_a_call_just_after_a_fix_stays_with_the_fix_not_the_next_review(self):
+        # the fix ends at minute 15 and the next review starts at minute 15: a call 2 s after the fix's end is still the fix's
+        self.make_run(calls=[assistant(15 + 2 / 60, "claude-opus-4-9", OPUS_USAGE, "late", "r1")])
+        r = self.run0()
+        self.assertEqual((r["steps"][2]["type"], r["steps"][2]["claude"]["calls"]), ("fix", 1))
+        self.assertEqual(r["steps"][3]["claude"]["calls"], 0)
+
+    def test_a_step_that_holds_the_call_wins_over_the_slack_of_a_neighbour(self):
+        rows = [(ts(0), ts(10), "arm", 0, "claude-opus-4-9", "a", "interactive;exit=0"),
+                (ts(10), ts(20), "resume", 1, "claude-opus-4-9", "b", "interactive;exit=0")]
+        self.make_run(rows=rows, calls=[assistant(10, "claude-opus-4-9", OPUS_USAGE, "edge", "r1")])
+        r = self.run0()
+        self.assertEqual([s["claude"]["calls"] for s in r["steps"]], [0, 1], "a call stamped at the later step's start is that step's")
+
     def test_cost_uses_the_dashboards_own_rates_and_dedupes_streamed_calls(self):
         dup = assistant(5, "claude-opus-4-9", OPUS_USAGE, "same", "r1")
         self.make_run(rows=[standard_rows()[0]], calls=[dup, dict(dup)])
