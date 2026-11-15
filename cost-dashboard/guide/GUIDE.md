@@ -72,7 +72,7 @@ Two ways to run the command (once the plugin is installed):
 /cost-dashboard:dashboard                  # writes ~/.claude/cost-dashboard.html (last 30 days)
 /cost-dashboard:dashboard --days 7
 /cost-dashboard:dashboard --project acme   # only sessions whose project or working directory contains "acme"
-/cost-dashboard:dashboard serve            # a live page on http://127.0.0.1:8766/ that rebuilds as your logs grow
+/cost-dashboard:dashboard serve            # a live page on http://127.0.0.1:8780/ that rebuilds as your logs grow
 /cost-dashboard:dashboard serve --port 8770 --days 0
 ```
 

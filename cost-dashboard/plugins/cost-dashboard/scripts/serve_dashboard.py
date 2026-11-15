@@ -2,7 +2,7 @@
 """Serve the cost dashboard locally, rebuilding whenever a session log changed.
 
     serve_dashboard.py [--root ~/.claude/projects] [--days 30] [--project SUBSTR] [--ab-root DIR]
-                       [--host 127.0.0.1] [--port 8766]
+                       [--host 127.0.0.1] [--port 8780]
 
     Open http://HOST:PORT/ for the page and http://HOST:PORT/data.json for the data
     behind it. The page is built in memory; nothing is written to disk.
@@ -90,7 +90,7 @@ def host_allowed(header, bound_host):
     if not header:
         return False
     host = header.strip()
-    if host.startswith("["):                       # [::1]:8766
+    if host.startswith("["):                       # [::1]:8780
         name = host[1:].split("]", 1)[0]
     else:
         name = host.rsplit(":", 1)[0] if host.count(":") == 1 else host
@@ -137,7 +137,7 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
 
-def make_server(root, days=30, project="", host="127.0.0.1", port=8766, ab_root=None, ab_sessions=True):
+def make_server(root, days=30, project="", host="127.0.0.1", port=8780, ab_root=None, ab_sessions=True):
     """Create (not start) the server. port=0 picks a free port; read it from server.server_address."""
     server = ThreadingHTTPServer((host, port), Handler)
     server.daemon_threads = True
@@ -154,7 +154,7 @@ def main():
     ap.add_argument("--ab-root", default=build_dashboard.default_ab_root(), help="folder of A/B runs; default $AB_RUNS_DIR or ~/experiments/runs")
     ap.add_argument("--no-ab-sessions", action="store_true", help="do not count the A/B runs' sessions in the other tabs")
     ap.add_argument("--host", default="127.0.0.1")
-    ap.add_argument("--port", type=int, default=8766)
+    ap.add_argument("--port", type=int, default=8780)
     args = ap.parse_args()
 
     if not build_dashboard.log_files(args.root):

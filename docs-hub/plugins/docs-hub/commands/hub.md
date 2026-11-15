@@ -38,7 +38,7 @@ Steps:
    ```
 
    Add `--port N` if the user gave one. Read its first output lines and report the printed URL, which includes the project slug
-   (`http://127.0.0.1:8765/<project>/.hub/index.html` by default; nothing is written into the project).
+   (`http://127.0.0.1:8781/<project>/.hub/index.html` by default; nothing is written into the project).
    It binds to localhost; for another machine use an SSH tunnel or `--host`.
    For `all`, run `serve_hub.py --root <projects-dir> --port <port>` instead: each project is at
    `/<project>/.hub/index.html` and `/` lists them (built in memory, nothing written).

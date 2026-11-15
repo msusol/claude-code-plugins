@@ -29,7 +29,7 @@ claude plugin install cost-dashboard@losus-ai
 /cost-dashboard:dashboard --days 0           # everything
 /cost-dashboard:dashboard --ab-root ~/experiments/runs   # point the A/B tab at another runs folder
 /cost-dashboard:dashboard --no-ab-sessions               # keep A/B runs out of the other tabs
-/cost-dashboard:dashboard serve              # a live page on http://127.0.0.1:8766/, rebuilt as your logs grow
+/cost-dashboard:dashboard serve              # a live page on http://127.0.0.1:8780/, rebuilt as your logs grow
 /cost-dashboard:dashboard serve --port 8770 --days 0
 ```
 
@@ -37,6 +37,10 @@ Without `serve` the output is `~/.claude/cost-dashboard.html` (self-contained, n
 With `serve` a small local server keeps the page current: reload the browser to see new costs. It builds in memory and writes
 nothing, serves only the page and `/data.json`, binds to `127.0.0.1`, and refuses requests that name any other host; from another
 machine use an SSH tunnel to the port.
+
+The default port is **8780**. It was 8766 up to 0.2.0: a port other local dashboards on the same host also use, so `serve` could
+fail with "address in use". Pass `--port N` to use another, and update any bookmark or SSH tunnel that pointed at 8766. If the port is taken, the
+server says so and exits rather than picking another.
 
 ## What it shows
 

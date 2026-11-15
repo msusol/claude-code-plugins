@@ -244,7 +244,7 @@ class Refusing(ServerCase):
             self.assertIn(resp.status, (405, 501), method)
 
     def test_foreign_host_header_is_forbidden(self):
-        for host in ("evil.example.com", "evil.example.com:8766", "127.0.0.1.evil.com", "10.0.0.5"):
+        for host in ("evil.example.com", "evil.example.com:8780", "127.0.0.1.evil.com", "10.0.0.5"):
             resp, _ = self.get("/data.json", host=host)
             self.assertEqual(resp.status, 403, host)
         self.assertEqual(self.server.state.builds, 0, "a refused request must not trigger a build")
@@ -265,26 +265,26 @@ class Binding(unittest.TestCase):
             finally:
                 server.server_close()
 
-    def test_cli_defaults_are_loopback_port_8766_and_30_days(self):
+    def test_cli_defaults_are_loopback_port_8780_and_30_days(self):
         fake = mock.Mock()
-        fake.server_address = ("127.0.0.1", 8766)
+        fake.server_address = ("127.0.0.1", 8780)
         fake.serve_forever.side_effect = KeyboardInterrupt
         with tempfile.TemporaryDirectory() as tmp:
             write_log(tmp, "-p/s1.jsonl", [user(0, "go"), assistant(1, "claude-opus-4-9", OPUS_USAGE)])
             with mock.patch.object(sd, "make_server", return_value=fake) as made, \
                     mock.patch.object(sys, "argv", ["serve_dashboard.py", "--root", tmp]):
                 sd.main()
-        self.assertEqual(made.call_args.args, (tmp, 30, "", "127.0.0.1", 8766, sd.build_dashboard.default_ab_root()))
+        self.assertEqual(made.call_args.args, (tmp, 30, "", "127.0.0.1", 8780, sd.build_dashboard.default_ab_root()))
         self.assertEqual(made.call_args.kwargs, {"ab_sessions": True}, "A/B sessions count by default")
         fake.server_close.assert_called_once()
 
     def test_host_header_rules(self):
-        self.assertTrue(sd.host_allowed("localhost:8766", "127.0.0.1"))
-        self.assertTrue(sd.host_allowed("[::1]:8766", "127.0.0.1"))
+        self.assertTrue(sd.host_allowed("localhost:8780", "127.0.0.1"))
+        self.assertTrue(sd.host_allowed("[::1]:8780", "127.0.0.1"))
         self.assertFalse(sd.host_allowed("", "127.0.0.1"))
         self.assertFalse(sd.host_allowed(None, "127.0.0.1"))
         self.assertFalse(sd.host_allowed("evil.com", "127.0.0.1"))
-        self.assertTrue(sd.host_allowed("100.64.0.5:8766", "100.64.0.5"), "an explicit --host is allowed as given")
+        self.assertTrue(sd.host_allowed("100.64.0.5:8780", "100.64.0.5"), "an explicit --host is allowed as given")
         self.assertFalse(sd.host_allowed("localhost", "100.64.0.5"), "a non-loopback bind does not also open loopback names")
 
 

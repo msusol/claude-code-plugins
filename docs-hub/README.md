@@ -45,7 +45,7 @@ python3 plugins/docs-hub/scripts/serve_hub.py docs            # serve it, rebuil
 ```
 
 In Claude Code: `/docs-hub:hub`, `/docs-hub:hub serve`, `/docs-hub:hub serve <project>`, or
-`/docs-hub:hub serve all <projects-dir> --port 8766`. How the numbers are counted, the sync check and
+`/docs-hub:hub serve all <projects-dir> --port 8781`. How the numbers are counted, the sync check and
 the options are in [the plugin's README](plugins/docs-hub/README.md).
 
 ## Installation
