@@ -17,6 +17,7 @@ The Stop hook in this plugin does the work; this skill only flips its switches. 
 |---|---|
 | `enabled` | exists -> auto-mode is on everywhere |
 | `max` | integer cap on automatic continuations per user turn (default 8) |
+| `ask` | `recommended`, `first` or `off`: how the AskUserQuestion hook answers when nobody is there (default: `recommended` on `exp/*` branches, `off` otherwise; env `AUTO_MODE_ASK` wins) |
 
 Auto-mode is also on, with no flag file, whenever the session's directory is on an `exp/*` branch.
 

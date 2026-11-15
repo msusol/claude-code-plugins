@@ -26,6 +26,20 @@ Stops when **any** of:
 
 It fails open: without `jq`, or on bad input, Claude just stops normally.
 
+## Answering questions when nobody is there (`AskUserQuestion`)
+
+The Stop hook only nudges Claude to continue. A model can still open the interactive question form (`AskUserQuestion`) and wait for a person, which stalls an unattended run.
+In the leave-engine A/B runs Sonnet 5.5 never asked, while Fable 5.2 asked three owner-decision questions and stopped. A second hook,
+`plugins/auto-mode/hooks/auto-answer.zsh` (a `PreToolUse` hook on `AskUserQuestion`), answers for it: for each question it picks the option labelled `(Recommended)`
+(all of them for a multi-select, the first option if none is marked) and logs the answer to `~/.config/auto-mode/ask-log.jsonl`.
+
+- **When:** auto-mode is on **and** the ask policy is not `off`. Policy comes from `AUTO_MODE_ASK` or the file `~/.config/auto-mode/ask`: `recommended`, `first` or `off`.
+  Default: `recommended` on an `exp/*` branch; `off` when only the flag file turned auto-mode on, so on a real project you must opt in.
+- **How it answers** (`AUTO_MODE_ASK_MODE`): `answers` (default) pre-fills the tool's `answers`, so the form never opens; `deny` refuses the call and puts the answers in the message.
+- **These are not human decisions.** The message tells Claude to say so in its commit. Auto-picking "Accept" on an ADR or "Adopt all" on open questions makes the agent its own approver, so
+  keep this to experiments, and count the auto-answers per arm in the report (the log, or the hook result in the session transcript).
+- It grants no permissions, and fails open: no `jq` or unexpected input means the normal form appears.
+
 ## What it does not do
 
 It grants no permissions. Approval prompts, `permissions.deny/ask`, git-guard and db-guard apply
