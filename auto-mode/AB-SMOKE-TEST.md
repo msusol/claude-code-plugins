@@ -48,6 +48,18 @@ Done = pytest passes, CLI works on a sample file.
 > Read PLAN.md and do it. Commit after each numbered step. When all four are done and pytest passes, end with
 > `AUTO-MODE: DONE` and a 2-line summary.
 
+### With the docs/ harness (`AB_DOCS=1`)
+
+Use `plans/wordfreq-docs` and the docs image (see [Adding the docs/ harness](ab-docker/README.md#adding-the-docs-harness)).
+The plan content is the same; only the layout differs, so both arms of a docs comparison must use that image and plan.
+
+> Implement plan 0001. Commit after each task, and keep docs/plans/TODO.md in sync as you go. When all four tasks are
+> done and pytest passes, end with `AUTO-MODE: DONE` and a 2-line summary.
+
+Extra pass criteria: the plan's four boxes are checked and its `status` is still `active` or set per the rules (it must
+not be archived without confirmation), `TODO.md` matches the plan, and `docs/index.md` still links the plan. Treat
+extra files the arm creates (specs, ADRs) as a finding to note, not a failure.
+
 Four steps with a commit each give the Stop hook reason to continue, and `pytest` gives an objective pass/fail.
 
 ## Pass criteria (per session)
@@ -68,12 +80,16 @@ It does not need the fake-remote setup above, because the container creates its 
 This path has not been run end to end yet; the `check` step in 3 is what tells you whether it works on your machine.
 
 1. **Create the experiments folder and commit the plan.** `init` makes `~/experiments` from the template and an
-   example plan repo, `plans/wordfreq`, with the plan below already in it (staged, not committed):
+   two example plan repos with the plan below already in them (staged, not committed): `plans/wordfreq` (a root
+   `PLAN.md`, for the plain image) and `plans/wordfreq-docs` (the same plan as `docs/plans/0001-wordfreq.md` plus
+   `TODO.md` and `index.md`, for the `AB_DOCS=1` image):
 
    ```zsh
    auto-mode/ab-docker/run-ab.zsh init
-   git -C ~/experiments/plans/wordfreq remote add origin https://github.com/<you>/wordfreq-plan   # never pushed; satisfies git-guard
-   git -C ~/experiments/plans/wordfreq commit -m "plan: wordfreq"
+   for p in wordfreq wordfreq-docs; do
+     git -C ~/experiments/plans/$p remote add origin https://github.com/<you>/$p-plan   # never pushed; satisfies git-guard
+     git -C ~/experiments/plans/$p commit -m "plan: $p"
+   done
    ```
 
    Only committed files are exported to the arms. Each plan is its own repo so an arm never sees another plan.

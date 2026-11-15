@@ -15,11 +15,14 @@ G() { git -c user.name=t -c user.email=t@t "$@" }
 print "=== init"
 out=$(zsh "$RUN" init "$E" 2>&1)
 for f in README.md .gitignore plans/.keep plans/.gitignore runs/.keep runs/.gitignore results/index.md \
-         results/TEMPLATE-comparison.md results/data/.keep docs/investigate/.keep plans/wordfreq/PLAN.md plans/wordfreq/.gitignore; do
+         results/TEMPLATE-comparison.md results/data/.keep docs/investigate/.keep plans/wordfreq/PLAN.md plans/wordfreq/.gitignore \
+         plans/wordfreq-docs/docs/plans/0001-wordfreq.md plans/wordfreq-docs/docs/plans/TODO.md plans/wordfreq-docs/docs/index.md plans/wordfreq-docs/.gitignore; do
   check "created $f" "[[ -f $E/$f ]]"
 done
 check "examples/ is not copied" "[[ ! -e $E/examples ]]"
 check "plan folder is a git repo with staged files, no commit" "[[ -d $E/plans/wordfreq/.git ]] && [[ -n \"\$(git -C $E/plans/wordfreq diff --cached --name-only)\" ]] && ! git -C $E/plans/wordfreq rev-parse HEAD >/dev/null 2>&1"
+check "docs plan repo is a git repo with staged files, no commit" "[[ -d $E/plans/wordfreq-docs/.git ]] && git -C $E/plans/wordfreq-docs diff --cached --name-only | grep -q 'docs/plans/0001-wordfreq.md' && ! git -C $E/plans/wordfreq-docs rev-parse HEAD >/dev/null 2>&1"
+check "docs plan has front matter, no number in the H1, and unchecked tasks" "head -1 $E/plans/wordfreq-docs/docs/plans/0001-wordfreq.md | grep -q '^---\$' && grep -q '^status: active' $E/plans/wordfreq-docs/docs/plans/0001-wordfreq.md && grep -q '^# Wordfreq CLI Implementation Plan\$' $E/plans/wordfreq-docs/docs/plans/0001-wordfreq.md && [[ \$(grep -c '^- \[ \]' $E/plans/wordfreq-docs/docs/plans/0001-wordfreq.md) == 4 ]]"
 check "prints the next steps" "[[ \"$out\" == *'remote add origin'* && \"$out\" == *'commit -m'* ]]"
 echo "my edit" >> "$E/README.md"; echo "my plan edit" >> "$E/plans/wordfreq/PLAN.md"
 zsh "$RUN" init "$E" >/dev/null 2>&1

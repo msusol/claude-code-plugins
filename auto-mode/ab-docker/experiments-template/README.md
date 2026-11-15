@@ -6,7 +6,8 @@ This folder does not need to be a git repo. If you make it one, the `.gitignore`
 ```
 experiments/
 ├── plans/                one git repo per plan (an arm only ever sees its own plan)   [contents ignored, .keep tracked]
-│   └── wordfreq/         PLAN.md, .gitignore   (init creates it from examples/wordfreq)
+│   ├── wordfreq/         PLAN.md at the root (plain baseline)    (init creates it from examples/wordfreq)
+│   └── wordfreq-docs/    docs/plans/0001-wordfreq.md, TODO.md, index.md   (same plan in the docs/ layout, for AB_DOCS=1)
 ├── runs/                 AB_RUNS_DIR: <plan>-<model>-r<N>/ run folders and .reviews/ logs   [contents ignored, .keep tracked]
 ├── results/              what you keep
 │   ├── index.md
@@ -36,10 +37,12 @@ Run names are lowercase letters, digits and hyphens. Put the exact model IDs ins
 
 ## First plan
 
-`init` creates `plans/wordfreq` with `git init` and stages the files, but does not commit: git-guard blocks commits in a repo
+`init` creates `plans/wordfreq` and `plans/wordfreq-docs` with `git init` and stages the files, but does not commit: git-guard blocks commits in a repo
 without an allowlisted `origin`. Give it one that is never pushed, then commit:
 
 ```zsh
-git -C plans/wordfreq remote add origin https://github.com/<you>/wordfreq-plan   # matches your allowlist; never pushed
-git -C plans/wordfreq commit -m "plan: wordfreq"
+for p in wordfreq wordfreq-docs; do
+  git -C plans/$p remote add origin https://github.com/<you>/$p-plan   # matches your allowlist; never pushed
+  git -C plans/$p commit -m "plan: $p"
+done
 ```

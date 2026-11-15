@@ -41,16 +41,19 @@ cmd_init() {
     mkdir -p "$dest/${f:h}"
     cp "$tpl/$f" "$dest/$f"
   done
-  if [[ ! -e "$dest/plans/wordfreq" ]]; then
-    cp -R "$tpl/examples/wordfreq" "$dest/plans/wordfreq"
-    git -C "$dest/plans/wordfreq" init -q -b main
-    git -C "$dest/plans/wordfreq" add -A
-    print "created plans/wordfreq (git init, files staged, not committed)"
-  fi
+  local ex name
+  for ex in "$tpl"/examples/*(/N); do
+    name="${ex:t}"
+    [[ -e "$dest/plans/$name" ]] && continue
+    cp -R "$ex" "$dest/plans/$name"
+    git -C "$dest/plans/$name" init -q -b main
+    git -C "$dest/plans/$name" add -A
+    print "created plans/$name (git init, files staged, not committed)"
+  done
   print "experiments folder ready: $dest"
-  print "next:"
-  print "  git -C $dest/plans/wordfreq remote add origin https://github.com/<you>/wordfreq-plan   # never pushed; satisfies git-guard"
-  print "  git -C $dest/plans/wordfreq commit -m 'plan: wordfreq'"
+  print "next, for each plan in $dest/plans (wordfreq, wordfreq-docs):"
+  print "  git -C $dest/plans/<plan> remote add origin https://github.com/<you>/<plan>-plan   # never pushed; satisfies git-guard"
+  print "  git -C $dest/plans/<plan> commit -m 'plan: <plan>'"
   print "  export AB_RUNS_DIR=$dest/runs   # only needed if $dest is not ~/experiments"
   print "see $dest/README.md for the layout and naming"
 }
