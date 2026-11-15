@@ -165,7 +165,7 @@ grep msusol ~/.config/git-guard/allowlist       # must match (it does today)
 export AB_REVIEW_REPO=msusol/ab-scratch
 ```
 
-`gh` here is `/usr/bin/gh` (the Spark). Each review uses one Copilot premium request.
+`gh` here is `/usr/bin/gh` (the Spark). GitHub bills each Copilot review in AI credits ($0.01 each) from your plan's included credits (1,500 a month on Copilot Pro); one review averaged about 29 credits, or $0.29, over 8 reviews in our runs.
 
 ### 6c. Rounds, per arm
 
@@ -234,6 +234,14 @@ so the manual `set-url` workaround is only needed for runs started before that f
 
 ```zsh
 mkdir -p ~/experiments/results/data/2026-11-14-wordfreq-docs-sonnet-vs-fable
+cp ~/experiments/runs/wordfreq-docs-sonnet-r1.reviews/steps.csv \
+  ~/experiments/results/data/2026-11-14-wordfreq-docs-sonnet-vs-fable/steps-sonnet-r1.csv
+cp ~/experiments/runs/wordfreq-docs-fable-r1.reviews/steps.csv \
+  ~/experiments/results/data/2026-11-14-wordfreq-docs-sonnet-vs-fable/steps-fable-r1.csv
+cp -R ~/experiments/runs/wordfreq-docs-sonnet-r1.session \
+  ~/experiments/results/data/2026-11-14-wordfreq-docs-sonnet-vs-fable/session-sonnet-r1
+cp -R ~/experiments/runs/wordfreq-docs-fable-r1.session \
+  ~/experiments/results/data/2026-11-14-wordfreq-docs-sonnet-vs-fable/session-fable-r1
 cp ~/experiments/runs/wordfreq-docs-sonnet-r1.reviews/rounds.csv \
   ~/experiments/results/data/2026-11-14-wordfreq-docs-sonnet-vs-fable/rounds-sonnet-r1.csv
 cp ~/experiments/runs/wordfreq-docs-fable-r1.reviews/rounds.csv \
@@ -249,8 +257,8 @@ and the Copilot line from 6a. Add a row to `~/experiments/results/index.md`.
 Only then remove the run folders (a name cannot be reused until its folder is gone):
 
 ```zsh
-rm -rf ~/experiments/runs/wordfreq-docs-sonnet-r1 ~/experiments/runs/wordfreq-docs-sonnet-r1.reviews
-rm -rf ~/experiments/runs/wordfreq-docs-fable-r1 ~/experiments/runs/wordfreq-docs-fable-r1.reviews
+rm -rf ~/experiments/runs/wordfreq-docs-sonnet-r1 ~/experiments/runs/wordfreq-docs-sonnet-r1.reviews ~/experiments/runs/wordfreq-docs-sonnet-r1.session
+rm -rf ~/experiments/runs/wordfreq-docs-fable-r1 ~/experiments/runs/wordfreq-docs-fable-r1.reviews ~/experiments/runs/wordfreq-docs-fable-r1.session
 ```
 
 Close the two scratch PRs in `msusol/ab-scratch` if you do not want to keep them.
@@ -261,7 +269,7 @@ Close the two scratch PRs in `msusol/ab-scratch` if you do not want to keep them
 - [ ] Each arm: 4 or more task commits, `AUTO-MODE: DONE`, `pytest` passes
 - [ ] Each arm: four plan boxes checked, plan not archived, `TODO.md` matches, `docs/index.md` links the plan
 - [ ] Each arm: push refused, `example.com` blocked, `/home` shows only `claude`
-- [ ] Each arm: Copilot review loop ended `CLEAN` or at the round cap, `rounds.csv` saved
+- [ ] Each arm: Copilot review loop ended `CLEAN` or at the round cap, `rounds.csv`, `steps.csv` and the `.session` folder saved
 - [ ] Results file written with the Copilot effort and model caveat
 
 One run per model proves the pipeline works. It does not rank the models: repeat as `r2` and `r3` (3 or more) before concluding anything about Copilot rounds.
@@ -281,7 +289,7 @@ matching the plan, `docs/index.md` unchanged, no extra files. The plan `date` re
 
 Arm B's round-1 finding, `test_wordfreq.py:41`: the hyphen-preservation test asserted only the top three results and
 `well-known` was not among them, so removing hyphen support would still pass. Fable fixed it in `a442285` and round 2 was
-CLEAN (finding marked resolved). Arm A needed no `resume`. Copilot premium requests: 3 (1 + 2). Full write-up:
+CLEAN (finding marked resolved). Arm A needed no `resume`. Copilot reviews: 3 (1 + 2). Full write-up:
 `~/experiments/results/2026-11-14-wordfreq-docs-sonnet-vs-fable.md`. One run per model: do not rank the models from this;
 repeat as r2 and r3.
 
@@ -312,7 +320,7 @@ review to CLEAN took about 2 minutes. The `Warning: N uncommitted changes` line 
 `claude-code-plugins` repo, which had 5 uncommitted files at the time, not from the run folder.
 
 Cost: **$0.68** for the one headless fix session (key `ab-loop`, workspace `ab-experiments`: $0.68 spent, 7% of the $10 cap; org balance
-$79.32 to $78.64). That key had no other use, and Copilot's premium requests are not billed here. The Console Cost page had no data yet (it lags a few
+$79.32 to $78.64). That key had no other use, and Copilot's reviews are not billed through the Console (GitHub bills them in AI credits). The Console Cost page had no data yet (it lags a few
 hours); the Spend limits page updated within minutes, so read cost there. Not shown by this test: the timeout and budget paths against the real CLI,
 and a loop that needs more than one fix. It also does not compare models: it is one
-arm restarted from a known commit. Premium requests used: 2.
+arm restarted from a known commit. Copilot reviews used: 2.

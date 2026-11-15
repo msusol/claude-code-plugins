@@ -25,7 +25,7 @@
 #   AB_REVIEW_REMOTE_URL        default https://github.com/$AB_REVIEW_REPO.git
 #
 # The push goes through your normal `git`, so git-guard's remote allowlist applies: the scratch repo's URL must
-# match a pattern in ~/.config/git-guard/allowlist. Each Copilot review uses one premium request from your quota.
+# match a pattern in ~/.config/git-guard/allowlist. GitHub bills Copilot code review in AI credits ($0.01 each), drawn from your plan's included credits; a review averaged about 29 credits in our runs.
 
 set -euo pipefail
 
@@ -46,7 +46,7 @@ cmd_round() {
   (( $# == 1 )) || die "usage: review-round <name>"
   local name="$1"; validate_name "$name"
   local dir="$RUNS_DIR/$name" logdir="$RUNS_DIR/$name.reviews"
-  local branch="exp/$name" base="base/$name"
+  local branch="exp/$name" base="base/$name" t0; t0=$(date -u +%FT%TZ)
 
   for c in git gh jq; do command -v "$c" >/dev/null || die "$c not found"; done
   [[ -n "$REPO" ]] || die "set AB_REVIEW_REPO=owner/name (a private scratch repo)"
@@ -125,6 +125,15 @@ cmd_round() {
   print "$head" > "$logdir/last-head"
   [[ -f "$logdir/rounds.csv" ]] || print "round,time,head,pr,findings,status" > "$logdir/rounds.csv"
   print "$round,$(date -u +%FT%TZ),${head[1,7]},$pr,$count,$outcome" >> "$logdir/rounds.csv"
+
+  # Step log for the cost dashboard (see run-ab.zsh log_step). GitHub bills code review in AI credits and no API gives a per-review
+  # price, so what is recorded is the review count: 1 per requested review (AB_NO_REQUEST=1 means none was requested). The key keeps
+  # its historical name, premium_requests; the dashboard prices a review at an average rate.
+  local effort requests=1
+  effort=$(print -r -- "$reviews" | jq -r --argjson rid "$rid" '.[] | select(.id == $rid) | .copilot_code_review_effort // "unknown"')
+  [[ "${AB_NO_REQUEST:-0}" != 1 ]] || requests=0
+  [[ -f "$logdir/steps.csv" ]] || print "start,end,type,round,model,commit,detail" > "$logdir/steps.csv"
+  print "$t0,$(date -u +%FT%TZ),review,$round,copilot,${head[1,7]},pr=$pr;findings=$count;status=$outcome;premium_requests=$requests;effort=$effort" >> "$logdir/steps.csv"
 
   if [[ "$outcome" == clean ]]; then
     print "round $round: CLEAN (0 findings). Rounds used: $round. Details: $out"

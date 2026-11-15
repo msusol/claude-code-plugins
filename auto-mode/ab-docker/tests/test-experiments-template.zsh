@@ -9,7 +9,11 @@ bad() { printf 'FAIL  %s\n' "$1"; (( fail++ )) }
 check() { if eval "$2"; then ok "$1"; else bad "$1"; fi }
 
 T=$(mktemp -d); E="$T/experiments"
-mkdir -p "$T/bin"; printf '#!/bin/sh\nexit 0\n' > "$T/bin/docker"; chmod +x "$T/bin/docker"; export PATH="$T/bin:$PATH"
+mkdir -p "$T/bin"; printf '#!/bin/sh\nexit 0\n' > "$T/bin/docker"; chmod +x "$T/bin/docker"
+# Hermetic git: fixtures are throwaway repos with fake remotes, so use the real git binary rather than any git-guard wrapper
+# earlier in PATH (the wrapper guards real repos and would block these fixtures).
+printf '#!/bin/sh\nexec "%s" "$@"\n' "$(command -p -v git)" > "$T/bin/git"; chmod +x "$T/bin/git"
+export PATH="$T/bin:$PATH"
 G() { git -c user.name=t -c user.email=t@t "$@" }
 
 print "=== init"
@@ -59,6 +63,12 @@ printf 'REVIEW-*.md\n' >> "$R/.git/info/exclude"
 check "run repo ignores caches and REVIEW files" "[[ -z \"\$(git -C $R status --porcelain)\" ]]"
 check "run branch is exp/<run>" "[[ \"\$(git -C $R branch --show-current)\" == exp/wordfreq-sonnet-r2 ]]"
 check "outer repo still sees nothing from the run" "[[ -z \"\$(git -C $E status --porcelain | grep 'runs/wordfreq-sonnet-r2')\" ]]"
+check "run created the session folder and an arm step row" "[[ -d $E/runs/wordfreq-sonnet-r2.session ]] && grep -q ',arm,0,some-model,.*,interactive;exit=0\$' $E/runs/wordfreq-sonnet-r2.reviews/steps.csv"
+mkdir -p "$E/runs/wordfreq-sonnet-r3.session"
+zsh "$RUN" run wordfreq-sonnet-r3 some-model "$E/plans/wordfreq" > "$T/out3" 2>&1; rc3=$?
+check "a leftover .session folder blocks a new run of that name" "[[ $rc3 != 0 ]] && grep -q 'left over from an earlier run' $T/out3"
+check "the blocked run exported nothing" "[[ ! -e $E/runs/wordfreq-sonnet-r3 ]]"
+check "session and step logs are not tracked by an outer repo" "! git -C $E ls-files | grep -q 'session'"
 
 print "=== docs harness build option"
 printf '#!/bin/sh\necho "$@" >> %s/docker.log\n' "$T" > "$T/bin/docker"
@@ -68,6 +78,7 @@ check "plain build: WITH_DOCS=0 and tag ab-claude" "grep -q 'WITH_DOCS=0' $T/doc
 check "AB_DOCS=1 build: WITH_DOCS=1 and tag ab-claude-docs" "grep -q 'WITH_DOCS=1' $T/docker.log && grep -q -- '-t ab-claude-docs ' $T/docker.log"
 : > "$T/docker.log"; AB_DOCS=1 zsh "$RUN" run wordfreq-docs-r1 some-model "$E/plans/wordfreq" >/dev/null 2>&1
 check "AB_DOCS=1 run uses the docs image" "grep -q 'ab-claude-docs claude --model some-model' $T/docker.log"
+check "run mounts its session folder as the container's projects dir" "grep -q -- '-v $E/runs/wordfreq-docs-r1.session:/home/claude/.claude/projects' $T/docker.log"
 check "Dockerfile: docs deploy is conditional and docs removed when off" "grep -q 'WITH_DOCS\" = \"1\".*docs/deploy.zsh' $HERE/Dockerfile && grep -q 'rm -rf /opt/claude-code-plugins/docs' $HERE/Dockerfile"
 
 print "=== isolation-check docs section"

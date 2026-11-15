@@ -183,8 +183,9 @@ auto-mode/ab-docker/run-ab.zsh review-summary model-a model-b
 
 Per arm it records `round, time, commit, pr, findings, status` in `~/experiments/runs/<name>.reviews/rounds.csv` (outside the
 run folder, so the arm cannot touch it), and `review-summary` prints rounds, findings per round, and the round that
-first came back clean. Pair it with a separate API key per arm to compare model cost against Copilot rounds and
-premium requests (one per review).
+first came back clean. Pair it with a separate API key per arm to compare model cost against Copilot rounds and reviews. GitHub bills
+code review in AI credits ($0.01 each) from your plan's included credits, not per request; one review averaged about 29 credits ($0.29) over
+8 reviews in our runs, and the dashboard's A/B tab uses that average. Read the real usage at github.com/settings/billing/ai_usage.
 
 Guard rails and caveats:
 
@@ -200,6 +201,29 @@ Guard rails and caveats:
 - Copilot varies from run to run: repeat each arm 3 or more times before drawing a conclusion.
 - Tested with a stubbed `gh` and a local bare repo (`tests/test-review-round.zsh`). **Not tested against GitHub:** the
   reviewer login, the requested-reviewers API call, and the shape of Copilot's review and comment objects.
+
+## Session logs and the step log (for cost reporting)
+
+The arm's container is removed when it exits, so its Claude Code transcripts used to vanish with it. Now every container
+(`run`, `resume` and the headless fix sessions of `review-loop`) mounts `$AB_RUNS_DIR/<run>.session` as its `~/.claude/projects`,
+so the transcripts land on the host, outside the run folder where the arm works. The cost dashboard can read them with
+`--root $AB_RUNS_DIR/<run>.session`.
+
+`$AB_RUNS_DIR/<run>.reviews/steps.csv` records each step so Claude sessions and Copilot rounds can be told apart and priced:
+
+```text
+start,end,type,round,model,commit,detail
+2026-11-15T05:07:08Z,2026-11-15T05:07:20Z,review,1,copilot,af4ca71,pr=3;findings=1;status=findings;premium_requests=1;effort=balanced
+2026-11-15T05:07:21Z,2026-11-15T05:08:40Z,fix,1,claude-fable-5-2,dbc3b50,headless;exit=0
+```
+
+- `type` is `arm` (`run`), `resume`, `fix` (headless) or `review` (`review-round`). `start` and `end` are UTC; a session belongs to the
+  step whose window it falls in.
+- GitHub bills code review in AI credits and no API gives a per-review price, so a `review` row records the review count
+  (`premium_requests=1`, or 0 with `AB_NO_REQUEST=1`) and the effort Copilot reports, not dollars. `premium_requests` is the key's historical name;
+  it counts review requests, not billing units. The cost dashboard turns the count into an estimate.
+- `run` refuses a name whose `.session` or `.reviews` folder is left over from an earlier run, because two runs' logs would mix.
+  Remove both when you remove the run folder, after copying out what you want to keep.
 
 ## Unattended review loop (`review-loop`)
 
