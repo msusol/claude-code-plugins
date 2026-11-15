@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tmux new-session -d -s ab-*)",
+      "Bash(tmux send-keys -t ab-*)",
+      "Bash(tmux load-buffer *)",
+      "Bash(tmux paste-buffer *)",
+      "Bash(tmux capture-pane *)",
+      "Bash(*/ab-docker/run-ab.zsh run *)",
+      "Bash(*/ab-docker/run-ab.zsh resume *)",
+      "Bash(*/ab-docker/run-ab.zsh review-round *)",
+      "Bash(*/ab-docker/run-ab.zsh review-loop *)",
+      "Bash(*/ab-docker/run-ab.zsh review-summary *)"
+    ]
+  }
+}

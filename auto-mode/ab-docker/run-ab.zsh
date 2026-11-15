@@ -10,6 +10,7 @@
 #   run-ab.zsh review-summary <name>...           table of review rounds and findings per arm
 #   run-ab.zsh review-loop <name> <model>         unattended: review-round, then a headless fix session, until CLEAN or the cap
 #
+# AB_EFFORT=medium (or low|high|xhigh|max) pins Claude Code's --effort for every session of every arm; set the same value for all arms.
 # <name> becomes the branch exp/<name> and the run folder $AB_RUNS_DIR/<name> (default ~/experiments/runs/<name>).
 # The container sees only that folder (as /work) and can reach only api.anthropic.com. Claude Code's own session logs
 # (transcripts) are written to $AB_RUNS_DIR/<name>.session (mounted as the container's ~/.claude/projects) so they survive
@@ -29,6 +30,14 @@ EXP_DIR="${AB_EXPERIMENTS_DIR:-$HOME/experiments}"
 RUNS_DIR="${AB_RUNS_DIR:-$EXP_DIR/runs}"
 
 die() { print -u2 -- "run-ab: $*"; exit 1 }
+
+# AB_EFFORT (low|medium|high|xhigh|max) is passed to every Claude Code session as --effort, so both arms of a comparison run at
+# the same effort. Unset, each model uses its own default, which can differ between models. The value is logged in steps.csv.
+typeset -a effort_args; effort_args=()
+if [[ -n "${AB_EFFORT:-}" ]]; then
+  [[ "$AB_EFFORT" =~ '^(low|medium|high|xhigh|max)$' ]] || die "AB_EFFORT must be low, medium, high, xhigh or max (got '$AB_EFFORT')"
+  effort_args=(--effort "$AB_EFFORT")
+fi
 
 usage() {
   print -u2 -- "usage: run-ab.zsh init [dir] | build | check | run <name> <model> <src-repo> [ref] | resume <name> <model> | review-round <name> | review-summary <name>... | review-loop <name> <model>"
@@ -59,6 +68,8 @@ cmd_init() {
   print "  git -C $dest/plans/<plan> remote add origin https://github.com/<you>/<plan>-plan   # never pushed; satisfies git-guard"
   print "  git -C $dest/plans/<plan> commit -m 'plan: <plan>'"
   print "  export AB_RUNS_DIR=$dest/runs   # only needed if $dest is not ~/experiments"
+  print "optional: to let an assistant start tmux sessions and run-ab.zsh for you, review $dest/.claude/settings.example.json and merge it into"
+  print "  $dest/.claude/settings.local.json yourself (it is not active until you do; see $dest/README.md)"
   print "see $dest/README.md for the layout and naming"
 }
 
@@ -134,7 +145,7 @@ launch() {  # name model dir   (uses auth_args)
     -e "AB_NAME=$1" \
     -v "$3:/work" \
     -v "$sess:/home/claude/.claude/projects" \
-    "$IMAGE" claude --model "$2"
+    "$IMAGE" claude --model "$2" "${effort_args[@]}"
 }
 
 cmd_run() {
@@ -165,7 +176,7 @@ cmd_run() {
 
   local t0 rc=0; t0=$(now_utc)
   launch "$name" "$model" "$dir" || rc=$?
-  log_step "$name" arm 0 "$model" "$dir" "interactive;exit=$rc" "$t0"
+  log_step "$name" arm 0 "$model" "$dir" "interactive;exit=$rc;effort=${AB_EFFORT:-default}" "$t0"
 
   print "run folder: $dir   (git -C $dir log --oneline)"
   print "session logs: $dir.session   step log: $dir.reviews/steps.csv"
@@ -184,7 +195,7 @@ cmd_resume() {
   docker ps --format '{{.Names}}' | grep -qx "ab-$name" && die "a container for '$name' is already running"
   local t0 rc=0; t0=$(now_utc)
   launch "$name" "$model" "$dir" || rc=$?
-  log_step "$name" resume "$(rounds_done "$name")" "$model" "$dir" "interactive;exit=$rc" "$t0"
+  log_step "$name" resume "$(rounds_done "$name")" "$model" "$dir" "interactive;exit=$rc;effort=${AB_EFFORT:-default}" "$t0"
   return $rc
 }
 
@@ -202,6 +213,7 @@ launch_headless() {  # name model dir prompt   (uses auth_args)
     -v "$sess:/home/claude/.claude/projects" \
     "$IMAGE" claude -p "$prompt" \
       --model "$model" \
+      "${effort_args[@]}" \
       --dangerously-skip-permissions \
       --max-budget-usd "${AB_FIX_BUDGET_USD:-2}" || rc=$?
   if (( rc == 124 )); then docker rm -f "ab-$name" >/dev/null 2>&1 || true; print -u2 -- "run-ab: fix session timed out after ${AB_FIX_TIMEOUT:-1200}s"; fi
@@ -242,7 +254,7 @@ cmd_review_loop() {
     launch_headless "$name" "$model" "$dir" \
       "Read REVIEW-$round.md and resolve every finding: fix the code or add the missing test. If you disagree with one, say why in your commit message. Run the tests, commit, and end with AUTO-MODE: DONE." \
       2>&1 | tee "$logdir/fix-$round.log" || fix_rc=$?
-    log_step "$name" fix "$round" "$model" "$dir" "headless;exit=$fix_rc" "$t0"
+    log_step "$name" fix "$round" "$model" "$dir" "headless;exit=$fix_rc;effort=${AB_EFFORT:-default}" "$t0"
     (( fix_rc == 0 )) || die "fix session failed (see $logdir/fix-$round.log); nothing was reviewed again"
     [[ "$(git -C "$dir" rev-parse HEAD)" != "$head_before" ]] || die "fix session made no new commit (see $logdir/fix-$round.log); stopping"
     [[ -z "$(git -C "$dir" status --porcelain)" ]] || die "fix session left uncommitted changes in $dir; stopping"

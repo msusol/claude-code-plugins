@@ -51,6 +51,21 @@ repo and must not already exist), mounts only that folder as `/work`, turns it i
 turns itself on. Paste the same prompt into both (see [../AB-SMOKE-TEST.md](../AB-SMOKE-TEST.md) for a cheap
 task). The first launch may show Claude Code's one-time setup prompts (API key, folder trust).
 
+## Letting an assistant run the arms (opt-in permissions)
+
+By default a Claude Code session on the host cannot start the arms for you: `tmux new-session`, `run-ab.zsh run`, `resume` and `review-loop` are blocked until allowed
+(the unattended loop pushes to GitHub and runs headless sessions, so it is rightly gated). `run-ab.zsh init` copies
+[experiments-template/.claude/settings.example.json](experiments-template/.claude/settings.example.json) to `~/experiments/.claude/settings.example.json`. It is inert:
+review it and merge its `permissions.allow` entries into `~/experiments/.claude/settings.local.json` yourself. The plugin does not install it, and `init` does not
+overwrite or create `settings.local.json`, so nothing becomes permitted unless you add it. Set the API workspace spend limit first; it is the real cap on what a permitted
+session can spend. Details and what each entry allows: [experiments-template/README.md](experiments-template/README.md).
+
+## Pinning the effort level
+
+`AB_EFFORT=medium` (or `low`, `high`, `xhigh`, `max`) is passed to every Claude Code session as `--effort`: `run`, `resume` and the headless fix sessions of `review-loop`.
+Set the same value for every arm of a comparison; unset, each model uses its own default, which can differ between models. Use the same value for `run`, `resume` and
+`review-loop`. The value is logged in each `steps.csv` row (`effort=medium`, or `effort=default`). An invalid value is refused. Confirm it in a transcript on the first run.
+
 ## Adding the docs/ harness
 
 The default image has Claude Code, git-guard and auto-mode only. To test with the `docs/` plugin's planning rules too
