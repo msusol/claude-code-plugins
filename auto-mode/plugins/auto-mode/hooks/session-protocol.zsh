@@ -29,8 +29,9 @@ mode="${AUTO_MODE_PROTOCOL:-}"
 [[ -z "$mode" && -f "$STATE_DIR/protocol" ]] && mode=$(<"$STATE_DIR/protocol")
 [[ "$mode" == off ]] && exit 0
 
-msg="auto-mode is on for this session, so nobody answers questions step by step: carry on without asking first.
-When you have finished what you were asked to do, reply with the single line 'AUTO-MODE: DONE' followed by a 2-line summary. Finish at the point the request and the project rules call for; do not widen the task to look for more work.
+msg="auto-mode is on for this session, so nobody answers questions step by step: do not ask for confirmation before each step.
+Do what you were asked, up to the stopping point that the request or the project rules set (for example a rule that says to stop after writing the documents and report). Reaching that point is finishing: do not carry on past it, and do not widen the task to look for more work.
+When you have finished, reply with the single line 'AUTO-MODE: DONE' followed by a 2-line summary.
 If you need a decision only the owner can make, or you are blocked, reply with 'AUTO-MODE: BLOCKED' and say exactly what you need.
 Do not git push, run destructive or irreversible commands, or bypass any guard or permission prompt."
 
