@@ -234,6 +234,14 @@ so the manual `set-url` workaround is only needed for runs started before that f
 
 ```zsh
 mkdir -p ~/experiments/results/data/2026-11-14-wordfreq-docs-sonnet-vs-fable
+cp ~/experiments/runs/wordfreq-docs-sonnet-r1.reviews/steps.csv \
+  ~/experiments/results/data/2026-11-14-wordfreq-docs-sonnet-vs-fable/steps-sonnet-r1.csv
+cp ~/experiments/runs/wordfreq-docs-fable-r1.reviews/steps.csv \
+  ~/experiments/results/data/2026-11-14-wordfreq-docs-sonnet-vs-fable/steps-fable-r1.csv
+cp -R ~/experiments/runs/wordfreq-docs-sonnet-r1.session \
+  ~/experiments/results/data/2026-11-14-wordfreq-docs-sonnet-vs-fable/session-sonnet-r1
+cp -R ~/experiments/runs/wordfreq-docs-fable-r1.session \
+  ~/experiments/results/data/2026-11-14-wordfreq-docs-sonnet-vs-fable/session-fable-r1
 cp ~/experiments/runs/wordfreq-docs-sonnet-r1.reviews/rounds.csv \
   ~/experiments/results/data/2026-11-14-wordfreq-docs-sonnet-vs-fable/rounds-sonnet-r1.csv
 cp ~/experiments/runs/wordfreq-docs-fable-r1.reviews/rounds.csv \
@@ -249,8 +257,8 @@ and the Copilot line from 6a. Add a row to `~/experiments/results/index.md`.
 Only then remove the run folders (a name cannot be reused until its folder is gone):
 
 ```zsh
-rm -rf ~/experiments/runs/wordfreq-docs-sonnet-r1 ~/experiments/runs/wordfreq-docs-sonnet-r1.reviews
-rm -rf ~/experiments/runs/wordfreq-docs-fable-r1 ~/experiments/runs/wordfreq-docs-fable-r1.reviews
+rm -rf ~/experiments/runs/wordfreq-docs-sonnet-r1 ~/experiments/runs/wordfreq-docs-sonnet-r1.reviews ~/experiments/runs/wordfreq-docs-sonnet-r1.session
+rm -rf ~/experiments/runs/wordfreq-docs-fable-r1 ~/experiments/runs/wordfreq-docs-fable-r1.reviews ~/experiments/runs/wordfreq-docs-fable-r1.session
 ```
 
 Close the two scratch PRs in `msusol/ab-scratch` if you do not want to keep them.
@@ -261,7 +269,7 @@ Close the two scratch PRs in `msusol/ab-scratch` if you do not want to keep them
 - [ ] Each arm: 4 or more task commits, `AUTO-MODE: DONE`, `pytest` passes
 - [ ] Each arm: four plan boxes checked, plan not archived, `TODO.md` matches, `docs/index.md` links the plan
 - [ ] Each arm: push refused, `example.com` blocked, `/home` shows only `claude`
-- [ ] Each arm: Copilot review loop ended `CLEAN` or at the round cap, `rounds.csv` saved
+- [ ] Each arm: Copilot review loop ended `CLEAN` or at the round cap, `rounds.csv`, `steps.csv` and the `.session` folder saved
 - [ ] Results file written with the Copilot effort and model caveat
 
 One run per model proves the pipeline works. It does not rank the models: repeat as `r2` and `r3` (3 or more) before concluding anything about Copilot rounds.

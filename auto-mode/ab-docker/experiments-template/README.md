@@ -8,7 +8,8 @@ experiments/
 ├── plans/                one git repo per plan (an arm only ever sees its own plan)   [contents ignored, .keep tracked]
 │   ├── wordfreq/         PLAN.md at the root (plain baseline)    (init creates it from examples/wordfreq)
 │   └── wordfreq-docs/    docs/plans/0001-wordfreq.md, TODO.md, index.md   (same plan in the docs/ layout, for AB_DOCS=1)
-├── runs/                 AB_RUNS_DIR: <plan>-<model>-r<N>/ run folders and .reviews/ logs   [contents ignored, .keep tracked]
+├── runs/                 AB_RUNS_DIR: <plan>-<model>-r<N>/ run folders, plus <run>.session/ (Claude Code transcripts)
+│                         and <run>.reviews/ (rounds.csv, steps.csv, REVIEW-N.md, fix logs)   [contents ignored, .keep tracked]
 ├── results/              what you keep
 │   ├── index.md
 │   ├── TEMPLATE-comparison.md

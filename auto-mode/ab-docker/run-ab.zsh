@@ -11,7 +11,9 @@
 #   run-ab.zsh review-loop <name> <model>         unattended: review-round, then a headless fix session, until CLEAN or the cap
 #
 # <name> becomes the branch exp/<name> and the run folder $AB_RUNS_DIR/<name> (default ~/experiments/runs/<name>).
-# The container sees only that folder (as /work) and can reach only api.anthropic.com.
+# The container sees only that folder (as /work) and can reach only api.anthropic.com. Claude Code's own session logs
+# (transcripts) are written to $AB_RUNS_DIR/<name>.session (mounted as the container's ~/.claude/projects) so they survive
+# the container, and every step is logged to $AB_RUNS_DIR/<name>.reviews/steps.csv for the cost dashboard.
 # Auth for `run`: ANTHROPIC_API_KEY in the environment (pass it inline, not exported: ANTHROPIC_API_KEY=... run-ab.zsh run ...),
 # or AB_LOGIN=1 to sign in with a Claude account inside the container. Use a dedicated key with a spend limit:
 # the model can read it inside the container. If ANTHROPIC_API_KEY is not set, it is read from $AB_ENV_FILE
@@ -72,6 +74,26 @@ cmd_check() {
   return $rc
 }
 
+now_utc() { date -u +%FT%TZ }
+
+# Appends one row to <run>.reviews/steps.csv (outside the run folder, so the arm cannot touch it). The cost dashboard joins
+# these rows to the session logs in <run>.session by time. Columns: start,end,type,round,model,commit,detail
+# type: arm (interactive run), resume (interactive resume), fix (headless fix session), review (written by review-round.zsh)
+# detail: ;-separated key=value pairs, no commas.
+log_step() {  # name type round model dir detail start
+  local logdir="$RUNS_DIR/$1.reviews" commit
+  commit=$(git -C "$5" rev-parse --short HEAD 2>/dev/null || true)
+  mkdir -p "$logdir"
+  [[ -f "$logdir/steps.csv" ]] || print "start,end,type,round,model,commit,detail" > "$logdir/steps.csv"
+  print -r -- "$7,$(now_utc),$2,$3,$4,$commit,$6" >> "$logdir/steps.csv"
+}
+
+# Number of review rounds recorded so far for a run (0 if none).
+rounds_done() {  # name
+  local csv="$RUNS_DIR/$1.reviews/rounds.csv"
+  [[ -f "$csv" ]] && print $(( $(wc -l < "$csv") - 1 )) || print 0
+}
+
 # Reads ANTHROPIC_API_KEY from the env file when it is not already in the environment. The file is parsed, not sourced,
 # so nothing else in it can run, and it must not be readable by other users.
 load_env_key() {
@@ -105,11 +127,13 @@ auth_setup() {
 }
 
 launch() {  # name model dir   (uses auth_args)
+  local sess="$RUNS_DIR/$1.session"; mkdir -p "$sess"
   docker run --rm -it --name "ab-$1" \
     --cap-add NET_ADMIN \
     "${auth_args[@]}" \
     -e "AB_NAME=$1" \
     -v "$3:/work" \
+    -v "$sess:/home/claude/.claude/projects" \
     "$IMAGE" claude --model "$2"
 }
 
@@ -130,15 +154,22 @@ cmd_run() {
   runreal="${RUNS_DIR:A}"
   [[ "$runreal/" != "$srcreal/"* ]] || die "runs folder ($runreal) is inside the source repo; set AB_RUNS_DIR elsewhere"
   [[ ! -e "$dir" ]] || die "$dir already exists; remove it or pick another name (never reuse a run)"
+  local stale; for stale in "$dir.session" "$dir.reviews"; do
+    [[ ! -e "$stale" ]] || die "$stale is left over from an earlier run of this name; remove it first (it would mix two runs' logs)"
+  done
 
   # Export the files at <ref> only: no .git, no other branches, no history.
   mkdir -p "$dir"
   git -C "$src" archive "$ref" | tar -x -C "$dir"
   print "exported $(git -C "$src" rev-parse --short "$ref") to $dir (only this folder is mounted)"
 
-  launch "$name" "$model" "$dir"
+  local t0 rc=0; t0=$(now_utc)
+  launch "$name" "$model" "$dir" || rc=$?
+  log_step "$name" arm 0 "$model" "$dir" "interactive;exit=$rc" "$t0"
 
   print "run folder: $dir   (git -C $dir log --oneline)"
+  print "session logs: $dir.session   step log: $dir.reviews/steps.csv"
+  return $rc
 }
 
 # New session on an existing run folder, e.g. to resolve a REVIEW-N.md. The repo, branch and history are kept;
@@ -151,19 +182,24 @@ cmd_resume() {
   auth_setup
   docker image inspect "$IMAGE" >/dev/null 2>&1 || die "image '$IMAGE' not built; run: run-ab.zsh build"
   docker ps --format '{{.Names}}' | grep -qx "ab-$name" && die "a container for '$name' is already running"
-  launch "$name" "$model" "$dir"
+  local t0 rc=0; t0=$(now_utc)
+  launch "$name" "$model" "$dir" || rc=$?
+  log_step "$name" resume "$(rounds_done "$name")" "$model" "$dir" "interactive;exit=$rc" "$t0"
+  return $rc
 }
 
 # One non-interactive Claude Code turn in the arm's container (no TTY, nothing to answer). Same image, mount and firewall
 # as `run`. --dangerously-skip-permissions only skips permission prompts: the container is the sandbox, and git-guard and
 # auto-mode are hooks, so they still apply. AB_FIX_TIMEOUT (seconds) and AB_FIX_BUDGET_USD bound one fix session.
 launch_headless() {  # name model dir prompt   (uses auth_args)
-  local name="$1" model="$2" dir="$3" prompt="$4" rc=0
+  local name="$1" model="$2" dir="$3" prompt="$4" rc=0 sess="$RUNS_DIR/$1.session"
+  mkdir -p "$sess"
   timeout "${AB_FIX_TIMEOUT:-1200}" docker run --rm --name "ab-$name" \
     --cap-add NET_ADMIN \
     "${auth_args[@]}" \
     -e "AB_NAME=$name" \
     -v "$dir:/work" \
+    -v "$sess:/home/claude/.claude/projects" \
     "$IMAGE" claude -p "$prompt" \
       --model "$model" \
       --dangerously-skip-permissions \
@@ -179,7 +215,7 @@ launch_headless() {  # name model dir prompt   (uses auth_args)
 cmd_review_loop() {
   (( $# == 2 )) || usage
   local name="$1" model="$2" dir="$RUNS_DIR/$1" logdir="$RUNS_DIR/$1.reviews" max="${AB_MAX_ROUNDS:-5}"
-  local csv="$logdir/rounds.csv" round last head_before
+  local csv="$logdir/rounds.csv" round last head_before t0 fix_rc
   [[ "$name" =~ '^[a-z0-9]+(-[a-z0-9]+)*$' ]] || die "name must be lowercase letters, digits and hyphens (got '$name')"
   [[ "${AB_LOGIN:-0}" != 1 ]] || die "review-loop runs unattended and needs ANTHROPIC_API_KEY; AB_LOGIN=1 needs a human for /login"
   [[ -d "$dir/.git" ]] || die "$dir is not a started run folder; use: run-ab.zsh run $name <model> <src-repo>"
@@ -202,9 +238,12 @@ cmd_review_loop() {
 
     head_before=$(git -C "$dir" rev-parse HEAD)
     print "review-loop: round $round has findings; headless fix session on $model (log: $logdir/fix-$round.log)"
+    fix_rc=0; t0=$(now_utc)
     launch_headless "$name" "$model" "$dir" \
       "Read REVIEW-$round.md and resolve every finding: fix the code or add the missing test. If you disagree with one, say why in your commit message. Run the tests, commit, and end with AUTO-MODE: DONE." \
-      2>&1 | tee "$logdir/fix-$round.log" || die "fix session failed (see $logdir/fix-$round.log); nothing was reviewed again"
+      2>&1 | tee "$logdir/fix-$round.log" || fix_rc=$?
+    log_step "$name" fix "$round" "$model" "$dir" "headless;exit=$fix_rc" "$t0"
+    (( fix_rc == 0 )) || die "fix session failed (see $logdir/fix-$round.log); nothing was reviewed again"
     [[ "$(git -C "$dir" rev-parse HEAD)" != "$head_before" ]] || die "fix session made no new commit (see $logdir/fix-$round.log); stopping"
     [[ -z "$(git -C "$dir" status --porcelain)" ]] || die "fix session left uncommitted changes in $dir; stopping"
   done

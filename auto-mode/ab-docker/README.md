@@ -201,6 +201,28 @@ Guard rails and caveats:
 - Tested with a stubbed `gh` and a local bare repo (`tests/test-review-round.zsh`). **Not tested against GitHub:** the
   reviewer login, the requested-reviewers API call, and the shape of Copilot's review and comment objects.
 
+## Session logs and the step log (for cost reporting)
+
+The arm's container is removed when it exits, so its Claude Code transcripts used to vanish with it. Now every container
+(`run`, `resume` and the headless fix sessions of `review-loop`) mounts `$AB_RUNS_DIR/<run>.session` as its `~/.claude/projects`,
+so the transcripts land on the host, outside the run folder where the arm works. The cost dashboard can read them with
+`--root $AB_RUNS_DIR/<run>.session`.
+
+`$AB_RUNS_DIR/<run>.reviews/steps.csv` records each step so Claude sessions and Copilot rounds can be told apart and priced:
+
+```text
+start,end,type,round,model,commit,detail
+2026-11-15T05:07:08Z,2026-11-15T05:07:20Z,review,1,copilot,af4ca71,pr=3;findings=1;status=findings;premium_requests=1;effort=balanced
+2026-11-15T05:07:21Z,2026-11-15T05:08:40Z,fix,1,claude-fable-5-2,dbc3b50,headless;exit=0
+```
+
+- `type` is `arm` (`run`), `resume`, `fix` (headless) or `review` (`review-round`). `start` and `end` are UTC; a session belongs to the
+  step whose window it falls in.
+- Copilot has no per-review price in any API, so a `review` row records the request count (`premium_requests=1`, or 0 with
+  `AB_NO_REQUEST=1`) and the effort Copilot reports, not dollars.
+- `run` refuses a name whose `.session` or `.reviews` folder is left over from an earlier run, because two runs' logs would mix.
+  Remove both when you remove the run folder, after copying out what you want to keep.
+
 ## Unattended review loop (`review-loop`)
 
 `run-ab.zsh review-loop <name> <model>` runs the whole Copilot loop without a human: `review-round`, then a headless fix

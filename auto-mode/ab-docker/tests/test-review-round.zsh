@@ -32,7 +32,7 @@ case "$*" in
      [ -f $S/noreview ] && { echo '[]'; exit 0; }
      H=$(git -C "$RUNDIR" rev-parse HEAD)
      echo "[{\"id\":1,\"user\":{\"login\":\"someone\"},\"commit_id\":\"x\",\"body\":\"\"}]"
-     echo "[{\"id\":$(cat $S/rid),\"user\":{\"login\":\"copilot-pull-request-reviewer[bot]\"},\"commit_id\":\"$H\",\"body\":\"$(cat $S/body)\"}]" ;;
+     echo "[{\"id\":$(cat $S/rid),\"user\":{\"login\":\"copilot-pull-request-reviewer[bot]\"},\"commit_id\":\"$H\",\"copilot_code_review_effort\":\"balanced\",\"body\":\"$(cat $S/body)\"}]" ;;
   "api --paginate repos/me/scratch/pulls/7/comments") cat $S/comments.json ;;
   *) echo "unexpected gh call: $*" >&2; exit 9 ;;
 esac
@@ -104,6 +104,8 @@ expect_ok "round 2 is clean" "CLEAN" zsh "$RR" review-round t1
 check "PR reused, not recreated" "[[ \$(grep -c 'pr create' $STUBDIR/calls) == 1 && \$(grep -c requested_reviewers $STUBDIR/calls) == 2 ]]"
 check "clean round writes no REVIEW file to the run folder" "[[ ! -f $D/REVIEW-2.md ]]"
 check "csv has both rounds" "[[ \$(tail -n +2 $AB_RUNS_DIR/t1.reviews/rounds.csv | wc -l) == 2 ]]"
+check "steps.csv has a header and one review row per round" "[[ \$(head -1 $AB_RUNS_DIR/t1.reviews/steps.csv) == 'start,end,type,round,model,commit,detail' && \$(grep -c ',review,' $AB_RUNS_DIR/t1.reviews/steps.csv) == 2 ]]"
+check "review rows record Copilot, findings, status, request count and effort" "grep -q ',review,1,copilot,.*,pr=7;findings=2;status=findings;premium_requests=1;effort=balanced\$' $AB_RUNS_DIR/t1.reviews/steps.csv && grep -q ',review,2,copilot,.*;findings=0;status=clean;premium_requests=1;effort=balanced\$' $AB_RUNS_DIR/t1.reviews/steps.csv"
 expect_ok "summary shows rounds and clean-at" "round 2" zsh "$RR" review-summary t1
 expect_ok "summary lists findings per round" "2,0" zsh "$RR" review-summary t1
 expect_ok "summary for an arm with no rounds" "no rounds yet" zsh "$RR" review-summary t1 other
@@ -120,10 +122,13 @@ rm "$STUBDIR/norequest"; echo more2 >> "$D/wordfreq.py"; gcommit "round 4 change
 before=$(grep -c requested_reviewers "$STUBDIR/calls")
 expect_ok "AB_NO_REQUEST still collects the review" "round 4" env AB_NO_REQUEST=1 zsh "$RR" review-round t1
 check "AB_NO_REQUEST sent no review request" "[[ \$(grep -c requested_reviewers $STUBDIR/calls) == $before ]]"
+check "AB_NO_REQUEST round records premium_requests=0" "tail -1 $AB_RUNS_DIR/t1.reviews/steps.csv | grep -q 'premium_requests=0'"
 
 print "=== run-ab.zsh resume and dispatch"
 export ANTHROPIC_API_KEY=x
 expect_ok "resume starts a container on the existing folder" "" zsh "$RUN" resume t1 some-model
+check "resume mounts the run's session folder as the container's projects dir" "grep -q -- \"-v $AB_RUNS_DIR/t1.session:/home/claude/.claude/projects\" $STUBDIR/docker.log && [[ -d $AB_RUNS_DIR/t1.session ]]"
+check "resume logs a resume step with the round it follows" "tail -1 $AB_RUNS_DIR/t1.reviews/steps.csv | grep -q ',resume,[0-9]*,some-model,.*,interactive;exit=0\$'"
 check "resume mounts the run folder and passes the key" "grep -q 'run --rm -it --name ab-t1 .*-e ANTHROPIC_API_KEY .*-v $D:/work' $STUBDIR/docker.log"
 mkdir -p "$AB_RUNS_DIR/raw"
 expect_fail "resume refuses a folder that was never started" "not a started run" zsh "$RUN" resume raw m
@@ -155,6 +160,9 @@ check "loop recorded both rounds" "[[ \$(tail -n +2 $AB_RUNS_DIR/t2.reviews/roun
 check "fix session ran headless (no TTY) with the fix prompt" "grep -q 'run --rm --name ab-t2 ' $STUBDIR/docker.log && ! grep -q 'run --rm -it --name ab-t2' $STUBDIR/docker.log && grep -q 'claude -p Read REVIEW-1.md' $STUBDIR/docker.log"
 check "fix session passes model, permission skip and a budget cap" "grep -q -- '--model some-model' $STUBDIR/docker.log && grep -q -- '--dangerously-skip-permissions' $STUBDIR/docker.log && grep -q -- '--max-budget-usd 2' $STUBDIR/docker.log"
 check "fix log kept outside the run folder" "[[ -f $AB_RUNS_DIR/t2.reviews/fix-1.log ]]"
+check "headless fix session mounts the run's session folder" "grep 'claude -p' $STUBDIR/docker.log | grep -q -- \"-v $AB_RUNS_DIR/t2.session:/home/claude/.claude/projects\""
+check "steps.csv shows review, fix, review in order" "[[ \$(tail -n +2 $AB_RUNS_DIR/t2.reviews/steps.csv | cut -d, -f3,4 | paste -sd' ' -) == 'review,1 fix,1 review,2' ]]"
+check "fix step records the model and exit code" "grep -q ',fix,1,some-model,.*,headless;exit=0\$' $AB_RUNS_DIR/t2.reviews/steps.csv"
 check "origin is still the container remote" "[[ \$(git -C $D2 remote get-url origin) == https://example.invalid/ab/scratch ]]"
 
 mkarm t3; export RUNDIR="$AB_RUNS_DIR/t3"; D3="$RUNDIR"; setfindings 31; rm -f "$STUBDIR/fixmode"
@@ -168,6 +176,7 @@ expect_fail "loop stops at the round cap" "round cap (1) reached" env AB_MAX_ROU
 
 mkarm t5; export RUNDIR="$AB_RUNS_DIR/t5"; setfindings 51; touch "$STUBDIR/failmode"
 expect_fail "a failing fix session stops the loop" "fix session failed" zsh "$RUN" review-loop t5 m
+check "a failed fix is still logged, with its exit code" "grep -q ',fix,1,m,.*,headless;exit=1\$' $AB_RUNS_DIR/t5.reviews/steps.csv"
 rm -f "$STUBDIR/failmode"
 
 print "=== API key from an env file"

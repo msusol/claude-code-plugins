@@ -46,7 +46,7 @@ cmd_round() {
   (( $# == 1 )) || die "usage: review-round <name>"
   local name="$1"; validate_name "$name"
   local dir="$RUNS_DIR/$name" logdir="$RUNS_DIR/$name.reviews"
-  local branch="exp/$name" base="base/$name"
+  local branch="exp/$name" base="base/$name" t0; t0=$(date -u +%FT%TZ)
 
   for c in git gh jq; do command -v "$c" >/dev/null || die "$c not found"; done
   [[ -n "$REPO" ]] || die "set AB_REVIEW_REPO=owner/name (a private scratch repo)"
@@ -125,6 +125,14 @@ cmd_round() {
   print "$head" > "$logdir/last-head"
   [[ -f "$logdir/rounds.csv" ]] || print "round,time,head,pr,findings,status" > "$logdir/rounds.csv"
   print "$round,$(date -u +%FT%TZ),${head[1,7]},$pr,$count,$outcome" >> "$logdir/rounds.csv"
+
+  # Step log for the cost dashboard (see run-ab.zsh log_step). Copilot has no per-review price in any API, so the cost
+  # recorded is the request count: one premium request per requested review (AB_NO_REQUEST=1 means none was requested).
+  local effort requests=1
+  effort=$(print -r -- "$reviews" | jq -r --argjson rid "$rid" '.[] | select(.id == $rid) | .copilot_code_review_effort // "unknown"')
+  [[ "${AB_NO_REQUEST:-0}" != 1 ]] || requests=0
+  [[ -f "$logdir/steps.csv" ]] || print "start,end,type,round,model,commit,detail" > "$logdir/steps.csv"
+  print "$t0,$(date -u +%FT%TZ),review,$round,copilot,${head[1,7]},pr=$pr;findings=$count;status=$outcome;premium_requests=$requests;effort=$effort" >> "$logdir/steps.csv"
 
   if [[ "$outcome" == clean ]]; then
     print "round $round: CLEAN (0 findings). Rounds used: $round. Details: $out"
