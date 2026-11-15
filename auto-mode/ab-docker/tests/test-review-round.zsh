@@ -128,7 +128,7 @@ print "=== run-ab.zsh resume and dispatch"
 export ANTHROPIC_API_KEY=x
 expect_ok "resume starts a container on the existing folder" "" zsh "$RUN" resume t1 some-model
 check "resume mounts the run's session folder as the container's projects dir" "grep -q -- \"-v $AB_RUNS_DIR/t1.session:/home/claude/.claude/projects\" $STUBDIR/docker.log && [[ -d $AB_RUNS_DIR/t1.session ]]"
-check "resume logs a resume step with the round it follows" "tail -1 $AB_RUNS_DIR/t1.reviews/steps.csv | grep -q ',resume,[0-9]*,some-model,.*,interactive;exit=0\$'"
+check "resume logs a resume step with the round it follows" "tail -1 $AB_RUNS_DIR/t1.reviews/steps.csv | grep -q ',resume,[0-9]*,some-model,.*,interactive;exit=0;effort=default\$'"
 check "resume mounts the run folder and passes the key" "grep -q 'run --rm -it --name ab-t1 .*-e ANTHROPIC_API_KEY .*-v $D:/work' $STUBDIR/docker.log"
 mkdir -p "$AB_RUNS_DIR/raw"
 expect_fail "resume refuses a folder that was never started" "not a started run" zsh "$RUN" resume raw m
@@ -162,7 +162,7 @@ check "fix session passes model, permission skip and a budget cap" "grep -q -- '
 check "fix log kept outside the run folder" "[[ -f $AB_RUNS_DIR/t2.reviews/fix-1.log ]]"
 check "headless fix session mounts the run's session folder" "grep 'claude -p' $STUBDIR/docker.log | grep -q -- \"-v $AB_RUNS_DIR/t2.session:/home/claude/.claude/projects\""
 check "steps.csv shows review, fix, review in order" "[[ \$(tail -n +2 $AB_RUNS_DIR/t2.reviews/steps.csv | cut -d, -f3,4 | paste -sd' ' -) == 'review,1 fix,1 review,2' ]]"
-check "fix step records the model and exit code" "grep -q ',fix,1,some-model,.*,headless;exit=0\$' $AB_RUNS_DIR/t2.reviews/steps.csv"
+check "fix step records the model and exit code" "grep -q ',fix,1,some-model,.*,headless;exit=0;effort=default\$' $AB_RUNS_DIR/t2.reviews/steps.csv"
 check "origin is still the container remote" "[[ \$(git -C $D2 remote get-url origin) == https://example.invalid/ab/scratch ]]"
 
 mkarm t3; export RUNDIR="$AB_RUNS_DIR/t3"; D3="$RUNDIR"; setfindings 31; rm -f "$STUBDIR/fixmode"
@@ -176,7 +176,7 @@ expect_fail "loop stops at the round cap" "round cap (1) reached" env AB_MAX_ROU
 
 mkarm t5; export RUNDIR="$AB_RUNS_DIR/t5"; setfindings 51; touch "$STUBDIR/failmode"
 expect_fail "a failing fix session stops the loop" "fix session failed" zsh "$RUN" review-loop t5 m
-check "a failed fix is still logged, with its exit code" "grep -q ',fix,1,m,.*,headless;exit=1\$' $AB_RUNS_DIR/t5.reviews/steps.csv"
+check "a failed fix is still logged, with its exit code" "grep -q ',fix,1,m,.*,headless;exit=1;effort=default\$' $AB_RUNS_DIR/t5.reviews/steps.csv"
 rm -f "$STUBDIR/failmode"
 
 print "=== API key from an env file"
@@ -189,6 +189,18 @@ print -r -- 'OTHER=1; touch '"$T"'/pwned' > "$T/evil.env"; chmod 600 "$T/evil.en
 expect_fail "an env file without the key is not executed" "ANTHROPIC_API_KEY is not set" env -u ANTHROPIC_API_KEY AB_ENV_FILE="$T/evil.env" zsh "$RUN" resume t1 m
 check "nothing in the env file ran" "[[ ! -e $T/pwned ]]"
 expect_ok "AB_LOGIN ignores the env file" "AB_LOGIN=1" env -u ANTHROPIC_API_KEY AB_LOGIN=1 AB_ENV_FILE="$T/key.env" zsh "$RUN" resume t1 m
+
+print "=== Copilot unable to review (quota) is an error, not a clean round"
+D="$AB_RUNS_DIR/t1"; export RUNDIR="$D"   # later sections re-point the stub at other runs
+rm -f "$STUBDIR/fixmode"; echo more3 >> "$D/wordfreq.py"; gcommit "round 5 change"
+echo "Copilot was unable to review this pull request because the user who requested the review has insufficient remaining quota. Try requesting a review again later." > "$STUBDIR/body"
+echo "[]" > "$STUBDIR/comments.json"; echo 14 > "$STUBDIR/rid"
+rows_before=$(tail -n +2 "$AB_RUNS_DIR/t1.reviews/rounds.csv" | wc -l)
+expect_fail "a quota failure stops the round with an error" "unable to review" zsh "$RR" review-round t1
+check "the quota failure recorded no round" "[[ \$(tail -n +2 $AB_RUNS_DIR/t1.reviews/rounds.csv | wc -l) == $rows_before && ! -f $AB_RUNS_DIR/t1.reviews/REVIEW-5.md ]]"
+check "the quota failure was not counted as CLEAN" "! tail -n +2 $AB_RUNS_DIR/t1.reviews/rounds.csv | tail -1 | grep -q ',clean\$' || [[ \$(tail -n +2 $AB_RUNS_DIR/t1.reviews/rounds.csv | wc -l) == $rows_before ]]"
+echo "Copilot generated no comments." > "$STUBDIR/body"; echo 15 > "$STUBDIR/rid"
+expect_ok "after the cause is fixed a real review is accepted for the same commit" "CLEAN" zsh "$RR" review-round t1
 
 rm -rf "$T"
 print ""; printf '%d passed, %d failed\n' "$pass" "$fail"

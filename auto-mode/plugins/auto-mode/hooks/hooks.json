@@ -1,11 +1,32 @@
 {
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "zsh \"${CLAUDE_PLUGIN_ROOT}/hooks/session-protocol.zsh\""
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
         "hooks": [
           {
             "type": "command",
             "command": "zsh \"${CLAUDE_PLUGIN_ROOT}/hooks/auto-continue.zsh\""
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "AskUserQuestion",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "zsh \"${CLAUDE_PLUGIN_ROOT}/hooks/auto-answer.zsh\""
           }
         ]
       }

@@ -26,6 +26,29 @@ Stops when **any** of:
 
 It fails open: without `jq`, or on bad input, Claude just stops normally.
 
+## Telling Claude the stop protocol up front (`SessionStart`)
+
+The Stop hook only speaks after Claude's first turn ends, and its message says "carry on with your next steps". A model that finished the asked-for work without the `AUTO-MODE: DONE` marker was
+therefore sent on to its own next steps; after a planning phase that means implementing. So a prompt had to say "end with `AUTO-MODE: DONE`" itself. `plugins/auto-mode/hooks/session-protocol.zsh` (a
+`SessionStart` hook) adds the protocol to the session's context from turn 1: do not ask for confirmation at each step; do what was asked up to the stopping point the request or the project rules set
+(for example "stop after the documents and report"); reaching that point is finishing, so do not carry on past it or widen the task; finish with `AUTO-MODE: DONE` and a 2-line summary, or
+`AUTO-MODE: BLOCKED` with what you need. (An earlier wording said "carry on without asking first", which a dump-only test showed overrode a rule's stop gate: the arm kept going and built the engine.) It is on whenever auto-mode is on; turn it off with `AUTO_MODE_PROTOCOL=off` or a file `~/.config/auto-mode/protocol` containing `off`. It only adds
+context, grants nothing, and fails open (no `jq` or bad input adds nothing).
+
+## Answering questions when nobody is there (`AskUserQuestion`)
+
+The Stop hook only nudges Claude to continue. A model can still open the interactive question form (`AskUserQuestion`) and wait for a person, which stalls an unattended run.
+In the leave-engine A/B runs Sonnet 5.5 never asked, while Fable 5.2 asked three owner-decision questions and stopped. A second hook,
+`plugins/auto-mode/hooks/auto-answer.zsh` (a `PreToolUse` hook on `AskUserQuestion`), answers for it: for each question it picks the option labelled `(Recommended)`
+(all of them for a multi-select, the first option if none is marked) and logs the answer to `~/.config/auto-mode/ask-log.jsonl`.
+
+- **When:** auto-mode is on **and** the ask policy is not `off`. Policy comes from `AUTO_MODE_ASK` or the file `~/.config/auto-mode/ask`: `recommended`, `first` or `off`.
+  Default: `recommended` on an `exp/*` branch; `off` when only the flag file turned auto-mode on, so on a real project you must opt in.
+- **How it answers** (`AUTO_MODE_ASK_MODE`): `answers` (default) pre-fills the tool's `answers`, so the form never opens; `deny` refuses the call and puts the answers in the message.
+- **These are not human decisions.** The message tells Claude to say so in its commit. Auto-picking "Accept" on an ADR or "Adopt all" on open questions makes the agent its own approver, so
+  keep this to experiments, and count the auto-answers per arm in the report (the log, or the hook result in the session transcript).
+- It grants no permissions, and fails open: no `jq` or unexpected input means the normal form appears.
+
 ## What it does not do
 
 It grants no permissions. Approval prompts, `permissions.deny/ask`, git-guard and db-guard apply

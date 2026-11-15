@@ -18,7 +18,7 @@ G() { git -c user.name=t -c user.email=t@t "$@" }
 
 print "=== init"
 out=$(zsh "$RUN" init "$E" 2>&1)
-for f in README.md .gitignore plans/.keep plans/.gitignore runs/.keep runs/.gitignore results/index.md \
+for f in README.md .gitignore .claude/settings.example.json plans/.keep plans/.gitignore runs/.keep runs/.gitignore results/index.md \
          results/TEMPLATE-comparison.md results/data/.keep docs/investigate/.keep plans/wordfreq/PLAN.md plans/wordfreq/.gitignore \
          plans/wordfreq-docs/docs/plans/0001-wordfreq.md plans/wordfreq-docs/docs/plans/TODO.md plans/wordfreq-docs/docs/index.md plans/wordfreq-docs/.gitignore; do
   check "created $f" "[[ -f $E/$f ]]"
@@ -38,11 +38,11 @@ print "=== .gitignore files in an outer repo"
 git -C "$E" init -q -b main
 mkdir -p "$E/runs/wordfreq-sonnet-r1/.git" "$E/runs/wordfreq-sonnet-r1.reviews" "$E/plans/other" "$E/results/data/2026-11-14-wordfreq-sonnet-vs-fable"
 echo x > "$E/runs/wordfreq-sonnet-r1/wordfreq.py"; echo x > "$E/runs/wordfreq-sonnet-r1.reviews/rounds.csv"
-echo x > "$E/plans/other/PLAN.md"; echo x > "$E/.env"; echo x > "$E/.DS_Store"
+echo x > "$E/plans/other/PLAN.md"; echo x > "$E/.env"; echo x > "$E/.DS_Store"; echo x > "$E/.claude/settings.local.json"
 echo x > "$E/results/2026-11-14-wordfreq-sonnet-vs-fable.md"; echo x > "$E/results/data/2026-11-14-wordfreq-sonnet-vs-fable/rounds-sonnet-r1.csv"
 add_out=$(git -C "$E" add -A 2>&1)
 tracked=$(git -C "$E" ls-files | sort | tr '\n' ' ')
-expected=".gitignore README.md docs/investigate/.keep plans/.gitignore plans/.keep results/2026-11-14-wordfreq-sonnet-vs-fable.md results/TEMPLATE-comparison.md results/data/.keep results/data/2026-11-14-wordfreq-sonnet-vs-fable/rounds-sonnet-r1.csv results/index.md runs/.gitignore runs/.keep "
+expected=".claude/settings.example.json .gitignore README.md docs/investigate/.keep plans/.gitignore plans/.keep results/2026-11-14-wordfreq-sonnet-vs-fable.md results/TEMPLATE-comparison.md results/data/.keep results/data/2026-11-14-wordfreq-sonnet-vs-fable/rounds-sonnet-r1.csv results/index.md runs/.gitignore runs/.keep "
 check "tracked files are exactly the scaffold plus results" "[[ \"$tracked\" == \"$expected\" ]]"
 check "run folder contents are not tracked" "! git -C $E ls-files | grep -q '^runs/wordfreq'"
 check "run .reviews logs are not tracked" "! git -C $E ls-files | grep -q 'reviews'"
@@ -63,7 +63,7 @@ printf 'REVIEW-*.md\n' >> "$R/.git/info/exclude"
 check "run repo ignores caches and REVIEW files" "[[ -z \"\$(git -C $R status --porcelain)\" ]]"
 check "run branch is exp/<run>" "[[ \"\$(git -C $R branch --show-current)\" == exp/wordfreq-sonnet-r2 ]]"
 check "outer repo still sees nothing from the run" "[[ -z \"\$(git -C $E status --porcelain | grep 'runs/wordfreq-sonnet-r2')\" ]]"
-check "run created the session folder and an arm step row" "[[ -d $E/runs/wordfreq-sonnet-r2.session ]] && grep -q ',arm,0,some-model,.*,interactive;exit=0\$' $E/runs/wordfreq-sonnet-r2.reviews/steps.csv"
+check "run created the session folder and an arm step row" "[[ -d $E/runs/wordfreq-sonnet-r2.session ]] && grep -q ',arm,0,some-model,.*,interactive;exit=0;effort=default\$' $E/runs/wordfreq-sonnet-r2.reviews/steps.csv"
 mkdir -p "$E/runs/wordfreq-sonnet-r3.session"
 zsh "$RUN" run wordfreq-sonnet-r3 some-model "$E/plans/wordfreq" > "$T/out3" 2>&1; rc3=$?
 check "a leftover .session folder blocks a new run of that name" "[[ $rc3 != 0 ]] && grep -q 'left over from an earlier run' $T/out3"
@@ -79,6 +79,10 @@ check "AB_DOCS=1 build: WITH_DOCS=1 and tag ab-claude-docs" "grep -q 'WITH_DOCS=
 : > "$T/docker.log"; AB_DOCS=1 zsh "$RUN" run wordfreq-docs-r1 some-model "$E/plans/wordfreq" >/dev/null 2>&1
 check "AB_DOCS=1 run uses the docs image" "grep -q 'ab-claude-docs claude --model some-model' $T/docker.log"
 check "run mounts its session folder as the container's projects dir" "grep -q -- '-v $E/runs/wordfreq-docs-r1.session:/home/claude/.claude/projects' $T/docker.log"
+: > "$T/docker.log"; AB_EFFORT=medium AB_DOCS=1 zsh "$RUN" run wordfreq-docs-r2 some-model "$E/plans/wordfreq" >/dev/null 2>&1
+check "AB_EFFORT=medium passes --effort medium to claude" "grep -q 'claude --model some-model --effort medium' $T/docker.log"
+check "AB_EFFORT is logged in steps.csv" "grep -q 'interactive;exit=0;effort=medium\$' $E/runs/wordfreq-docs-r2.reviews/steps.csv"
+check "an invalid AB_EFFORT is refused" "! AB_EFFORT=bogus zsh $RUN run wordfreq-docs-r3 some-model $E/plans/wordfreq >/dev/null 2>&1"
 check "Dockerfile: docs deploy is conditional and docs removed when off" "grep -q 'WITH_DOCS\" = \"1\".*docs/deploy.zsh' $HERE/Dockerfile && grep -q 'rm -rf /opt/claude-code-plugins/docs' $HERE/Dockerfile"
 
 print "=== isolation-check docs section"

@@ -32,7 +32,7 @@ but not a VM).
 # once: create the experiments folder (plans/, runs/, results/, docs/) from the template, with .keep and .gitignore files
 auto-mode/ab-docker/run-ab.zsh init            # default ~/experiments; see experiments-template/README.md
 
-# once, from anywhere (builds with the repo root as context; installs git-guard + auto-mode from GitHub main)
+# once, from anywhere (builds with the repo root as context; installs git-guard + auto-mode from this checkout, not GitHub main)
 auto-mode/ab-docker/run-ab.zsh build
 
 # prove the isolation before a real run
@@ -51,6 +51,21 @@ repo and must not already exist), mounts only that folder as `/work`, turns it i
 turns itself on. Paste the same prompt into both (see [../AB-SMOKE-TEST.md](../AB-SMOKE-TEST.md) for a cheap
 task). The first launch may show Claude Code's one-time setup prompts (API key, folder trust).
 
+## Letting an assistant run the arms (opt-in permissions)
+
+By default a Claude Code session on the host cannot start the arms for you: `tmux new-session`, `run-ab.zsh run`, `resume` and `review-loop` are blocked until allowed
+(the unattended loop pushes to GitHub and runs headless sessions, so it is rightly gated). `run-ab.zsh init` copies
+[experiments-template/.claude/settings.example.json](experiments-template/.claude/settings.example.json) to `~/experiments/.claude/settings.example.json`. It is inert:
+review it and merge its `permissions.allow` entries into `~/experiments/.claude/settings.local.json` yourself. The plugin does not install it, and `init` does not
+overwrite or create `settings.local.json`, so nothing becomes permitted unless you add it. Set the API workspace spend limit first; it is the real cap on what a permitted
+session can spend. Details and what each entry allows: [experiments-template/README.md](experiments-template/README.md).
+
+## Pinning the effort level
+
+`AB_EFFORT=medium` (or `low`, `high`, `xhigh`, `max`) is passed to every Claude Code session as `--effort`: `run`, `resume` and the headless fix sessions of `review-loop`.
+Set the same value for every arm of a comparison; unset, each model uses its own default, which can differ between models. Use the same value for `run`, `resume` and
+`review-loop`. The value is logged in each `steps.csv` row (`effort=medium`, or `effort=default`). An invalid value is refused. Confirm it in a transcript on the first run.
+
 ## Adding the docs/ harness
 
 The default image has Claude Code, git-guard and auto-mode only. To test with the `docs/` plugin's planning rules too
@@ -67,7 +82,10 @@ Use the same `AB_DOCS` value for `build`, `run` and `resume`; `review-round` nee
 - The rules work against the plan repo's own `docs/` folder (plans, ADRs), so the plan you export should include one.
 - The plain image deletes the docs sources at build time, so a baseline arm cannot read the planning rules. `run-ab.zsh check`
   verifies this: with `AB_DOCS=1` it requires the rules, their imports and the plugin; without it, it requires their absence.
-- The docs rules come from your checkout at build time (the plugin install itself fetches from GitHub `main`); rebuild after changing them.
+- The docs rules and the plugins themselves come from your checkout at build time, not from GitHub `main` (the build rewrites the marketplace entries to the copied folders), so
+  the image is exactly the checkout, pushed or not. Rebuild after changing them. The commit it was built from is in the image label `ab.source-rev` (`+dirty` if uncommitted
+  changes were copied in): `docker image inspect <image> --format '{{ index .Config.Labels "ab.source-rev" }}'`. Put it, and the plugin versions, on the results file's `harness:` line.
+  Before this change the image fetched each plugin from GitHub `main` and could be older than the checkout (a pilot ran auto-mode 1.7.0 while the checkout had 1.9.0).
 - Other plugins (e.g. docs-hub) can be added the same way: copy the folder, run its `deploy.zsh` under a build arg.
 
 ## Experiments folder
@@ -99,6 +117,8 @@ only the standard library, like the wordfreq smoke test.
   first on `PATH`, so `python`, `python3` and `pip` all work and mean the same thing.
 - The exact installed set is recorded in `~/.ab-pip-freeze.txt` in the image; read it with
   `docker run --rm --entrypoint "" ab-claude cat /home/claude/.ab-pip-freeze.txt`.
+- The image sets `PIP_NO_BUILD_ISOLATION=0`, so an arm can run `pip install -e .` on its own `pyproject.toml` offline (setuptools and wheel are in the venv; with isolation pip would try to
+  download setuptools and the firewall blocks it). No `PYTHONPATH` is set, so an arm that relies on one still has to document it.
 - Changing the file changes the image, so arms built before and after it are not on the same image. Build once, run
   every arm of a comparison on that image, and note the image id and `requirements.txt` with the results.
 - Libraries are fetched from PyPI during the build, where the network is open. Packages that need system libraries

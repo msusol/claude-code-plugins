@@ -94,12 +94,17 @@ cmd_round() {
   fi
 
   # Wait for a Copilot review of exactly this commit.
-  local deadline=$(( SECONDS + TIMEOUT )) reviews rid
+  # A Copilot "review" that says it was unable to review (for example out of quota) has no inline comments, so it would read as
+  # CLEAN. It is not a review: skip it when looking for one, and stop with an error if it is the only answer to this round's request.
+  local deadline=$(( SECONDS + TIMEOUT )) reviews rid failed
   while true; do
     reviews=$(gh api --paginate "repos/$REPO/pulls/$pr/reviews" | jq -s 'add // []')
     rid=$(print -r -- "$reviews" | jq -r --arg sha "$head" \
-            '[.[] | select((.user.login | startswith("copilot-pull-request-reviewer")) and .commit_id == $sha)] | last | .id // empty')
+            '[.[] | select((.user.login | startswith("copilot-pull-request-reviewer")) and .commit_id == $sha and (((.body // "") | test("unable to review"; "i")) | not))] | last | .id // empty')
     [[ -z "$rid" ]] || break
+    failed=$(print -r -- "$reviews" | jq -r --arg sha "$head" --arg t0 "$t0" \
+            '[.[] | select((.user.login | startswith("copilot-pull-request-reviewer")) and .commit_id == $sha and ((.body // "") | test("unable to review"; "i")) and ((.submitted_at // "9999") >= $t0))] | last | .body // empty')
+    [[ -z "$failed" ]] || die "Copilot was unable to review ${head[1,7]}: ${failed[1,200]} Nothing was recorded for this round: a failed review is not a clean one. Fix the cause (quota, access), then re-run."
     (( SECONDS < deadline )) || die "no Copilot review of ${head[1,7]} after ${TIMEOUT}s. Check PR #$pr, then re-run (nothing was recorded for this round)"
     sleep "$POLL"
   done
