@@ -12,7 +12,7 @@ ARG HOST_UID=1000
 ARG WITH_DOCS=0
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      zsh git jq python3 python3-pytest curl ca-certificates iptables ipset util-linux procps \
+      zsh git jq python3 python3-pip python3-venv python3-pytest curl ca-certificates iptables ipset util-linux procps \
     && rm -rf /var/lib/apt/lists/*
 
 RUN npm install -g @anthropic-ai/claude-code
@@ -39,18 +39,27 @@ RUN chmod 755 /usr/local/bin/entrypoint.sh /usr/local/bin/init-firewall.sh \
 
 USER claude
 ENV HOME=/home/claude
-ENV PATH=/home/claude/.local/bin:$PATH
+ENV PATH=/home/claude/.venv/bin:/home/claude/.local/bin:$PATH
 
 # Install the plugins exactly as on your machine: the wrapper, hook, allowlist and settings come from
 # git-guard/deploy.zsh; the skills and Stop hook from the plugin installs it runs. Plugin sources are
 # fetched from GitHub (the marketplace points at msusol/claude-code-plugins), so the image gets what is on main.
-RUN zsh /opt/claude-code-plugins/git-guard/deploy.zsh \
- && zsh /opt/claude-code-plugins/auto-mode/deploy.zsh
-
-# Optional: the docs/ harness. Installs the planning-* rules into ~/.claude/rules/ and @-imports them from
-# ~/.claude/CLAUDE.md, so every session in the container loads them. Only with --build-arg WITH_DOCS=1.
+# The marketplace's GitHub shorthand clones over SSH, and this image has no ssh client or keys by design, so the
+# deploy scripts' installs failed silently (they swallow errors). Rewrite GitHub SSH URLs to HTTPS for the install
+# only (the repo must be public), drop the rewrite afterwards, and fail the build if a plugin is missing.
+#
+# Optional: the docs/ harness (only with --build-arg WITH_DOCS=1). It installs the planning-* rules into
+# ~/.claude/rules/ and @-imports them from ~/.claude/CLAUDE.md, so every session in the container loads them.
 # The plan repo you export should carry its own docs/ folder (plans, ADRs) for the rules to work against.
-RUN if [ "$WITH_DOCS" = "1" ]; then zsh /opt/claude-code-plugins/docs/deploy.zsh; fi
+RUN git config --global url."https://github.com/".insteadOf "git@github.com:" \
+ && git config --global --add url."https://github.com/".insteadOf "ssh://git@github.com/" \
+ && zsh /opt/claude-code-plugins/git-guard/deploy.zsh \
+ && zsh /opt/claude-code-plugins/auto-mode/deploy.zsh \
+ && if [ "$WITH_DOCS" = "1" ]; then zsh /opt/claude-code-plugins/docs/deploy.zsh; fi \
+ && git config --global --unset-all url."https://github.com/".insteadOf \
+ && claude plugin list | grep -q git-guard \
+ && claude plugin list | grep -q auto-mode \
+ && if [ "$WITH_DOCS" = "1" ]; then claude plugin list | grep -q "docs@losus-ai"; fi
 
 # Container-only config: the scratch remote is allowlisted, commits have an author, and the web tools are
 # denied (the firewall below is the enforcement; this stops the model from even trying).
@@ -60,6 +69,15 @@ RUN echo "example.invalid/ab" >> "$HOME/.config/git-guard/allowlist" \
  && jq '.permissions.deny = (((.permissions.deny // []) + ["WebFetch","WebSearch"]) | unique)' \
        "$HOME/.claude/settings.json" > /tmp/settings.json \
  && mv /tmp/settings.json "$HOME/.claude/settings.json"
+
+# Python libraries for the experiments' tasks, from requirements.txt next to this file. The container has no network at
+# run time (the firewall allows only the Anthropic API), so anything a task needs must be installed here, at build
+# time: edit requirements.txt and rebuild. The venv also sees the apt packages (pytest) and is first on PATH, so
+# `python`, `python3` and `pip` all mean the same thing. The installed set is recorded in ~/.ab-pip-freeze.txt.
+COPY --chown=claude auto-mode/ab-docker/requirements.txt /home/claude/.ab-requirements.txt
+RUN python3 -m venv --system-site-packages "$HOME/.venv" \
+ && "$HOME/.venv/bin/pip" install --no-cache-dir -r "$HOME/.ab-requirements.txt" \
+ && "$HOME/.venv/bin/pip" freeze > "$HOME/.ab-pip-freeze.txt"
 
 # Keep non-essential outbound traffic off (names as documented by Claude Code; verify on your version).
 ENV CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \
