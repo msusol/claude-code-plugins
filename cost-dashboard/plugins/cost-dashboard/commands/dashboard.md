@@ -26,8 +26,8 @@ Do not read the session log files yourself; the scripts do all parsing.
    python3 "${CLAUDE_PLUGIN_ROOT}/scripts/serve_dashboard.py" <arguments after serve>
    ```
 
-   It accepts `--days N` (default 30, 0 = all), `--project SUBSTRING`, `--root DIR`, `--ab-root DIR` (A/B runs, default `$AB_RUNS_DIR` or `~/experiments/runs`), `--no-ab-sessions` (do not count the A/B runs' sessions in the other tabs), `--port N` (default 8766) and `--host`. Do not pass `--out`: the server builds in memory and writes nothing.
-2. Read its first output lines and report the printed URL (`http://127.0.0.1:8766/` by default). The data behind the page is at `/data.json`.
+   It accepts `--days N` (default 30, 0 = all), `--project SUBSTRING`, `--root DIR`, `--ab-root DIR` (A/B runs, default `$AB_RUNS_DIR` or `~/experiments/runs`), `--no-ab-sessions` (do not count the A/B runs' sessions in the other tabs), `--port N` (default 8780) and `--host`. Do not pass `--out`: the server builds in memory and writes nothing.
+2. Read its first output lines and report the printed URL (`http://127.0.0.1:8780/` by default). The data behind the page is at `/data.json`.
 3. If it exits with `cannot listen on`, that port is taken. Say which port, do not stop whatever holds it, and start again on the next free port, telling the user the port you used. If it exits with `No session logs found`, report the folder it searched and stop.
 4. Tell the user:
    - the page rebuilds itself from the session logs when they change, so reloading the browser shows the latest costs;
