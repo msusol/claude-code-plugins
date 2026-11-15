@@ -70,6 +70,23 @@ check "AB_DOCS=1 build: WITH_DOCS=1 and tag ab-claude-docs" "grep -q 'WITH_DOCS=
 check "AB_DOCS=1 run uses the docs image" "grep -q 'ab-claude-docs claude --model some-model' $T/docker.log"
 check "Dockerfile: docs deploy is conditional and docs removed when off" "grep -q 'WITH_DOCS\" = \"1\".*docs/deploy.zsh' $HERE/Dockerfile && grep -q 'rm -rf /opt/claude-code-plugins/docs' $HERE/Dockerfile"
 
+print "=== isolation-check docs section"
+IC="$HERE/isolation-check.sh"; H="$T/home"; P="$T/opt"
+mkdir -p "$H/.claude/rules" "$P/docs"
+printf '<!-- BEGIN git-guard-imports -->\n@~/.claude/rules/git-branch-naming.md\n' > "$H/.claude/CLAUDE.md"; : > "$H/.claude/rules/git-branch-naming.md"
+rmdir "$P/docs"
+runic() { HOME="$H" AB_PLUGINS_DIR="$P" AB_CHECK_ONLY=docs AB_DOCS="$1" bash "$IC" >/dev/null 2>&1; }
+check "plain image state passes with AB_DOCS=0" "runic 0"
+check "plain image state fails with AB_DOCS=1" "! runic 1"
+mkdir -p "$P/docs"; : > "$H/.claude/rules/planning-docs-plans.md"
+printf '<!-- BEGIN docs-imports (managed by deploy.zsh) -->\n@~/.claude/rules/planning-docs-plans.md\n<!-- END docs-imports -->\n' >> "$H/.claude/CLAUDE.md"
+check "docs image state passes with AB_DOCS=1" "runic 1"
+check "docs image state fails with AB_DOCS=0 (baseline contaminated)" "! runic 0"
+rm "$H/.claude/rules/planning-docs-plans.md"
+check "docs: missing rule file fails with AB_DOCS=1" "! runic 1"
+: > "$T/docker.log"; zsh "$RUN" check >/dev/null 2>&1; AB_DOCS=1 zsh "$RUN" check >/dev/null 2>&1
+check "check passes AB_DOCS into the container" "grep -q 'AB_DOCS=0' $T/docker.log && grep -q 'AB_DOCS=1' $T/docker.log"
+
 rm -rf "$T"
 print ""; printf '%d passed, %d failed\n' "$pass" "$fail"
 (( fail == 0 ))

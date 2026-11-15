@@ -64,7 +64,7 @@ cmd_build() {
 
 cmd_check() {
   local tmp; tmp=$(mktemp -d)
-  docker run --rm --cap-add NET_ADMIN -e AB_NAME=check -v "$tmp:/work" "$IMAGE" /usr/local/bin/isolation-check.sh
+  docker run --rm --cap-add NET_ADMIN -e AB_NAME=check -e "AB_DOCS=${AB_DOCS:-0}" -v "$tmp:/work" "$IMAGE" /usr/local/bin/isolation-check.sh
   local rc=$?
   rm -rf "$tmp"
   return $rc

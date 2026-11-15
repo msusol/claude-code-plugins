@@ -111,16 +111,13 @@ This path has not been run end to end yet; the `check` step in 3 is what tells y
    ```
 
    Every line should say `PASS` (no host folders or Claude history, `example.com` and `github.com` unreachable,
-   `api.anthropic.com` reachable, no firewall changes possible, both plugins installed, web tools denied). Fix any
+   `api.anthropic.com` reachable, no firewall changes possible, both plugins installed, web tools denied, and the docs/ harness present or absent as expected). Fix any
    `FAIL` before going on.
 
-   **Docs variant:** run it as `AB_DOCS=1 auto-mode/ab-docker/run-ab.zsh check`, then confirm the rules are in the image
-   (and absent from the plain one):
-
-   ```zsh
-   docker run --rm --entrypoint ls ab-claude-docs /home/claude/.claude/rules
-   docker run --rm --entrypoint ls ab-claude      /home/claude/.claude/rules   # should list nothing, or fail
-   ```
+   **Docs variant:** run it as `AB_DOCS=1 auto-mode/ab-docker/run-ab.zsh check`. It adds a `docs/ harness` section: with
+   `AB_DOCS=1` it requires the planning rules, their `@`-imports and the docs plugin; without it, it requires that none
+   of them are present, so a baseline arm cannot be running with the rules by accident. Use the same `AB_DOCS` value you
+   built with, or the check fails.
 
 4. **Start one arm per terminal**, with a dedicated, spend-limited API key (the model can read it in the container; see
    [Getting a spend-limited API key](ab-docker/README.md#getting-a-spend-limited-api-key)). Pass it inline, not exported,

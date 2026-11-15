@@ -65,7 +65,8 @@ Use the same `AB_DOCS` value for `build`, `run` and `resume`; `review-round` nee
 
 - Both arms of a comparison must use the same image, and the results file's `harness:` line should say so.
 - The rules work against the plan repo's own `docs/` folder (plans, ADRs), so the plan you export should include one.
-- The plain image deletes the docs sources at build time, so a baseline arm cannot read the planning rules.
+- The plain image deletes the docs sources at build time, so a baseline arm cannot read the planning rules. `run-ab.zsh check`
+  verifies this: with `AB_DOCS=1` it requires the rules, their imports and the plugin; without it, it requires their absence.
 - The docs rules come from your checkout at build time (the plugin install itself fetches from GitHub `main`); rebuild after changing them.
 - Other plugins (e.g. docs-hub) can be added the same way: copy the folder, run its `deploy.zsh` under a build arg.
 
