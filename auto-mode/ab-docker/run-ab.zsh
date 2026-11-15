@@ -74,7 +74,10 @@ cmd_init() {
 }
 
 cmd_build() {
-  docker build -f "$SCRIPT_DIR/Dockerfile" --build-arg "HOST_UID=$(id -u)" --build-arg "WITH_DOCS=${AB_DOCS:-0}" -t "$IMAGE" "$REPO_ROOT"
+  # The image installs the plugins from this checkout (see the Dockerfile); record which commit, and whether it was dirty.
+  local rev; rev=$(git -C "$REPO_ROOT" rev-parse --short HEAD 2>/dev/null || print unknown)
+  [[ -z "$(git -C "$REPO_ROOT" status --porcelain -- .claude-plugin git-guard auto-mode docs 2>/dev/null)" ]] || rev="$rev+dirty"
+  docker build -f "$SCRIPT_DIR/Dockerfile" --build-arg "HOST_UID=$(id -u)" --build-arg "WITH_DOCS=${AB_DOCS:-0}" --build-arg "SRC_REV=$rev" -t "$IMAGE" "$REPO_ROOT"
 }
 
 cmd_check() {

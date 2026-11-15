@@ -32,7 +32,7 @@ but not a VM).
 # once: create the experiments folder (plans/, runs/, results/, docs/) from the template, with .keep and .gitignore files
 auto-mode/ab-docker/run-ab.zsh init            # default ~/experiments; see experiments-template/README.md
 
-# once, from anywhere (builds with the repo root as context; installs git-guard + auto-mode from GitHub main)
+# once, from anywhere (builds with the repo root as context; installs git-guard + auto-mode from this checkout, not GitHub main)
 auto-mode/ab-docker/run-ab.zsh build
 
 # prove the isolation before a real run
@@ -82,7 +82,10 @@ Use the same `AB_DOCS` value for `build`, `run` and `resume`; `review-round` nee
 - The rules work against the plan repo's own `docs/` folder (plans, ADRs), so the plan you export should include one.
 - The plain image deletes the docs sources at build time, so a baseline arm cannot read the planning rules. `run-ab.zsh check`
   verifies this: with `AB_DOCS=1` it requires the rules, their imports and the plugin; without it, it requires their absence.
-- The docs rules come from your checkout at build time (the plugin install itself fetches from GitHub `main`); rebuild after changing them.
+- The docs rules and the plugins themselves come from your checkout at build time, not from GitHub `main` (the build rewrites the marketplace entries to the copied folders), so
+  the image is exactly the checkout, pushed or not. Rebuild after changing them. The commit it was built from is in the image label `ab.source-rev` (`+dirty` if uncommitted
+  changes were copied in): `docker image inspect <image> --format '{{ index .Config.Labels "ab.source-rev" }}'`. Put it, and the plugin versions, on the results file's `harness:` line.
+  Before this change the image fetched each plugin from GitHub `main` and could be older than the checkout (a pilot ran auto-mode 1.7.0 while the checkout had 1.9.0).
 - Other plugins (e.g. docs-hub) can be added the same way: copy the folder, run its `deploy.zsh` under a build arg.
 
 ## Experiments folder

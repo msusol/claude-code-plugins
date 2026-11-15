@@ -30,6 +30,14 @@ COPY auto-mode      /opt/claude-code-plugins/auto-mode
 # so the baseline image does not contain the planning rules at all.
 COPY docs           /opt/claude-code-plugins/docs
 RUN if [ "$WITH_DOCS" != "1" ]; then rm -rf /opt/claude-code-plugins/docs; fi
+# Install the plugins from the sources copied above, not from GitHub main. The marketplace entries are git-subdir sources with
+# ref "main", so without this the image gets whatever is on GitHub main, which can be older than your checkout (the first
+# leave-engine pilot ran auto-mode 1.7.0 from main while the checkout had 1.9.0). Point each entry at its copied folder and keep
+# only the plugins present in the image. The image is then exactly this checkout; see the ab.source-rev label.
+RUN jq --arg docs "$WITH_DOCS" \
+      '.plugins |= (map(select(.name == "git-guard" or .name == "auto-mode" or (.name == "docs" and $docs == "1"))) | map(.source = ("./" + .source.path)))' \
+      /opt/claude-code-plugins/.claude-plugin/marketplace.json > /tmp/marketplace.json \
+ && mv /tmp/marketplace.json /opt/claude-code-plugins/.claude-plugin/marketplace.json
 RUN chown -R claude /opt/claude-code-plugins
 
 COPY auto-mode/ab-docker/entrypoint.sh auto-mode/ab-docker/init-firewall.sh \
@@ -43,7 +51,7 @@ ENV PATH=/home/claude/.venv/bin:/home/claude/.local/bin:$PATH
 
 # Install the plugins exactly as on your machine: the wrapper, hook, allowlist and settings come from
 # git-guard/deploy.zsh; the skills and Stop hook from the plugin installs it runs. Plugin sources are
-# fetched from GitHub (the marketplace points at msusol/claude-code-plugins), so the image gets what is on main.
+# installed from the copied sources (the marketplace entries were rewritten to local folders above), so the image is this checkout.
 # The marketplace's GitHub shorthand clones over SSH, and this image has no ssh client or keys by design, so the
 # deploy scripts' installs failed silently (they swallow errors). Rewrite GitHub SSH URLs to HTTPS for the install
 # only (the repo must be public), drop the rewrite afterwards, and fail the build if a plugin is missing.
@@ -84,6 +92,11 @@ ENV CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \
     DISABLE_TELEMETRY=1 \
     DISABLE_ERROR_REPORTING=1 \
     DISABLE_AUTOUPDATER=1
+
+# The checkout this image was built from (run-ab.zsh build passes it; "+dirty" means uncommitted changes were copied in).
+# Read it with: docker image inspect <image> --format '{{ index .Config.Labels "ab.source-rev" }}'
+ARG SRC_REV=unknown
+LABEL ab.source-rev=$SRC_REV
 
 # Start as root only so the entrypoint can set the firewall; it then drops to `claude` with no capabilities.
 USER root
