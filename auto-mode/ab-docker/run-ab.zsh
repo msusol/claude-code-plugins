@@ -8,12 +8,14 @@
 #   run-ab.zsh resume <name> <model>              start a new session on an existing run folder (e.g. to fix review findings)
 #   run-ab.zsh review-round <name>                push the arm's branch, get a Copilot PR review, write REVIEW-N.md (see review-round.zsh)
 #   run-ab.zsh review-summary <name>...           table of review rounds and findings per arm
+#   run-ab.zsh review-loop <name> <model>         unattended: review-round, then a headless fix session, until CLEAN or the cap
 #
 # <name> becomes the branch exp/<name> and the run folder $AB_RUNS_DIR/<name> (default ~/experiments/runs/<name>).
 # The container sees only that folder (as /work) and can reach only api.anthropic.com.
 # Auth for `run`: ANTHROPIC_API_KEY in the environment (pass it inline, not exported: ANTHROPIC_API_KEY=... run-ab.zsh run ...),
 # or AB_LOGIN=1 to sign in with a Claude account inside the container. Use a dedicated key with a spend limit:
-# the model can read it inside the container.
+# the model can read it inside the container. If ANTHROPIC_API_KEY is not set, it is read from $AB_ENV_FILE
+# (default ~/experiments/.env, must be chmod 600, one line ANTHROPIC_API_KEY=sk-ant-...; the file is parsed, never sourced).
 
 set -euo pipefail
 
@@ -27,7 +29,7 @@ RUNS_DIR="${AB_RUNS_DIR:-$EXP_DIR/runs}"
 die() { print -u2 -- "run-ab: $*"; exit 1 }
 
 usage() {
-  print -u2 -- "usage: run-ab.zsh init [dir] | build | check | run <name> <model> <src-repo> [ref] | resume <name> <model> | review-round <name> | review-summary <name>..."
+  print -u2 -- "usage: run-ab.zsh init [dir] | build | check | run <name> <model> <src-repo> [ref] | resume <name> <model> | review-round <name> | review-summary <name>... | review-loop <name> <model>"
   exit 2
 }
 
@@ -70,6 +72,21 @@ cmd_check() {
   return $rc
 }
 
+# Reads ANTHROPIC_API_KEY from the env file when it is not already in the environment. The file is parsed, not sourced,
+# so nothing else in it can run, and it must not be readable by other users.
+load_env_key() {
+  [[ -z "${ANTHROPIC_API_KEY:-}" ]] || return 0
+  local f="${AB_ENV_FILE:-$EXP_DIR/.env}" line mode
+  [[ -f "$f" ]] || return 0
+  mode=$(stat -c %a "$f" 2>/dev/null || stat -f %Lp "$f")
+  [[ "$mode" == 600 || "$mode" == 400 ]] || die "$f is readable by others (mode $mode); run: chmod 600 $f"
+  line=$(grep -E '^[[:space:]]*(export[[:space:]]+)?ANTHROPIC_API_KEY=' "$f" | tail -1) || true
+  [[ -n "$line" ]] || return 0
+  line="${line#*=}"; line="${line%\"}"; line="${line#\"}"; line="${line%\'}"; line="${line#\'}"
+  [[ -n "$line" ]] || return 0
+  export ANTHROPIC_API_KEY="$line"
+}
+
 # Sets the global auth_args array: an API key (default), or AB_LOGIN=1 to sign in inside the container (/login) with a
 # Claude account, e.g. a Pro, Max or Enterprise plan. Login needs claude.ai and platform.claude.com reachable, so they join the firewall allowlist.
 typeset -a auth_args
@@ -80,7 +97,8 @@ auth_setup() {
     allow="$allow claude.ai platform.claude.com"
     print "AB_LOGIN=1: not passing ANTHROPIC_API_KEY; run /login inside the session. claude.ai and platform.claude.com are allowed through the firewall."
   else
-    [[ -n "${ANTHROPIC_API_KEY:-}" ]] || die "ANTHROPIC_API_KEY is not set (or use AB_LOGIN=1 to sign in with an account)"
+    load_env_key
+    [[ -n "${ANTHROPIC_API_KEY:-}" ]] || die "ANTHROPIC_API_KEY is not set and not in ${AB_ENV_FILE:-$EXP_DIR/.env} (or use AB_LOGIN=1 to sign in with an account)"
     auth_args=(-e ANTHROPIC_API_KEY)
   fi
   auth_args+=(-e "AB_ALLOW_DOMAINS=${allow% }")
@@ -136,6 +154,62 @@ cmd_resume() {
   launch "$name" "$model" "$dir"
 }
 
+# One non-interactive Claude Code turn in the arm's container (no TTY, nothing to answer). Same image, mount and firewall
+# as `run`. --dangerously-skip-permissions only skips permission prompts: the container is the sandbox, and git-guard and
+# auto-mode are hooks, so they still apply. AB_FIX_TIMEOUT (seconds) and AB_FIX_BUDGET_USD bound one fix session.
+launch_headless() {  # name model dir prompt   (uses auth_args)
+  local name="$1" model="$2" dir="$3" prompt="$4" rc=0
+  timeout "${AB_FIX_TIMEOUT:-1200}" docker run --rm --name "ab-$name" \
+    --cap-add NET_ADMIN \
+    "${auth_args[@]}" \
+    -e "AB_NAME=$name" \
+    -v "$dir:/work" \
+    "$IMAGE" claude -p "$prompt" \
+      --model "$model" \
+      --dangerously-skip-permissions \
+      --max-budget-usd "${AB_FIX_BUDGET_USD:-2}" || rc=$?
+  if (( rc == 124 )); then docker rm -f "ab-$name" >/dev/null 2>&1 || true; print -u2 -- "run-ab: fix session timed out after ${AB_FIX_TIMEOUT:-1200}s"; fi
+  return $rc
+}
+
+# Unattended review loop. auto-mode keeps each fix turn going to AUTO-MODE: DONE, but it cannot wait for GitHub, so this
+# host-side loop does the rest: review-round, then a headless fix session on the same run folder, until a round is CLEAN
+# or AB_MAX_ROUNDS is reached. It stops (fails closed) if a fix session makes no commit or leaves uncommitted changes.
+# It needs an API key: a /login session needs a human. Re-running it continues from the last recorded round.
+cmd_review_loop() {
+  (( $# == 2 )) || usage
+  local name="$1" model="$2" dir="$RUNS_DIR/$1" logdir="$RUNS_DIR/$1.reviews" max="${AB_MAX_ROUNDS:-5}"
+  local csv="$logdir/rounds.csv" round last head_before
+  [[ "$name" =~ '^[a-z0-9]+(-[a-z0-9]+)*$' ]] || die "name must be lowercase letters, digits and hyphens (got '$name')"
+  [[ "${AB_LOGIN:-0}" != 1 ]] || die "review-loop runs unattended and needs ANTHROPIC_API_KEY; AB_LOGIN=1 needs a human for /login"
+  [[ -d "$dir/.git" ]] || die "$dir is not a started run folder; use: run-ab.zsh run $name <model> <src-repo>"
+  auth_setup
+  docker image inspect "$IMAGE" >/dev/null 2>&1 || die "image '$IMAGE' not built; run: run-ab.zsh build"
+  docker ps --format '{{.Names}}' | grep -qx "ab-$name" && die "a container for '$name' is already running; /exit it first"
+
+  while true; do
+    # A recorded round with findings whose commit has not changed still needs its fix: skip straight to the fix.
+    if [[ -f "$csv" && "$(tail -1 "$csv" | cut -d, -f6)" == findings && -f "$logdir/last-head" \
+          && "$(<"$logdir/last-head")" == "$(git -C "$dir" rev-parse HEAD)" ]]; then
+      print "review-loop: resuming at the fix for round $(( $(wc -l < "$csv") - 1 ))"
+    else
+      zsh "$SCRIPT_DIR/review-round.zsh" review-round "$name" || die "review-round stopped (see above). Re-run review-loop to continue"
+    fi
+    last=$(tail -1 "$csv" | cut -d, -f6)
+    round=$(( $(wc -l < "$csv") - 1 ))
+    if [[ "$last" == clean ]]; then print "review-loop: $name CLEAN after $round round(s)"; return 0; fi
+    (( round < max )) || die "round cap ($max) reached with findings still open for $name"
+
+    head_before=$(git -C "$dir" rev-parse HEAD)
+    print "review-loop: round $round has findings; headless fix session on $model (log: $logdir/fix-$round.log)"
+    launch_headless "$name" "$model" "$dir" \
+      "Read REVIEW-$round.md and resolve every finding: fix the code or add the missing test. If you disagree with one, say why in your commit message. Run the tests, commit, and end with AUTO-MODE: DONE." \
+      2>&1 | tee "$logdir/fix-$round.log" || die "fix session failed (see $logdir/fix-$round.log); nothing was reviewed again"
+    [[ "$(git -C "$dir" rev-parse HEAD)" != "$head_before" ]] || die "fix session made no new commit (see $logdir/fix-$round.log); stopping"
+    [[ -z "$(git -C "$dir" status --porcelain)" ]] || die "fix session left uncommitted changes in $dir; stopping"
+  done
+}
+
 (( $# >= 1 )) || usage
 sub="$1"; shift
 case "$sub" in
@@ -144,6 +218,7 @@ case "$sub" in
   check) cmd_check ;;
   run)   cmd_run "$@" ;;
   resume) cmd_resume "$@" ;;
+  review-loop) cmd_review_loop "$@" ;;
   review-round|review-summary) exec zsh "$SCRIPT_DIR/review-round.zsh" "$sub" "$@" ;;
   *)     usage ;;
 esac

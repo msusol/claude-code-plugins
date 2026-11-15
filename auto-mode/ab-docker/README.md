@@ -201,6 +201,38 @@ Guard rails and caveats:
 - Tested with a stubbed `gh` and a local bare repo (`tests/test-review-round.zsh`). **Not tested against GitHub:** the
   reviewer login, the requested-reviewers API call, and the shape of Copilot's review and comment objects.
 
+## Unattended review loop (`review-loop`)
+
+`run-ab.zsh review-loop <name> <model>` runs the whole Copilot loop without a human: `review-round`, then a headless fix
+session (`claude -p`, no TTY) in the arm's container, then `review-round` again, until a round is CLEAN or `AB_MAX_ROUNDS`
+(default 5). auto-mode keeps each fix turn going until `AUTO-MODE: DONE`, but it cannot wait for GitHub, so the loop around
+it runs on the host. The arm still never gets GitHub access: pushes and the Copilot wait happen on the host.
+
+```zsh
+AB_DOCS=1 AB_REVIEW_REPO=msusol/ab-scratch auto-mode/ab-docker/run-ab.zsh review-loop wordfreq-docs-fable-r1 claude-fable-5-2
+```
+
+- **Needs an API key.** `/login` needs a human, so `AB_LOGIN=1` is refused. Put the key in `~/experiments/.env` (see below).
+- **Fails closed.** It stops if a fix session fails, makes no commit, or leaves uncommitted changes, and prints where the log is
+  (`<run>.reviews/fix-N.log`). Re-running it continues from the last recorded round.
+- **Bounds per fix session:** `AB_FIX_TIMEOUT` (seconds, default 1200) and `AB_FIX_BUDGET_USD` (default 2, passed as `--max-budget-usd`).
+- **Permissions:** the session runs with `--dangerously-skip-permissions`, which only skips prompts. The container (firewall, only
+  `/work` mounted) is the sandbox, and git-guard and auto-mode are hooks that still apply.
+- **Not yet run against real Claude Code or GitHub.** The tests use stubbed `gh` and `docker`. Try it on one arm first and
+  read `fix-1.log`.
+
+### API key in an env file
+
+If `ANTHROPIC_API_KEY` is not in the environment, `run`, `resume` and `review-loop` read it from `$AB_ENV_FILE`
+(default `~/experiments/.env`). The file must be `chmod 600`, is parsed rather than sourced, and `.env` is already gitignored
+by the experiments template. `AB_LOGIN=1` never reads it.
+
+```zsh
+umask 077
+read -rs "k?Paste the API key (hidden): "; print "ANTHROPIC_API_KEY=$k" > ~/experiments/.env; unset k
+chmod 600 ~/experiments/.env
+```
+
 ## How it works
 
 - `Dockerfile` — Node + Claude Code, a `claude` user with your host uid (so mounted files stay yours), and the
