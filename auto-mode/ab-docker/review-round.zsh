@@ -25,7 +25,7 @@
 #   AB_REVIEW_REMOTE_URL        default https://github.com/$AB_REVIEW_REPO.git
 #
 # The push goes through your normal `git`, so git-guard's remote allowlist applies: the scratch repo's URL must
-# match a pattern in ~/.config/git-guard/allowlist. Each Copilot review uses one premium request from your quota.
+# match a pattern in ~/.config/git-guard/allowlist. GitHub bills Copilot code review in AI credits ($0.01 each), drawn from your plan's included credits; a review averaged about 29 credits in our runs.
 
 set -euo pipefail
 
@@ -126,8 +126,9 @@ cmd_round() {
   [[ -f "$logdir/rounds.csv" ]] || print "round,time,head,pr,findings,status" > "$logdir/rounds.csv"
   print "$round,$(date -u +%FT%TZ),${head[1,7]},$pr,$count,$outcome" >> "$logdir/rounds.csv"
 
-  # Step log for the cost dashboard (see run-ab.zsh log_step). Copilot has no per-review price in any API, so the cost
-  # recorded is the request count: one premium request per requested review (AB_NO_REQUEST=1 means none was requested).
+  # Step log for the cost dashboard (see run-ab.zsh log_step). GitHub bills code review in AI credits and no API gives a per-review
+  # price, so what is recorded is the review count: 1 per requested review (AB_NO_REQUEST=1 means none was requested). The key keeps
+  # its historical name, premium_requests; the dashboard prices a review at an average rate.
   local effort requests=1
   effort=$(print -r -- "$reviews" | jq -r --argjson rid "$rid" '.[] | select(.id == $rid) | .copilot_code_review_effort // "unknown"')
   [[ "${AB_NO_REQUEST:-0}" != 1 ]] || requests=0

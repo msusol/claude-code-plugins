@@ -105,7 +105,7 @@ check "PR reused, not recreated" "[[ \$(grep -c 'pr create' $STUBDIR/calls) == 1
 check "clean round writes no REVIEW file to the run folder" "[[ ! -f $D/REVIEW-2.md ]]"
 check "csv has both rounds" "[[ \$(tail -n +2 $AB_RUNS_DIR/t1.reviews/rounds.csv | wc -l) == 2 ]]"
 check "steps.csv has a header and one review row per round" "[[ \$(head -1 $AB_RUNS_DIR/t1.reviews/steps.csv) == 'start,end,type,round,model,commit,detail' && \$(grep -c ',review,' $AB_RUNS_DIR/t1.reviews/steps.csv) == 2 ]]"
-check "review rows record Copilot, findings, status, request count and effort" "grep -q ',review,1,copilot,.*,pr=7;findings=2;status=findings;premium_requests=1;effort=balanced\$' $AB_RUNS_DIR/t1.reviews/steps.csv && grep -q ',review,2,copilot,.*;findings=0;status=clean;premium_requests=1;effort=balanced\$' $AB_RUNS_DIR/t1.reviews/steps.csv"
+check "review rows record Copilot, findings, status, review count and effort" "grep -q ',review,1,copilot,.*,pr=7;findings=2;status=findings;premium_requests=1;effort=balanced\$' $AB_RUNS_DIR/t1.reviews/steps.csv && grep -q ',review,2,copilot,.*;findings=0;status=clean;premium_requests=1;effort=balanced\$' $AB_RUNS_DIR/t1.reviews/steps.csv"
 expect_ok "summary shows rounds and clean-at" "round 2" zsh "$RR" review-summary t1
 expect_ok "summary lists findings per round" "2,0" zsh "$RR" review-summary t1
 expect_ok "summary for an arm with no rounds" "no rounds yet" zsh "$RR" review-summary t1 other

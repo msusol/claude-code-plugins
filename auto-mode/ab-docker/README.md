@@ -183,8 +183,9 @@ auto-mode/ab-docker/run-ab.zsh review-summary model-a model-b
 
 Per arm it records `round, time, commit, pr, findings, status` in `~/experiments/runs/<name>.reviews/rounds.csv` (outside the
 run folder, so the arm cannot touch it), and `review-summary` prints rounds, findings per round, and the round that
-first came back clean. Pair it with a separate API key per arm to compare model cost against Copilot rounds and
-premium requests (one per review).
+first came back clean. Pair it with a separate API key per arm to compare model cost against Copilot rounds and reviews. GitHub bills
+code review in AI credits ($0.01 each) from your plan's included credits, not per request; one review averaged about 29 credits ($0.29) over
+8 reviews in our runs, and the dashboard's A/B tab uses that average. Read the real usage at github.com/settings/billing/ai_usage.
 
 Guard rails and caveats:
 
@@ -218,8 +219,9 @@ start,end,type,round,model,commit,detail
 
 - `type` is `arm` (`run`), `resume`, `fix` (headless) or `review` (`review-round`). `start` and `end` are UTC; a session belongs to the
   step whose window it falls in.
-- Copilot has no per-review price in any API, so a `review` row records the request count (`premium_requests=1`, or 0 with
-  `AB_NO_REQUEST=1`) and the effort Copilot reports, not dollars.
+- GitHub bills code review in AI credits and no API gives a per-review price, so a `review` row records the review count
+  (`premium_requests=1`, or 0 with `AB_NO_REQUEST=1`) and the effort Copilot reports, not dollars. `premium_requests` is the key's historical name;
+  it counts review requests, not billing units. The cost dashboard turns the count into an estimate.
 - `run` refuses a name whose `.session` or `.reviews` folder is left over from an earlier run, because two runs' logs would mix.
   Remove both when you remove the run folder, after copying out what you want to keep.
 
