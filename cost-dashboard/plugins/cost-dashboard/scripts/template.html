@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Claude Code Cost Dashboard</title>
+<style>
+/* Styling follows the docs-hub page: light panel, 1px borders, 2px radius, gold accent, uppercase title and tabs. */
+:root {
+  --cd-gap-xs: 0.25rem; --cd-gap-sm: 0.5rem; --cd-gap-md: 1rem; --cd-gap-lg: 1.5rem;
+  --cd-pad-xs: 0.25rem; --cd-pad-sm: 0.5rem; --cd-pad-lg: 1rem;
+  --cd-caption: 0.8125rem; --cd-body: 1rem; --cd-heading: 1.25rem;
+  --cd-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --page: #fafafa; --fg: #111111; --mut: #616161; --panel: #ffffff; --line: #e7e7e7; --tint: #fafafa; --focus: #faf6e8;
+  --e-low: #e3d49b; --e-medium: #c9ad5c; --e-high: #9a7f2e; --e-xhigh: #6b561b; --e-max: #3b2f0e; --e-unknown: #b5b5b0;
+  --gold: #c9ad5c; --bar: #c9ad5c; --bar2: #616161; --warn: #9a6b00; --shadow: 0 4px 14px rgba(0,0,0,.12);
+}
+@media (prefers-color-scheme: dark) {
+  :root { --page: #1d1d1b; --fg: #f0f0ec; --mut: #a4a49c; --panel: #262624; --line: #3a3a36; --tint: #2d2d2a; --focus: #34311f;
+          --bar2: #a4a49c; --warn: #e0b64a;
+          --e-low: #5d5230; --e-medium: #8f7a3c; --e-high: #c9ad5c; --e-xhigh: #e6cf85; --e-max: #f6e7b3; --e-unknown: #6f6f68; --shadow: 0 4px 14px rgba(0,0,0,.5); }
+}
+html, body { margin: 0; background: var(--page); font-family: var(--cd-sans); color: var(--fg); }
+body { padding: 1.5rem 1rem; }
+.cd { background: var(--panel); border: 1px solid var(--line); max-width: 1200px; margin-inline: auto; padding: 1.5rem;
+      display: flex; flex-direction: column; gap: var(--cd-gap-lg); }
+.cd * { box-sizing: border-box; }
+.cd [hidden] { display: none !important; }
+.cd-head { border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: var(--cd-gap-lg); }
+.cd-head-main { display: flex; flex-direction: column; gap: var(--cd-gap-md); flex: 1 1 24rem; min-width: 0; }
+.cd-eyebrow { margin: 0; font-size: var(--cd-caption); color: var(--mut); }
+.cd h1 { margin: 0; font-weight: 700; font-size: 1.75rem; line-height: 1.15; text-transform: uppercase; letter-spacing: 0.01em; }
+.cd h1::after { content: ''; display: block; width: 2.25rem; height: 3px; background: var(--gold); margin-top: 0.75rem; }
+.cd-tabs { display: flex; flex-wrap: wrap; gap: var(--cd-gap-lg); }
+.cd-tabs button { font: inherit; font-size: var(--cd-caption); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--mut);
+  background: none; border: 0; border-bottom: 3px solid transparent; margin-bottom: -1px; border-radius: 0; padding: 0.625rem 0; cursor: pointer; }
+.cd-tabs button:hover { color: var(--fg); }
+.cd-tabs button[aria-selected=true] { color: var(--fg); border-bottom-color: var(--gold); }
+.cd-tabs button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.cd-tile { flex: 0 0 auto; max-width: 100%; border: 1px solid var(--line); border-top: 3px solid var(--gold); background: var(--panel);
+  border-radius: 2px; padding: var(--cd-pad-lg); display: flex; flex-direction: column; gap: var(--cd-gap-xs); margin-bottom: var(--cd-gap-md); }
+.cd-lab { font-size: var(--cd-caption); color: var(--mut); }
+.cd-num { font-weight: 700; font-size: 2rem; line-height: 1.1; font-variant-numeric: tabular-nums; min-height: 2.5rem; }
+.cd-note { font-size: var(--cd-caption); color: var(--mut); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cd-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr)); gap: var(--cd-gap-md); }
+.cd-card { background: var(--panel); border: 1px solid var(--line); border-radius: 2px; padding: var(--cd-pad-lg); display: flex; flex-direction: column; gap: var(--cd-gap-sm); min-width: 0; }
+.cd-card h2 { margin: 0; font-size: var(--cd-heading); font-weight: 700; }
+.cd-card h2::after { content: ''; display: block; width: 1.5rem; height: 2px; background: var(--gold); margin-top: 0.5rem; }
+.cd-sub { margin: 0; font-size: var(--cd-caption); color: var(--mut); }
+.cd-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr)); gap: var(--cd-gap-md); align-items: stretch; }
+.cd-chart svg { display: block; max-width: 100%; }
+.cd-tip { position: fixed; z-index: 5; pointer-events: none; background: var(--panel); border: 1px solid var(--line); border-radius: 2px; box-shadow: var(--shadow);
+  padding: var(--cd-pad-xs) var(--cd-pad-sm); font-size: var(--cd-caption); line-height: 1.45; }
+.cd-tools { display: flex; flex-wrap: wrap; gap: var(--cd-gap-sm); align-items: center; }
+.cd-search { font: inherit; font-size: var(--cd-caption); color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 2px;
+  padding: var(--cd-pad-xs) var(--cd-pad-sm); min-width: min(100%, 14rem); flex: 1 1 14rem; }
+/* No max-height and no vertical scroll: a scrollbar inside the box sat beside the last column's header. The page scrolls instead; the box only scrolls sideways on a narrow screen. */
+.cd-box { overflow-x: auto; border: 1px solid var(--line); border-radius: 2px; }
+.cd-table { width: 100%; border-collapse: collapse; font-size: var(--cd-caption); font-variant-numeric: tabular-nums; }
+.cd-table th { background: var(--panel); text-align: left; font-weight: 500; border-bottom: 1px solid var(--line);
+  padding: var(--cd-pad-xs) var(--cd-pad-sm); white-space: nowrap; }
+.cd-table th[data-k] { cursor: pointer; user-select: none; }
+.cd-table th[data-k]:hover { color: var(--mut); }
+.cd-table th[aria-sort=ascending]::after { content: ' \2191'; color: var(--mut); }
+.cd-table th[aria-sort=descending]::after { content: ' \2193'; color: var(--mut); }
+.cd-table td { padding: var(--cd-pad-xs) var(--cd-pad-sm); border-bottom: 1px solid var(--line); vertical-align: top; }
+.cd-table tr:last-child td { border-bottom: 0; }
+.cd-table td.n, .cd-table th.n { text-align: right; }
+.cd-table th:last-child, .cd-table td:last-child { padding-right: 1.25rem; }
+.cd-table tr.s { cursor: pointer; }
+.cd-table tr.s:hover td { background: var(--tint); }
+.cd-table tr.s td:first-child::before { content: '\25B8'; margin-right: 0.375rem; color: var(--gold); }
+.cd-table tr.s.open td:first-child::before { content: '\25BE'; }
+.cd-table tr.s:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+.cd-table tr.t td { background: var(--tint); color: var(--mut); }
+.cd-table tr.t td:nth-child(2) { padding-left: 1.5rem; }
+.cd-bar { height: 4px; border-radius: 1px; background: var(--bar); min-width: 1px; margin-top: 3px; }
+.cd-bar.t { background: var(--bar2); }
+.cd-table .nw { white-space: nowrap; }
+.cd-pc { max-width: 12rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cd-table.wide-prompt { width: max-content; min-width: 100%; }
+.cd-table.wide-prompt .cd-pc { max-width: none; overflow: visible; text-overflow: clip; }
+.cd-ptoggle { all: unset; box-sizing: border-box; cursor: pointer; font-weight: 500; white-space: nowrap; color: var(--gold); padding: 0 0.25rem; }
+.cd-ptoggle:hover { color: var(--fg); }
+.cd-ptoggle:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.cd-pager { display: flex; flex-wrap: wrap; gap: var(--cd-gap-md); align-items: center; justify-content: space-between; font-size: var(--cd-caption); color: var(--mut); }
+.cd-pager .grp { display: inline-flex; gap: var(--cd-gap-sm); align-items: center; }
+.cd-btn { font: inherit; font-size: var(--cd-caption); color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 2px; padding: var(--cd-pad-xs) 0.75rem; cursor: pointer; }
+.cd-btn:hover:not(:disabled) { border-color: var(--gold); }
+.cd-btn:disabled { color: var(--mut); opacity: 0.55; cursor: default; }
+.cd-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.cd-trunc { max-width: 28rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cd-warn { border: 1px solid var(--gold); border-left-width: 3px; background: var(--focus); color: var(--fg); padding: var(--cd-pad-sm) var(--cd-pad-lg); font-size: var(--cd-caption); }
+.cd-empty { color: var(--mut); font-size: var(--cd-caption); padding: var(--cd-pad-sm) 0; }
+.cd-legend { display: flex; flex-wrap: wrap; gap: var(--cd-gap-md); font-size: var(--cd-caption); color: var(--mut); }
+.cd-legend span { display: inline-flex; align-items: center; gap: 0.375rem; }
+.cd-sw { width: 0.75rem; height: 0.75rem; border-radius: 2px; display: inline-block; border: 1px solid var(--line); }
+.cd-span { grid-column: 1 / -1; }
+.cd-table td.h { text-align: right; }
+.cd-table tr.tot td { font-weight: 600; background: var(--tint); }
+.cd-small { color: var(--mut); font-size: 0.75rem; }
+.cd-foot { margin: 0; font-size: var(--cd-caption); color: var(--mut); }
+@media (max-width: 560px) { .cd { padding: 1rem; } .cd-note { white-space: normal; } }
+</style>
+</head>
+<body>
+<div class="cd">
+  <header class="cd-head">
+    <div class="cd-head-main">
+      <p class="cd-eyebrow">Cost Dashboard</p>
+      <h1>Claude Code</h1>
+      <nav class="cd-tabs" role="tablist" id="tabs">
+        <button role="tab" data-tab="overview" aria-selected="true">Overview</button>
+        <button role="tab" data-tab="effort" aria-selected="false">Model &amp; effort</button>
+        <button role="tab" data-tab="context" aria-selected="false">Context</button>
+        <button role="tab" data-tab="sessions" aria-selected="false">Sessions</button>
+      </nav>
+    </div>
+    <div class="cd-tile" id="tile"></div>
+  </header>
+  <div id="warn"></div>
+  <section id="tab-overview" class="cd-main">
+    <div class="cd-kpis" id="kpis"></div>
+    <div class="cd-grid" style="margin-top:var(--cd-gap-md)">
+      <div class="cd-card"><h2>Cost per day</h2><p class="cd-sub">Estimated USD per calendar day; hover a bar for the figure.</p><div class="cd-chart"><svg id="daily" width="100%" height="190"></svg></div></div>
+      <div class="cd-card"><h2>By model</h2><p class="cd-sub">Tokens in and out, and what each side cost. In is everything sent to the model, cache reads included.</p><div class="cd-box"><table class="cd-table" id="models"></table></div></div>
+    </div>
+  </section>
+  <section id="tab-effort" class="cd-main" hidden>
+    <div class="cd-grid">
+      <div class="cd-card cd-span"><h2>Cost by model and effort</h2><p class="cd-sub">Each model with the effort levels it ran at, recorded per call: one row when a model ran at a single effort, otherwise the model's total with each effort nested under it. In is everything sent to the model (fresh input, cache writes, cache reads) and Out is what it wrote; $ In and $ Out are what each side cost, and the $ / 1M columns are the price actually paid per million tokens. Effort is only meaningful for the model it ran on, so it is never summed across models.</p><div class="cd-box"><table class="cd-table" id="mod-eff"></table></div></div>
+      <div class="cd-card cd-span"><h2>Model x effort</h2><p class="cd-sub">The same figures as a grid: estimated cost for each model at each effort level, with tokens in and out and $ in and out under it. Darker cells cost more.</p><div class="cd-box"><table class="cd-table" id="matrix"></table></div></div>
+      <div class="cd-card cd-span"><h2>Cost per day by model and effort</h2><p class="cd-sub">Estimated USD per calendar day, stacked by model and effort; hover a segment for the figure.</p><div class="cd-legend" id="eff-legend"></div><div class="cd-chart"><svg id="daily-eff" width="100%" height="190"></svg></div></div>
+      <div class="cd-card cd-span"><h2>Cost per task by model and effort</h2><p class="cd-sub">A task is one prompt and everything Claude did for it, grouped by the model and effort that cost the most in it. Few tasks means a noisy average.</p><div class="cd-box"><table class="cd-table" id="task-eff"></table></div></div>
+    </div>
+  </section>
+  <section id="tab-context" class="cd-main" hidden>
+    <div class="cd-grid">
+      <div class="cd-card"><h2>Where the cost goes</h2><p class="cd-sub">Every call re-sends the whole conversation. Cache reads are that carried context at a tenth of the input rate; output is what Claude writes.</p><div class="cd-box"><table class="cd-table" id="parts-tbl"></table></div></div>
+      <div class="cd-card"><h2>Reading this</h2><p class="cd-sub" id="ctx-read"></p></div>
+      <div class="cd-card cd-span"><h2>Price per 1M tokens</h2>
+        <p class="cd-sub" id="rate-note"></p>
+        <div class="cd-box"><table class="cd-table" id="rate-tbl"></table></div></div>
+      <div class="cd-card cd-span"><h2>Context carried per call</h2>
+        <p class="cd-sub">Tokens sent to the model on each call of the main conversation (fresh input, cache writes, and cache reads). It grows as the conversation does; a sharp drop is a /clear or a compaction. Subagents carry their own context and are not drawn.</p>
+        <div class="cd-tools"><select class="cd-search" id="ctx-sel" aria-label="Session"></select></div>
+        <p class="cd-sub" id="ctx-note"></p>
+        <div class="cd-chart"><svg id="ctx-chart" width="100%" height="240"></svg></div></div>
+      <div class="cd-card cd-span"><h2>Context by session</h2><p class="cd-sub">Click a row to draw it above. Cache hit is the share of input served from the cache. Resets count calls whose context fell below 70% of the call before.</p><div class="cd-box"><table class="cd-table" id="ctx-tbl"></table></div></div>
+    </div>
+  </section>
+  <section id="tab-sessions" class="cd-main" hidden>
+    <div class="cd-card">
+      <h2>Sessions</h2>
+      <p class="cd-sub">Click a header to sort and a row to expand its tasks (one user prompt and everything Claude did in response). Only Project shows by default; click its ▸ to split it into Project and First prompt, after which the table scrolls sideways. Search by project, prompt, model or effort.</p>
+      <div class="cd-tools"><input class="cd-search" id="q" type="search" placeholder="Search sessions"></div>
+      <div class="cd-box"><table class="cd-table" id="sess"></table></div>
+      <div class="cd-pager" id="pager"></div>
+    </div>
+  </section>
+  <p class="cd-foot" id="foot"></p>
+</div>
+<div class="cd-tip" id="tip" hidden></div>
+<script>
+const DATA = /*__DATA__*/null;
+const $ = id => document.getElementById(id);
+const rate = x => '$' + (x >= 1 ? x.toFixed(2) : x.toFixed(3));
+const usd = x => '$' + x.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+const kfmt = n => n>=1e6 ? (n/1e6).toFixed(1)+'M' : n>=1e3 ? (n/1e3).toFixed(1)+'k' : String(n);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const ses = DATA.sessions;
+// In = everything sent to the model (fresh input + cache writes + cache reads); Out = what the model wrote. Prices compare on $ in and $ out.
+const ZERO = () => ({cost:0, calls:0, in_tok:0, out_tok:0, in_cost:0, out_cost:0});
+const addTo = (into, c) => { for (const f in c) into[f] = (into[f] || 0) + c[f]; return into; };
+const sumNest = me => { const z = ZERO(); for (const m in me) for (const e in me[m]) addTo(z, me[m][e]); return z; };   // model -> effort -> cell
+ses.forEach(s => { s.io = sumNest(s.matrix); });
+const modelCells = {};  ses.forEach(s => { for (const m in s.matrix) for (const e in s.matrix[m]) addTo(modelCells[m] || (modelCells[m] = ZERO()), s.matrix[m][e]); });
+const allIO = Object.values(modelCells).reduce(addTo, ZERO());
+const ioCells = c => `<td class="n">${kfmt(c.in_tok)}</td><td class="n">${kfmt(c.out_tok)}</td><td class="n">${usd(c.in_cost)}</td><td class="n">${usd(c.out_cost)}</td>`;
+const IO_HEAD = '<th class="n">In tokens</th><th class="n">Out tokens</th><th class="n">$ In</th><th class="n">$ Out</th>';
+const perM = (cost, tok) => tok ? rate(1e6*cost/tok) : '–';
+$('foot').textContent = `Built from your local Claude Code session logs. Costs are estimates: token counts x the rates in pricing.json, not a bill. Generated ${DATA.generated}.`;
+const warns = [];
+if (DATA.speed_flags && DATA.speed_flags.length) warns.push(`Non-standard speed or tier seen (${esc(DATA.speed_flags.join(', '))}); those calls are priced at standard rates, so the estimate may be low.`);
+if (DATA.unpriced.length) warns.push(`Unpriced models (fallback rates used): ${esc(DATA.unpriced.join(', '))}. Edit pricing.json for accurate numbers.`);
+if (warns.length) $('warn').innerHTML = warns.map(w => `<div class="cd-warn">${w}</div>`).join('');
+
+const total = ses.reduce((a,s)=>a+s.cost,0), sub = ses.reduce((a,s)=>a+s.sub_cost,0);
+const turns = ses.reduce((a,s)=>a+s.turns.length,0);
+const tok = ses.reduce((a,s)=>{for(const k in s.tokens)a[k]=(a[k]||0)+s.tokens[k];return a},{});
+const cacheHit = (tok.cache_read||0)/(((tok.cache_read||0)+(tok.input||0)+(tok.cache_write||0))||1);
+const kp = [['Total cost',usd(total)],['Sessions',ses.length],['Avg / session',usd(ses.length?total/ses.length:0)],
+  ['Tasks (prompts)',turns],['Avg / task',usd(turns?total/turns:0)],['Subagent share',total?Math.round(100*sub/total)+'%':'–'],
+  ['Cache hit rate',Math.round(cacheHit*100)+'%'],
+  ['Tokens in / out',kfmt(allIO.in_tok)+' / '+kfmt(allIO.out_tok)],['Cost in / out',usd(allIO.in_cost)+' / '+usd(allIO.out_cost)]];
+$('tile').innerHTML = `<div class="cd-lab">Estimated total</div><div class="cd-num">${usd(total)}</div>
+  <div class="cd-note">${ses.length} session${ses.length===1?'':'s'}, last ${DATA.days || 'all'} days</div><div class="cd-note">${usd(ses.length?total/ses.length:0)} per session on average</div>`;
+$('kpis').innerHTML = kp.slice(1).map(([k,v])=>`<div class="cd-tile" style="margin:0"><div class="cd-lab">${k}</div><div class="cd-num" style="font-size:1.5rem;min-height:0">${v}</div></div>`).join('');
+
+// daily chart
+const days = {};
+ses.forEach(s=>{for(const d in s.daily) days[d]=(days[d]||0)+s.daily[d]});
+const dk = Object.keys(days).sort(), mx = Math.max(...dk.map(d=>days[d]),0.01);
+const svg = $('daily'); const W = 600, H = 180, pad = 22;
+svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
+const bw = dk.length ? (W-pad)/dk.length : 0;
+svg.innerHTML = dk.map((d,i)=>{const h=(days[d]/mx)*(H-pad-16);
+  return `<rect x="${pad+i*bw+1}" y="${H-pad-h}" width="${Math.max(bw-2,1)}" height="${h}" rx="2" fill="var(--bar)" data-tip="${d}: ${usd(days[d])}"><title>${d}: ${usd(days[d])}</title></rect>`}).join('')
+  + (dk.length ? `<text x="${pad}" y="${H-6}" font-size="10" fill="var(--mut)">${dk[0]}</text><text x="${W}" y="${H-6}" font-size="10" text-anchor="end" fill="var(--mut)">${dk[dk.length-1]}</text><text x="${pad}" y="10" font-size="10" fill="var(--mut)">max ${usd(mx)}</text>` : '');
+
+// models
+$('models').innerHTML = '<thead><tr><th>Model</th><th class="n">Calls</th>' + IO_HEAD + '<th class="n">Cost</th></tr></thead><tbody>' +
+  Object.entries(modelCells).sort((a,b)=>b[1].cost-a[1].cost).map(([m,c])=>`<tr><td>${esc(m)}</td><td class="n">${c.calls}</td>${ioCells(c)}<td class="n">${usd(c.cost)}</td></tr>`).join('') + '</tbody>';
+
+// ---- model and effort views (an effort level is always shown with the model it ran on) ----
+const EFF_ORDER = ['low','medium','high','xhigh','max','unknown'];
+const effCmp = (a,b) => { const i=EFF_ORDER.indexOf(a), j=EFF_ORDER.indexOf(b); return (i<0?99:i)-(j<0?99:j) || a.localeCompare(b); };
+const short = m => String(m).replace(/^claude-/,'');
+const topKey = o => { let k=null, b=-1; for (const x in o) { const v = typeof o[x]==='object' ? o[x].cost : o[x]; if (v>b) { b=v; k=x; } } return k; };
+const tally = (into, from) => { for (const k in from) addTo(into[k] || (into[k] = {}), from[k]); };
+const emptyRow = (n, t) => `<tbody><tr><td class="cd-empty" colspan="${n}">${t}</td></tr></tbody>`;
+// the model {effort: cost} nest of a session, task or day -> the [model, effort] pair that cost the most (null when empty)
+const topCombo = me => { let best = null, b = -1; for (const m in me) for (const e in me[m]) { const v = typeof me[m][e]==='object' ? me[m][e].cost : me[m][e]; if (v > b) { b = v; best = [m, e]; } } return best; };
+const comboCount = me => Object.values(me).reduce((a, e) => a + Object.keys(e).length, 0);
+
+const mod = {};  ses.forEach(s => tally(mod, s.models));
+const mods = Object.keys(mod).sort((a,b) => mod[b].cost - mod[a].cost);
+// one hue per model, one lightness per effort: the colour says which model, the shade says how much effort
+const HUES = [42, 210, 160, 340, 270, 20, 100, 300];
+const LIGHT = {low:80, medium:64, high:50, xhigh:38, max:28};
+const combo = (m, e) => LIGHT[e] ? `hsl(${HUES[Math.max(mods.indexOf(m),0) % HUES.length]} 55% ${LIGHT[e]}%)` : `hsl(${HUES[Math.max(mods.indexOf(m),0) % HUES.length]} 8% 60%)`;
+const sw = (m, e) => `<span class="cd-sw" style="background:${combo(m, e)}"></span>`;
+const comboLabel = (m, e) => `${short(m)} · ${e}`;
+const comboLabelFull = (m, e) => `${m} · ${e}`;
+const comboCmp = (a, b) => (mods.indexOf(a[0]) - mods.indexOf(b[0])) || effCmp(a[1], b[1]);
+
+const mxm = {};  // model -> effort -> {cost, calls}
+ses.forEach(s => { for (const m in s.matrix) tally(mxm[m] || (mxm[m] = {}), s.matrix[m]); });
+const effsOf = m => Object.keys(mxm[m] || {}).sort(effCmp);
+const effs = [...new Set(mods.flatMap(effsOf))].sort(effCmp);
+
+const shareOf = c => total ? Math.round(100*c.cost/total) + '%' : '0%';
+const meRow = (label, c, cls) => `<tr class="${cls}"><td class="nw">${label}</td><td class="n">${c.calls}</td>${ioCells(c)}<td class="n">${perM(c.in_cost, c.in_tok)}</td><td class="n">${perM(c.out_cost, c.out_tok)}</td><td class="n">${usd(c.cost)}</td><td class="n">${shareOf(c)}</td></tr>`;
+$('mod-eff').innerHTML = mods.length
+  ? '<thead><tr><th class="nw">Model / effort</th><th class="n">Calls</th>' + IO_HEAD + '<th class="n">In $ / 1M</th><th class="n">Out $ / 1M</th><th class="n">Cost</th><th class="n">Share</th></tr></thead><tbody>' +
+    mods.map(m => { const es = effsOf(m);
+      // one effort: a single "model · effort" row says it all; several: the model's total, then each effort nested under it
+      return es.length === 1 ? meRow(`${sw(m, es[0])} ${esc(comboLabelFull(m, es[0]))}`, modelCells[m], 'tot')
+                             : meRow(esc(m), modelCells[m], 'tot') + es.map(e => meRow(`${sw(m, e)} ${esc(e)}`, mxm[m][e], 't')).join(''); }).join('') + '</tbody>'
+  : emptyRow(10, 'No calls in this period.');
+
+let cellMax = 0.01;  mods.forEach(m => effs.forEach(e => { cellMax = Math.max(cellMax, (mxm[m] && mxm[m][e] ? mxm[m][e].cost : 0)); }));
+const cellHtml = (c, shade) => `<td class="h"${shade ? ` style="background:color-mix(in srgb,var(--gold) ${Math.round(6+54*c.cost/cellMax)}%,transparent)"` : ''}>${usd(c.cost)}<br><span class="cd-small">${kfmt(c.in_tok)} in · ${kfmt(c.out_tok)} out</span><br><span class="cd-small">${usd(c.in_cost)} in · ${usd(c.out_cost)} out</span></td>`;
+$('matrix').innerHTML = mods.length
+  ? '<thead><tr><th>Model</th>' + effs.map(e => `<th class="n">${esc(e)}</th>`).join('') + '<th class="n">Total</th></tr></thead><tbody>' +
+    mods.map(m => '<tr><td>' + esc(m) + '</td>' + effs.map(e => mxm[m] && mxm[m][e] ? cellHtml(mxm[m][e], true) : '<td class="h cd-small">–</td>').join('') + cellHtml(modelCells[m], false) + '</tr>').join('') + '</tbody>'
+  : emptyRow(2, 'No calls in this period.');
+
+const tg = {};  // "model|effort" of the costliest pair in each task -> tasks, calls, and the tokens and dollars in and out
+ses.forEach(s => s.turns.forEach(t => { const c = topCombo(t.me); if (!c) return; const k = c[0] + '|' + c[1]; const g = tg[k] || (tg[k] = {pair: c, tasks:0, sum: ZERO()}); g.tasks++; addTo(g.sum, sumNest(t.me)); }));
+const tRows = Object.values(tg).sort((a,b) => comboCmp(a.pair, b.pair));
+$('task-eff').innerHTML = tRows.length
+  ? '<thead><tr><th class="nw">Model · effort</th><th class="n">Tasks</th><th class="n">Calls / task</th><th class="n">In tokens / task</th><th class="n">Out tokens / task</th><th class="n">$ In / task</th><th class="n">$ Out / task</th><th class="n">Cost / task</th><th class="n">Total</th></tr></thead><tbody>' +
+    tRows.map(g => { const n = g.tasks, c = g.sum;
+      return `<tr><td class="nw">${sw(g.pair[0], g.pair[1])} ${esc(comboLabel(g.pair[0], g.pair[1]))}</td><td class="n">${n}${n<5?' <span class="cd-small">small sample</span>':''}</td><td class="n">${(c.calls/n).toFixed(1)}</td><td class="n">${kfmt(Math.round(c.in_tok/n))}</td><td class="n">${kfmt(Math.round(c.out_tok/n))}</td><td class="n">${usd(c.in_cost/n)}</td><td class="n">${usd(c.out_cost/n)}</td><td class="n">${usd(c.cost/n)}</td><td class="n">${usd(c.cost)}</td></tr>`; }).join('') + '</tbody>'
+  : emptyRow(9, 'No tasks in this period.');
+
+// cost per day, stacked by model and effort
+const dMe = {};  // day -> "model|effort" -> cost
+ses.forEach(s => { for (const d in s.daily_me) for (const m in s.daily_me[d]) for (const e in s.daily_me[d][m]) { const day = dMe[d] || (dMe[d] = {}); day[m + '|' + e] = (day[m + '|' + e] || 0) + s.daily_me[d][m][e]; } });
+const pairOf = k => k.split('|');
+const dEk = Object.keys(dMe).sort(), dTot = d => Object.values(dMe[d]).reduce((a,b)=>a+b,0);
+const dMx = Math.max(...dEk.map(dTot), 0.01), sv2 = $('daily-eff'), W2 = 1100, bw2 = dEk.length ? (W2-pad)/dEk.length : 0;
+sv2.setAttribute('viewBox', `0 0 ${W2} ${H}`);   // the card spans the page, so the canvas is wide too
+sv2.innerHTML = dEk.map((d,i) => { let y = H-pad;
+  return Object.keys(dMe[d]).sort((a,b) => comboCmp(pairOf(a), pairOf(b))).map(k => { const [m, e] = pairOf(k), h = (dMe[d][k]/dMx)*(H-pad-16); y -= h;
+    return `<rect x="${pad+i*bw2+1}" y="${y}" width="${Math.max(bw2-2,1)}" height="${h}" fill="${combo(m, e)}" data-tip="${d} ${esc(comboLabel(m, e))}: ${usd(dMe[d][k])}"><title>${d} ${esc(comboLabel(m, e))}: ${usd(dMe[d][k])}</title></rect>`; }).join(''); }).join('')
+  + (dEk.length ? `<text x="${pad}" y="${H-6}" font-size="10" fill="var(--mut)">${dEk[0]}</text><text x="${W2}" y="${H-6}" font-size="10" text-anchor="end" fill="var(--mut)">${dEk[dEk.length-1]}</text><text x="${pad}" y="10" font-size="10" fill="var(--mut)">max ${usd(dMx)}</text>` : '');
+const legendPairs = [...new Set(dEk.flatMap(d => Object.keys(dMe[d])))].map(pairOf).sort(comboCmp);
+$('eff-legend').innerHTML = legendPairs.map(([m, e]) => `<span>${sw(m, e)} ${esc(comboLabel(m, e))}</span>`).join('');
+
+// ---- tokens and context ----
+const PART_LABEL = {cache_read:'Cache read', cache_write:'Cache write', output:'Output', input:'Fresh input'};
+const partCost = {input:0, output:0, cache_write:0, cache_read:0};  ses.forEach(s => { for (const k in partCost) partCost[k] += (s.parts||{})[k] || 0; });
+const partTok = {input:tok.input||0, output:tok.output||0, cache_write:tok.cache_write||0, cache_read:tok.cache_read||0};
+const partSum = Object.values(partCost).reduce((a,b)=>a+b,0);
+const partKeys = Object.keys(partCost).sort((a,b)=>partCost[b]-partCost[a]);
+$('parts-tbl').innerHTML = ses.length
+  ? '<thead><tr><th>Token type</th><th class="n">Tokens</th><th class="n">Cost</th><th class="n">Per 1M tokens</th><th class="n">Share</th></tr></thead><tbody>' +
+    partKeys.map(k => `<tr><td>${PART_LABEL[k]}</td><td class="n">${kfmt(partTok[k])}</td><td class="n">${usd(partCost[k])}</td><td class="n">${partTok[k] ? rate(1e6*partCost[k]/partTok[k]) : '–'}</td><td class="n">${partSum ? Math.round(100*partCost[k]/partSum) : 0}%</td></tr>`).join('') + '</tbody>'
+  : emptyRow(5, 'No calls in this period.');
+{
+  const calls = ses.reduce((a,s)=>a+s.calls,0) || 1, ctxTok = partTok.input + partTok.cache_write + partTok.cache_read;
+  $('ctx-read').textContent = ses.length
+    ? `Across these sessions the average call sent ${kfmt(Math.round(ctxTok/calls))} tokens of context and produced ${Math.round(partTok.output/calls)} tokens of output. ` +
+      `Cache reads are ${partSum ? Math.round(100*partCost.cache_read/partSum) : 0}% of the estimated cost, so cost follows how large the context gets and how many calls are made while it is large, more than how much Claude writes.`
+    : '';
+}
+
+// rate card: what each model is priced at per million tokens, and what its carried context really cost
+{
+  const rates = DATA.rates || {}, names = Object.keys(rates).sort((a,b) => (mod[b]?mod[b].cost:0) - (mod[a]?mod[a].cost:0));
+  const blend = {};  ses.forEach(s => { for (const m in s.models) { const e = blend[m] || (blend[m] = {t:0, c:0}); e.t += s.models[m].ctx_tokens || 0; e.c += s.models[m].ctx_cost || 0; } });
+  const w1 = ses.reduce((a,s) => a + (s.cw1h||0), 0), wAll = partTok.cache_write;
+  $('rate-note').textContent = `USD per million tokens (MTok), the unit providers quote. Rates from ${DATA.rates_source || 'pricing.json'}` + (DATA.rates_verified ? `, checked ${DATA.rates_verified}` : '') + '. ' +
+    'Cache reads are a fraction of the input price and that fraction differs by model. ' +
+    (wAll ? `${Math.round(100*w1/wAll)}% of your cache writes used the 1-hour cache, which costs 2x the input price instead of 1.25x. ` : '') +
+    '"Context paid" is what a million tokens of carried context actually cost you, blending fresh input, cache writes and cache reads.';
+  $('rate-tbl').innerHTML = names.length
+    ? '<thead><tr><th>Model</th><th class="n">Fresh input</th><th class="n">Cache write 5m</th><th class="n">Cache write 1h</th><th class="n">Cache read</th><th class="n">Read vs input</th><th class="n">Output</th><th class="n">Context paid</th></tr></thead><tbody>' +
+      names.map(m => { const r = rates[m], b = blend[m];
+        return `<tr><td>${esc(m)}${r.tiers ? ' <span class="cd-small">higher rates over ' + kfmt(r.tiers[0].over_tokens) + ' tokens</span>' : ''}</td><td class="n">${rate(r.input)}</td><td class="n">${rate(r.cache_write_5m)}</td><td class="n">${rate(r.cache_write_1h)}</td><td class="n">${rate(r.cache_read)}</td><td class="n">${+(r.read_multiplier).toFixed(3)}x</td><td class="n">${rate(r.output)}</td><td class="n">${b && b.t ? rate(1e6*b.c/b.t) : '–'}</td></tr>`; }).join('') + '</tbody>'
+    : emptyRow(8, 'No models in this period.');
+}
+
+const ctxSes = ses.filter(s => s.ctx && s.ctx.calls).sort((a,b) => b.cost - a.cost);
+const cacheHitOf = s => { const t = s.tokens, d = t.cache_read + t.input + t.cache_write; return d ? t.cache_read / d : 0; };
+let ctxPick = ctxSes.length ? ctxSes[0].id : null;
+$('ctx-sel').innerHTML = ctxSes.map(s => `<option value="${esc(s.id)}">${esc(s.project)} · ${esc(s.title.slice(0,60))} · ${usd(s.cost)}</option>`).join('');
+$('ctx-sel').value = ctxPick || '';
+function drawCtx() {
+  const s = ctxSes.find(x => x.id === ctxPick), sv = $('ctx-chart');
+  if (!s) { sv.innerHTML = ''; $('ctx-note').textContent = 'No main-conversation calls in this period.'; return; }
+  const c = s.ctx, n = c.series.length, CW = 600, CH = 240, L = 46, B = 24, T = 14, R = 8;
+  const top = Math.max(...c.series, 1), x = i => L + (n > 1 ? i*(CW-L-R)/(n-1) : 0), y = v => CH-B - (v/top)*(CH-B-T);
+  const pts = c.series.map((v,i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  const grid = [0, .5, 1].map(f => `<line x1="${L}" x2="${CW-R}" y1="${y(top*f)}" y2="${y(top*f)}" stroke="var(--line)"/><text x="${L-6}" y="${y(top*f)+3}" font-size="10" text-anchor="end" fill="var(--mut)">${kfmt(Math.round(top*f))}</text>`).join('');
+  const bw = (CW-L-R) / Math.max(n, 1), span = c.bucket > 1;
+  sv.setAttribute('viewBox', `0 0 ${CW} ${CH}`);
+  sv.innerHTML = grid +
+    `<polygon points="${x(0)},${CH-B} ${pts} ${x(n-1)},${CH-B}" fill="var(--gold)" opacity=".22"/><polyline points="${pts}" fill="none" stroke="var(--gold)" stroke-width="2"/>` +
+    c.reset_at.map(i => `<line x1="${x(i)}" x2="${x(i)}" y1="${T}" y2="${CH-B}" stroke="var(--mut)" stroke-dasharray="3 3"/>`).join('') +
+    c.series.map((v,i) => { const a = i*c.bucket + 1, tip = span ? `calls ${a}-${Math.min((i+1)*c.bucket, c.calls)}: peak ${kfmt(v)} tokens` : `call ${a}: ${kfmt(v)} tokens`;
+      return `<rect x="${x(i)-bw/2}" y="${T}" width="${bw}" height="${CH-B-T}" fill="transparent" data-tip="${tip}"><title>${tip}</title></rect>`; }).join('') +
+    `<text x="${L}" y="${CH-6}" font-size="10" fill="var(--mut)">call 1</text><text x="${CW-R}" y="${CH-6}" font-size="10" text-anchor="end" fill="var(--mut)">call ${c.calls}</text>`;
+  $('ctx-note').textContent = `${c.calls} calls. Average ${kfmt(c.avg)} tokens, peak ${kfmt(c.peak)}, last ${kfmt(c.last)}. ` +
+    (c.resets ? `${c.resets} drop${c.resets===1?'':'s'} to under 70% of the call before (dashed lines): a /clear or a compaction.` : 'No drops: the context only grew.');
+}
+function drawCtxTable() {
+  $('ctx-tbl').innerHTML = ctxSes.length
+    ? '<thead><tr><th>Session</th><th class="n">Calls</th><th class="n">Avg context</th><th class="n">Peak</th><th class="n">Resets</th><th class="n">Cache hit</th><th class="n">Avg output / call</th><th class="n">Cost</th></tr></thead><tbody>' +
+      ctxSes.map(s => `<tr class="s${s.id===ctxPick?' open':''}" data-id="${esc(s.id)}" tabindex="0"><td class="cd-trunc">${esc(s.project)} · ${esc(s.title)}</td><td class="n">${s.ctx.calls}</td><td class="n">${kfmt(s.ctx.avg)}</td><td class="n">${kfmt(s.ctx.peak)}</td><td class="n">${s.ctx.resets}</td><td class="n">${Math.round(100*cacheHitOf(s))}%</td><td class="n">${Math.round(s.tokens.output/(s.calls||1))}</td><td class="n">${usd(s.cost)}</td></tr>`).join('') + '</tbody>'
+    : emptyRow(8, 'No main-conversation calls in this period.');
+}
+function pickCtx(id) { ctxPick = id; $('ctx-sel').value = id; drawCtx(); drawCtxTable(); }
+$('ctx-sel').addEventListener('change', e => pickCtx(e.target.value));
+$('ctx-tbl').addEventListener('click', e => { const tr = e.target.closest('tr.s'); if (tr) pickCtx(tr.dataset.id); });
+$('ctx-tbl').addEventListener('keydown', e => { if ((e.key==='Enter'||e.key===' ') && e.target.matches('tr.s')) { e.preventDefault(); e.target.click(); } });
+drawCtx(); drawCtxTable();
+
+// sessions table
+let sortKey='cost', sortDir=-1, open = new Set(), page = 0, pageSize = 10, showPrompt = false;
+const PAGE_SIZES = [10, 25, 50, 100];
+const NUM = ['turns','calls','in_tok','out_tok','in_cost','out_cost','sub_cost','cost'];
+const NOWRAP = ['last','project','model'];
+// Project and First prompt are one collapsible unit: Project alone by default, Project then First prompt once expanded
+const colsNow = () => [['last','Last active'],['project','Project'], ...(showPrompt ? [['title','First prompt']] : []),
+  ['model','Model · effort'],['turns','Tasks'],['calls','Calls'],['in_tok','In tokens'],['out_tok','Out tokens'],['in_cost','$ In'],['out_cost','$ Out'],['sub_cost','Subagent'],['cost','Cost']];
+const comboOf = s => { const c = topCombo(s.matrix); return c ? comboLabel(c[0], c[1]) + (comboCount(s.matrix) > 1 ? ` +${comboCount(s.matrix)-1}` : '') : ''; };
+function val(s,k){return k==='turns'?s.turns.length:['in_tok','out_tok','in_cost','out_cost'].includes(k)?s.io[k]:k==='model'?comboOf(s):s[k]}
+const headCell = ([k,l]) => {
+  const cls = [NUM.includes(k)?'n':'', NOWRAP.includes(k)?'nw':''].filter(Boolean).join(' ');
+  const toggle = k==='project' ? ` <button class="cd-ptoggle" type="button" aria-expanded="${showPrompt}" title="${showPrompt ? 'Hide' : 'Show'} the first prompt">${showPrompt ? '◂' : '▸'}</button>` : '';
+  return `<th data-k="${k}" class="${cls}"${k===sortKey?` aria-sort="${sortDir<0?'descending':'ascending'}"`:''}>${l}${toggle}</th>`;
+};
+function render(){
+  const q = $('q').value.toLowerCase(), cols = colsNow();
+  const rows = ses.filter(s=>!q||(s.project+' '+s.title+' '+Object.keys(s.models).join(' ')+' '+Object.values(s.matrix).flatMap(o=>Object.keys(o)).join(' ')).toLowerCase().includes(q))
+    .sort((a,b)=>{const x=val(a,sortKey),y=val(b,sortKey);return (x>y?1:x<y?-1:0)*sortDir});
+  const pages = Math.max(1, Math.ceil(rows.length / pageSize));
+  page = Math.min(Math.max(page, 0), pages - 1);
+  const first = page * pageSize, shown = rows.slice(first, first + pageSize);
+  const mxc = Math.max(...rows.map(r=>r.cost),0.01);
+  $('sess').className = 'cd-table' + (showPrompt ? ' wide-prompt' : '');
+  const head = '<thead><tr>'+cols.map(headCell).join('')+'</tr></thead>';
+  let h = head + '<tbody>';
+  for(const s of shown){
+    h += `<tr class="s${open.has(s.id)?' open':''}" data-id="${esc(s.id)}" tabindex="0"><td class="nw">${s.last?s.last.slice(0,16).replace('T',' '):''}</td><td class="nw">${esc(s.project)}</td>` +
+      (showPrompt ? `<td class="p"><div class="cd-pc" title="${esc(s.title)}">${esc(s.title)}</div></td>` : '') +
+      `<td class="nw">${(()=>{const c=topCombo(s.matrix); return c ? sw(c[0],c[1])+' ' : '';})()}${esc(comboOf(s))}</td>
+      <td class="n">${s.turns.length}</td><td class="n">${s.calls}</td>${ioCells(s.io)}
+      <td class="n">${usd(s.sub_cost)}</td><td class="n">${usd(s.cost)}<div class="cd-bar" style="width:${100*s.cost/mxc}%"></div></td></tr>`;
+    if(open.has(s.id)){
+      const tmax = Math.max(...s.turns.map(t=>t.cost),0.01);
+      h += s.turns.slice().sort((a,b)=>b.cost-a.cost).map(t=>{ const c = topCombo(t.me), pr = `<div class="cd-pc" title="${esc(t.prompt)}">↳ ${esc(t.prompt)}</div>`;
+        // collapsed: the task's prompt sits in the Project column (capped, full text on hover); expanded: it gets the First prompt column
+        return `<tr class="t"><td class="nw">${t.ts?t.ts.slice(11,16):''}</td>` + (showPrompt ? `<td></td><td class="p">${pr}</td>` : `<td class="p">${pr}</td>`) +
+        `<td class="nw">${c ? sw(c[0],c[1]) + ' ' + esc(comboLabel(c[0], c[1])) : ''}</td>
+        <td class="n"></td><td class="n">${t.calls}</td>${ioCells(sumNest(t.me))}
+        <td class="n">${usd(t.sub_cost)}</td><td class="n">${usd(t.cost)}<div class="cd-bar t" style="width:${100*t.cost/tmax}%"></div></td></tr>`; }).join('')
+        || `<tr class="t"><td colspan="${cols.length}">No task breakdown (subagent-only or no prompts found)</td></tr>`;
+    }
+  }
+  $('sess').innerHTML = rows.length ? h + '</tbody>' : head + `<tbody><tr><td class="cd-empty" colspan="${cols.length}">No sessions match.</td></tr></tbody>`;
+  const from = rows.length ? first + 1 : 0, to = Math.min(first + pageSize, rows.length);
+  $('pager').innerHTML = `<label class="grp">Rows per page <select class="cd-search" id="page-size" style="flex:none;min-width:0">${PAGE_SIZES.map(n => `<option${n===pageSize?' selected':''}>${n}</option>`).join('')}</select></label>` +
+    `<span>${from}–${to} of ${rows.length}</span>` +
+    `<span class="grp"><button class="cd-btn" type="button" data-pg="prev"${page===0?' disabled':''}>Previous</button><span>Page ${page+1} of ${pages}</span><button class="cd-btn" type="button" data-pg="next"${page>=pages-1?' disabled':''}>Next</button></span>`;
+}
+$('sess').addEventListener('click',e=>{
+  if(e.target.closest('.cd-ptoggle')){ showPrompt = !showPrompt; return render(); }
+  const th=e.target.closest('th'); if(th){const k=th.dataset.k; if(!k) return; if(k===sortKey)sortDir*=-1; else{sortKey=k;sortDir=-1} page=0; return render()}
+  const tr=e.target.closest('tr.s'); if(tr){const id=tr.dataset.id; open.has(id)?open.delete(id):open.add(id); render()}
+});
+$('pager').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b||b.disabled) return; page += b.dataset.pg==='next' ? 1 : -1; render(); });
+$('pager').addEventListener('change',e=>{ if(e.target.id==='page-size'){ pageSize = +e.target.value; page = 0; render(); } });
+$('q').addEventListener('input',()=>{ page = 0; render(); });
+
+// keyboard: Enter or Space expands the focused session row
+$('sess').addEventListener('keydown',e=>{ if((e.key==='Enter'||e.key===' ')&&e.target.matches('tr.s')){e.preventDefault(); e.target.click();} });
+
+// tabs, kept in the URL hash so a reload keeps the tab
+function showTab(name){
+  if(!document.getElementById('tab-'+name)) name='overview';
+  for(const b of document.querySelectorAll('#tabs button')) b.setAttribute('aria-selected', String(b.dataset.tab===name));
+  for(const s of document.querySelectorAll('.cd-main')) s.hidden = s.id!=='tab-'+name;
+}
+$('tabs').addEventListener('click',e=>{const b=e.target.closest('button'); if(b){location.hash=b.dataset.tab; showTab(b.dataset.tab);}});
+addEventListener('hashchange',()=>showTab(location.hash.slice(1)));
+showTab(location.hash.slice(1));
+
+// tooltip for the daily bars
+const tip=$('tip');
+for (const id of ['daily','daily-eff','ctx-chart']) {
+  $(id).addEventListener('mousemove',e=>{const t=e.target.getAttribute&&e.target.getAttribute('data-tip'); if(!t){tip.hidden=true;return}
+    tip.textContent=t; tip.hidden=false; tip.style.left=(e.clientX+12)+'px'; tip.style.top=(e.clientY+12)+'px';});
+  $(id).addEventListener('mouseleave',()=>{tip.hidden=true});
+}
+render();
+</script>
+</body>
+</html>
