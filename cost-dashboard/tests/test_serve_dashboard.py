@@ -148,6 +148,56 @@ class Rebuilding(ServerCase):
         self.assertEqual(resp.status, 200)
 
 
+class AbRuns(ServerCase):
+    """The A/B tab: the server passes --ab-root through and rebuilds when a run's steps.csv or session log changes."""
+
+    STEPS = ("start,end,type,round,model,commit,detail\n"
+             "2026-01-01T00:00:00Z,2026-01-01T00:10:00Z,review,1,copilot,abc,pr=1;findings=0;status=clean;premium_requests=1;effort=balanced\n")
+
+    def setUp(self):
+        super().setUp()
+        self.runs = Path(self.root) / "ab"
+        (self.runs / "r1.reviews").mkdir(parents=True)
+        self.steps = self.runs / "r1.reviews" / "steps.csv"
+        self.steps.write_text(self.STEPS)
+        os.utime(self.steps, (4_000, 4_000))
+        self.ab_server = sd.make_server(self.root, days=0, port=0, ab_root=str(self.runs))
+        self.ab_port = self.ab_server.server_address[1]
+        self.ab_thread = threading.Thread(target=self.ab_server.serve_forever, daemon=True)
+        self.ab_thread.start()
+        self.addCleanup(self.stop_ab)
+
+    def stop_ab(self):
+        self.ab_server.shutdown()
+        self.ab_server.server_close()
+        self.ab_thread.join(5)
+
+    def data(self):
+        conn = http.client.HTTPConnection("127.0.0.1", self.ab_port, timeout=10)
+        conn.request("GET", "/data.json")
+        out = json.loads(conn.getresponse().read())
+        conn.close()
+        return out
+
+    def test_the_data_has_the_ab_section_only_when_a_root_is_given(self):
+        self.assertEqual(self.data()["ab"]["runs"][0]["name"], "r1")
+        resp, body = self.get("/data.json")
+        self.assertNotIn("ab", json.loads(body))
+
+    def test_a_changed_steps_file_triggers_a_rebuild(self):
+        self.assertEqual(len(self.data()["ab"]["runs"][0]["steps"]), 1)
+        builds = self.ab_server.state.builds
+        self.steps.write_text(self.STEPS + self.STEPS.split("\n")[1] + "\n")
+        os.utime(self.steps, (5_000, 5_000))
+        self.assertEqual(len(self.data()["ab"]["runs"][0]["steps"]), 2)
+        self.assertEqual(self.ab_server.state.builds, builds + 1)
+
+    def test_no_change_means_no_rebuild(self):
+        self.data()
+        self.data()
+        self.assertEqual(self.ab_server.state.builds, 1)
+
+
 class Refusing(ServerCase):
     def test_nothing_but_the_two_paths_is_served(self):
         for path in ("/../etc/passwd", "/%2e%2e/etc/passwd", "/..%2f..%2fetc/passwd", "/index.html", "/data.json/",
@@ -195,7 +245,7 @@ class Binding(unittest.TestCase):
             with mock.patch.object(sd, "make_server", return_value=fake) as made, \
                     mock.patch.object(sys, "argv", ["serve_dashboard.py", "--root", tmp]):
                 sd.main()
-        self.assertEqual(made.call_args.args, (tmp, 30, "", "127.0.0.1", 8766))
+        self.assertEqual(made.call_args.args, (tmp, 30, "", "127.0.0.1", 8766, sd.build_dashboard.default_ab_root()))
         fake.server_close.assert_called_once()
 
     def test_host_header_rules(self):

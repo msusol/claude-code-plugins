@@ -27,6 +27,7 @@ claude plugin install cost-dashboard@losus-ai
 /cost-dashboard:dashboard --days 7
 /cost-dashboard:dashboard --project re-lead  # filter by project dir / cwd substring
 /cost-dashboard:dashboard --days 0           # everything
+/cost-dashboard:dashboard --ab-root ~/experiments/runs   # point the A/B tab at another runs folder
 /cost-dashboard:dashboard serve              # a live page on http://127.0.0.1:8766/, rebuilt as your logs grow
 /cost-dashboard:dashboard serve --port 8770 --days 0
 ```
@@ -49,6 +50,27 @@ Four tabs, every table with **tokens in and out and the dollars for each side**,
 
 A "task" is one user prompt and everything Claude did in response, including subagents spawned in that turn.
 
+### A/B tab (only when there are A/B runs)
+
+When `--ab-root` (default `$AB_RUNS_DIR`, else `~/experiments/runs`) holds runs from auto-mode's `ab-docker` scripts, a fifth tab,
+**A/B**, shows them side by side: Claude cost per run (tokens in and out, dollars in and out), Copilot review requests, rounds to clean,
+findings per round, and wall time. Pick a run to see its steps in order: the arm session, each Copilot review round, each headless fix.
+
+It reads two things per run, both written by `run-ab.zsh` (auto-mode 1.9.0 or later):
+
+| File | What it holds |
+|---|---|
+| `<run>.reviews/steps.csv` | One row per step: `start,end,type,round,model,commit,detail` (UTC). A review row carries `pr`, `findings`, `status`, `premium_requests`, `effort`. |
+| `<run>.session/` | The Claude Code session logs of the run's containers, priced with the same rates as every other tab. |
+
+Each Claude call is assigned to the step whose time window it falls in (a few seconds of slack either side); calls outside every step are
+shown on their own line and still count in the run's total. A run with no session logs (it ran before session capture) shows – for Claude
+cost, because that cost is unknown, not zero.
+
+**Copilot is a request count, not dollars.** No GitHub API gives a per-review price. Set `copilot_usd_per_request` in `pricing.json` to
+show an estimate (requests x rate); it is `null` by default. Check GitHub's billing page for what a premium request costs on your plan.
+With no A/B runs the tab is hidden and the data is unchanged.
+
 **[guide/GUIDE.md](guide/GUIDE.md)** walks through each tab with example data and charts, and explains the concepts behind the numbers
 (in vs out tokens, context, prompt caching, compaction, effort). [guide/example-dashboard.html](guide/example-dashboard.html) is the example
 dashboard to open in a browser.
@@ -57,7 +79,7 @@ dashboard to open in a browser.
 
 `plugins/cost-dashboard/scripts/build_dashboard.py` reads `~/.claude/projects/**/*.jsonl`,
 de-duplicates streamed assistant messages, and multiplies token usage by the per-model rates in
-`plugins/cost-dashboard/pricing.json`. `scripts/serve_dashboard.py` serves the same page live. Python 3 standard library only. Each session in the data (`/data.json`) also carries its active time, with idle gaps over 10 minutes removed, for tooling built on top of it.
+`plugins/cost-dashboard/pricing.json`. `scripts/serve_dashboard.py` serves the same page live. `scripts/ab_steps.py` joins an A/B run's step log to its session logs. Python 3 standard library only. Each session in the data (`/data.json`) also carries its active time, with idle gaps over 10 minutes removed, for tooling built on top of it.
 No rules and no hooks: there is no runtime event to intercept, so this plugin is a command only.
 
 ## Tests

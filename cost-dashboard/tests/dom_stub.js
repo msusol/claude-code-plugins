@@ -1,6 +1,6 @@
 // Runs the dashboard page's script against a stub DOM and prints {element id: innerHTML} as JSON. Used by test_build_dashboard.py.
 // Optional argv[3] is a JSON list of actions replayed after load: {"pager":"next"|"prev"}, {"pageSize":25}, {"toggleWide":true},
-// {"sort":"in_tok"}, {"expand":"<session id>"}, {"search":"text"}. Elements that got a className are reported as "<id>:class".
+// {"sort":"in_tok"}, {"expand":"<session id>"}, {"search":"text"}, {"abPick":"<run name>"}. Elements that got a className are reported as "<id>:class".
 const fs = require('fs');
 const ids = {}, listeners = {};
 function el(id) {
@@ -23,6 +23,7 @@ for (const a of JSON.parse(process.argv[3] || '[]')) {
   else if (a.sort) fire('sess', 'click', { target: { closest: closest({ th: { dataset: { k: a.sort } } }) } });
   else if (a.expand) fire('sess', 'click', { target: { closest: closest({ 'tr.s': { dataset: { id: a.expand } } }) } });
   else if (a.search !== undefined) { el('q').value = a.search; fire('q', 'input', {}); }
+  else if (a.abPick) fire('ab-sel', 'change', { target: { value: a.abPick } });
 }
 const out = {};
 for (const k of Object.keys(ids)) { out[k] = ids[k]._h || ids[k].textContent; if (ids[k].className) out[k + ':class'] = ids[k].className; }

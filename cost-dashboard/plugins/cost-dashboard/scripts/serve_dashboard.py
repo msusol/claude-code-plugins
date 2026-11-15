@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Serve the cost dashboard locally, rebuilding whenever a session log changed.
 
-    serve_dashboard.py [--root ~/.claude/projects] [--days 30] [--project SUBSTR]
+    serve_dashboard.py [--root ~/.claude/projects] [--days 30] [--project SUBSTR] [--ab-root DIR]
                        [--host 127.0.0.1] [--port 8766]
 
     Open http://HOST:PORT/ for the page and http://HOST:PORT/data.json for the data
@@ -43,14 +43,20 @@ def code_mtime():
 class State:
     """What the handlers share: the settings, the last build, and the lock around rebuilding."""
 
-    def __init__(self, root, days, project):
-        self.root, self.days, self.project = root, days, project
+    def __init__(self, root, days, project, ab_root=None):
+        self.root, self.days, self.project, self.ab_root = root, days, project, ab_root
         self.lock = threading.Lock()
         self.seen = None          # (newest log mtime, code mtime) of the last build
         self.code_seen = None
         self.page = None
         self.json = None
         self.builds = 0           # how many times collect() ran: the tests watch this
+
+    def _ab_mtime(self):
+        if not self.ab_root:
+            return 0.0
+        import ab_steps
+        return ab_steps.newest_mtime(self.ab_root)
 
     def refresh(self):
         """Return (page, json), rebuilding first when a log or the plugin files changed. Concurrent callers build once."""
@@ -60,9 +66,9 @@ class State:
                 importlib.reload(build_dashboard)    # a changed script, template or rate table applies on the next load
                 print("reloaded build_dashboard (plugin files changed)", flush=True)
             self.code_seen = code
-            cur = (build_dashboard.newest_mtime(self.root), code)
+            cur = (build_dashboard.newest_mtime(self.root), self._ab_mtime(), code)
             if cur != self.seen or self.page is None:
-                data = build_dashboard.collect(self.root, self.days, self.project)
+                data = build_dashboard.collect(self.root, self.days, self.project, ab_root=self.ab_root)
                 page = build_dashboard.render(data)
                 self.page, self.json = page, json.dumps(data)
                 self.seen = cur
@@ -124,12 +130,12 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
 
-def make_server(root, days=30, project="", host="127.0.0.1", port=8766):
+def make_server(root, days=30, project="", host="127.0.0.1", port=8766, ab_root=None):
     """Create (not start) the server. port=0 picks a free port; read it from server.server_address."""
     server = ThreadingHTTPServer((host, port), Handler)
     server.daemon_threads = True
     server.bound_host = host
-    server.state = State(root, days, project)
+    server.state = State(root, days, project, ab_root)
     return server
 
 
@@ -138,6 +144,7 @@ def main():
     ap.add_argument("--root", default=str(Path.home() / ".claude" / "projects"))
     ap.add_argument("--days", type=int, default=30, help="only sessions active in the last N days (0 = all)")
     ap.add_argument("--project", default="", help="substring filter on project dir / cwd")
+    ap.add_argument("--ab-root", default=build_dashboard.default_ab_root(), help="folder of A/B runs; default $AB_RUNS_DIR or ~/experiments/runs")
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8766)
     args = ap.parse_args()
@@ -145,7 +152,7 @@ def main():
     if not build_dashboard.log_files(args.root):
         sys.exit("No session logs found under %s" % args.root)
     try:
-        server = make_server(args.root, args.days, args.project, args.host, args.port)
+        server = make_server(args.root, args.days, args.project, args.host, args.port, args.ab_root)
     except OSError as exc:
         sys.exit("cannot listen on %s:%d (%s); pick another port with --port" % (args.host, args.port, exc.strerror or exc))
     host, port = server.server_address[:2]

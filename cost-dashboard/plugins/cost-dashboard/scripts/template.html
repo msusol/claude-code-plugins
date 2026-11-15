@@ -114,6 +114,7 @@ body { padding: 1.5rem 1rem; }
         <button role="tab" data-tab="effort" aria-selected="false">Model &amp; effort</button>
         <button role="tab" data-tab="context" aria-selected="false">Context</button>
         <button role="tab" data-tab="sessions" aria-selected="false">Sessions</button>
+        <button role="tab" data-tab="ab" id="tab-ab-btn" aria-selected="false" hidden>A/B</button>
       </nav>
     </div>
     <div class="cd-tile" id="tile"></div>
@@ -156,6 +157,12 @@ body { padding: 1.5rem 1rem; }
       <div class="cd-tools"><input class="cd-search" id="q" type="search" placeholder="Search sessions"></div>
       <div class="cd-box"><table class="cd-table" id="sess"></table></div>
       <div class="cd-pager" id="pager"></div>
+    </div>
+  </section>
+  <section id="tab-ab" class="cd-main" hidden>
+    <div class="cd-grid">
+      <div class="cd-card cd-span"><h2>A/B runs side by side</h2><p class="cd-sub">One row per run that logged its steps: what Claude cost across all its sessions (arm, resumes and headless fixes), how many Copilot review requests it used, and how many review rounds it took to come back clean. Dollars are estimates from the session logs; Copilot is a request count.</p><div class="cd-box"><table class="cd-table" id="ab-runs"></table></div><p class="cd-sub" id="ab-note"></p></div>
+      <div class="cd-card cd-span"><h2>Steps</h2><p class="cd-sub">Every step of one run in order: Claude sessions are priced from their logs, review rounds show Copilot's findings and request count.</p><label class="cd-sub">Run <select class="cd-search" id="ab-sel" style="flex:none;min-width:0"></select></label><div class="cd-box"><table class="cd-table" id="ab-steps"></table></div></div>
     </div>
   </section>
   <p class="cd-foot" id="foot"></p>
@@ -409,9 +416,48 @@ $('q').addEventListener('input',()=>{ page = 0; render(); });
 // keyboard: Enter or Space expands the focused session row
 $('sess').addEventListener('keydown',e=>{ if((e.key==='Enter'||e.key===' ')&&e.target.matches('tr.s')){e.preventDefault(); e.target.click();} });
 
+// ---- A/B tab: runs side by side, and the steps of one run (only when the data has A/B runs) ----
+const AB = DATA.ab;
+let abPick = AB && AB.runs.length ? AB.runs[0].name : '';
+const dur = s => s >= 3600 ? Math.floor(s/3600)+'h '+Math.floor(s%3600/60)+'m' : s >= 60 ? Math.floor(s/60)+'m '+(s%60)+'s' : s+'s';
+const abBar = (v, max) => `<span style="display:inline-block;height:6px;width:${max ? Math.round(60*v/max) : 0}px;background:var(--bar);margin-right:6px;border-radius:1px"></span>`;
+function drawAB() {
+  $('tab-ab-btn').hidden = !AB;
+  if (!AB) return;
+  const rate = AB.copilot_usd_per_request, runs = AB.runs, maxC = Math.max(...runs.map(r => r.totals.claude.cost), 0);
+  $('ab-runs').innerHTML = '<thead><tr><th>Run</th><th>Model</th><th class="n">Claude in</th><th class="n">Claude out</th><th class="n">Claude $</th><th class="n">Copilot requests</th><th>Rounds to clean</th><th>Findings per round</th><th class="n">Fixes</th><th class="n">Wall time</th></tr></thead><tbody>' +
+    runs.map(r => { const t = r.totals, k = r.claude_known;
+      return `<tr><td>${esc(r.name)}</td><td>${esc(r.arm_model || '–')}</td><td class="n">${k ? kfmt(t.claude.in_tok) : '–'}</td><td class="n">${k ? kfmt(t.claude.out_tok) : '–'}</td>` +
+        `<td class="n">${k ? abBar(t.claude.cost, maxC) + usd(t.claude.cost) : '–'}</td><td class="n">${t.copilot_requests}${t.copilot_usd != null ? ' (' + usd(t.copilot_usd) + ')' : ''}</td>` +
+        `<td>${t.clean_round ? 'round ' + t.clean_round : (t.reviews ? 'not clean after ' + t.rounds : '–')}</td><td>${t.findings.length ? esc(t.findings.join(' → ')) : '–'}</td><td class="n">${t.fixes}</td><td class="n">${dur(r.wall_s)}</td></tr>`; }).join('') + '</tbody>';
+  const notes = [];
+  if (runs.some(r => !r.claude_known)) notes.push('A run with no session logs (it ran before session capture, or its .session folder was removed) shows – for Claude cost: that cost is unknown, not zero.');
+  notes.push(rate == null ? 'Copilot has no per-review price in any API, so it is shown as a request count. Set copilot_usd_per_request in pricing.json to show dollars.' : `Copilot dollars are requests x $${rate} (copilot_usd_per_request in pricing.json).`);
+  $('ab-note').textContent = notes.join(' ');
+  $('ab-sel').innerHTML = runs.map(r => `<option value="${esc(r.name)}"${r.name === abPick ? ' selected' : ''}>${esc(r.name)}</option>`).join('');
+  drawABSteps();
+}
+function drawABSteps() {
+  const r = AB.runs.find(x => x.name === abPick); if (!r) return;
+  const maxC = Math.max(...r.steps.map(s => s.claude.cost), 0), k = r.claude_known;
+  const who = s => s.type === 'review' ? 'Copilot' + (s.copilot && s.copilot.effort ? ' · ' + s.copilot.effort : '') : esc(s.model || '–');
+  const label = s => s.type === 'review' ? `Review ${s.round}` : s.type === 'fix' ? `Fix ${s.round}` : s.type === 'resume' ? 'Resume' : 'Arm session';
+  const cop = s => s.copilot ? `${s.copilot.requests} request${s.copilot.requests === 1 ? '' : 's'} · ${s.copilot.findings} finding${s.copilot.findings === 1 ? '' : 's'} · ${esc(s.copilot.status)}` : '';
+  $('ab-steps').innerHTML = '<thead><tr><th>#</th><th>Step</th><th>Who</th><th class="n">Duration</th><th class="n">Calls</th><th class="n">In tokens</th><th class="n">Out tokens</th><th class="n">Claude $</th><th>Copilot</th><th>Commit</th></tr></thead><tbody>' +
+    r.steps.map((s, i) => `<tr><td>${i+1}</td><td>${label(s)}${s.exit ? ` <span class="cd-note">exit ${s.exit}</span>` : ''}</td><td>${who(s)}</td><td class="n">${dur(s.dur_s)}</td>` +
+      (s.type === 'review' ? '<td class="n">–</td><td class="n">–</td><td class="n">–</td><td class="n">–</td>'
+        : k ? `<td class="n">${s.claude.calls}</td><td class="n">${kfmt(s.claude.in_tok)}</td><td class="n">${kfmt(s.claude.out_tok)}</td><td class="n">${abBar(s.claude.cost, maxC)}${usd(s.claude.cost)}</td>`
+            : '<td class="n">–</td><td class="n">–</td><td class="n">–</td><td class="n">–</td>') +
+      `<td>${cop(s)}</td><td>${esc(s.commit || '')}</td></tr>`).join('') +
+    (k && r.unassigned.calls ? `<tr><td></td><td>Outside any step</td><td></td><td></td><td class="n">${r.unassigned.calls}</td><td class="n">${kfmt(r.unassigned.in_tok)}</td><td class="n">${kfmt(r.unassigned.out_tok)}</td><td class="n">${usd(r.unassigned.cost)}</td><td></td><td></td></tr>` : '') +
+    `<tr class="tot"><td></td><td>Total</td><td></td><td class="n">${dur(r.wall_s)}</td><td class="n">${k ? r.totals.claude.calls : '–'}</td><td class="n">${k ? kfmt(r.totals.claude.in_tok) : '–'}</td><td class="n">${k ? kfmt(r.totals.claude.out_tok) : '–'}</td><td class="n">${k ? usd(r.totals.claude.cost) : '–'}</td><td>${r.totals.copilot_requests} request${r.totals.copilot_requests === 1 ? '' : 's'}</td><td></td></tr></tbody>`;
+}
+$('ab-sel').addEventListener('change', e => { abPick = e.target.value; drawABSteps(); });
+drawAB();
+
 // tabs, kept in the URL hash so a reload keeps the tab
 function showTab(name){
-  if(!document.getElementById('tab-'+name)) name='overview';
+  if(!document.getElementById('tab-'+name) || (name==='ab' && !AB)) name='overview';
   for(const b of document.querySelectorAll('#tabs button')) b.setAttribute('aria-selected', String(b.dataset.tab===name));
   for(const s of document.querySelectorAll('.cd-main')) s.hidden = s.id!=='tab-'+name;
 }
