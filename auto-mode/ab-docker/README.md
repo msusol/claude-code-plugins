@@ -265,7 +265,37 @@ AB_DOCS=1 AB_REVIEW_REPO=msusol/ab-scratch auto-mode/ab-docker/run-ab.zsh review
 - **Not yet run against real Claude Code or GitHub.** The tests use stubbed `gh` and `docker`. Try it on one arm first and
   read `fix-1.log`.
 
-### API key in an env file
+## One task for one model (`solve`)
+
+`run-ab.zsh solve <name> <model> <src-repo> <ref> <brief-file>` runs one headless session (`claude -p`) in the same sandbox as an arm,
+with the docs/ harness (`AB_DOCS=1` is implied). The brief file is the task. The session is told to follow the repo's docs/ planning
+rules, check off only the plan tasks the brief assigns it, and end with `AUTO-MODE: DONE` (or `AUTO-MODE: BLOCKED` plus its question).
+It never gets GitHub access and cannot ask questions; a decision it needs comes back as BLOCKED.
+
+```zsh
+auto-mode/ab-docker/run-ab.zsh solve fix-parser claude-fable-5-2 ~/proj main ~/briefs/fix-parser.md
+```
+
+- **Output** goes to `$AB_RUNS_DIR/<name>.out/`: `result.txt` (keys `marker`, `exit`, `base`, `head`, `commits`, `dirty`, `docs_files`,
+  `patch`), `report.txt` (the final message), `solve.patch` (only when there is a commit) and `stderr.txt`.
+- **Exit codes:** 0 = DONE marker in the last 5 lines, at least one commit, clean tree; 3 = BLOCKED; 4 = anything else. Apply the
+  patch to a branch of the source with `git am --3way solve.patch`, then check that the plan and `TODO.md` agree.
+- **Bounds:** `AB_SOLVE_TIMEOUT` (seconds, default 3600) and `AB_SOLVE_BUDGET_USD` (default 10). Needs an API key; `AB_LOGIN=1` is refused.
+- **Not yet run against real Docker or the API.** The tests use a stubbed `docker`. Run one real task first and read `report.txt`.
+- Do not put untrusted text (ticket or web content) in a brief as instructions; see the spec in the experiments repo.
+
+## Checking the seed before export (`AB_SEED_CHECK`)
+
+`prepare_run` can run a leak check before it exports anything. Set `AB_SEED_CHECK` to a script; it is run as
+`zsh <script> <src-repo> <ref>`, and a non-zero exit stops the run with nothing exported. A missing script also stops the run.
+The experiments repo ships one, `scripts/check-seed.zsh`, which fails if the exported ref has a `.git` folder or any file that
+matches the oracle tests, the reference solution, the mutation tooling or the prompts (by content, name or marker string).
+
+```zsh
+AB_SEED_CHECK=~/experiments/scripts/check-seed.zsh auto-mode/ab-docker/run-ab.zsh run leave-sonnet-r6 claude-sonnet-5-5 ~/experiments/plans/leave-engine-docs ccf241e
+```
+
+## API key in an env file
 
 If `ANTHROPIC_API_KEY` is not in the environment, `run`, `resume` and `review-loop` read it from `$AB_ENV_FILE`
 (default `~/experiments/.env`). The file must be `chmod 600`, is parsed rather than sourced, and `.env` is already gitignored
