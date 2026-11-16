@@ -283,7 +283,7 @@ auto-mode/ab-docker/run-ab.zsh solve fix-parser claude-fable-5-2 ~/proj main ~/b
 
 - **Output** goes to `$AB_RUNS_DIR/<name>.out/`: `result.txt` (keys `marker`, `exit`, `base`, `head`, `commits`, `dirty`, `docs_files`,
   `patch`), `report.txt` (the final message), `solve.patch` (only when there is a commit) and `stderr.txt`.
-- **Exit codes:** 0 = DONE marker in the last 5 lines, at least one commit, clean tree; 3 = BLOCKED; 4 = anything else. Apply the
+- **Exit codes:** 0 = a line of its own saying `AUTO-MODE: DONE` anywhere in the report (a recap after it is fine), at least one commit, clean tree; 3 = a `AUTO-MODE: BLOCKED` line (it wins if both appear); 4 = anything else. Apply the
   patch to a branch of the source with `git am --3way solve.patch`, then check that the plan and `TODO.md` agree.
 - **Bounds:** `AB_SOLVE_TIMEOUT` (seconds, default 3600) and `AB_SOLVE_BUDGET_USD` (default 10). Needs an API key; `AB_LOGIN=1` is refused.
 - **Not yet run against real Docker or the API.** The tests use a stubbed `docker`. Run one real task first and read `report.txt`.

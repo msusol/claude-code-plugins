@@ -33,6 +33,11 @@ case "$1" in
       nomarker) echo work > "$dir/out.txt"; $G add -A; $G commit -qm "feat: work"; printf 'Built it.\n' ;;
       dirty)   echo work > "$dir/out.txt"; $G add -A; $G commit -qm "feat: work"; echo more > "$dir/extra.txt"; printf 'AUTO-MODE: DONE\n' ;;
       mention) echo work > "$dir/out.txt"; $G add -A; $G commit -qm "feat: work"; printf 'Do not end with AUTO-MODE: DONE until tests pass.\nStill working.\nmore\nmore\nmore\nmore\n' ;;
+      recap)   echo work > "$dir/out.txt"; $G add -A; $G commit -qm "feat: work"; printf 'Built it.\nAUTO-MODE: DONE\nRecap line 1.\nRecap line 2.\nRecap line 3.\nRecap line 4.\nRecap line 5.\nRecap line 6.\nRecap line 7.\n' ;;
+      first)   echo work > "$dir/out.txt"; $G add -A; $G commit -qm "feat: work"; printf 'AUTO-MODE: DONE\nBuilt it.\nmore\nmore\nmore\nmore\nmore\nmore\n' ;;
+      both)    echo work > "$dir/out.txt"; $G add -A; $G commit -qm "feat: work"; printf 'AUTO-MODE: DONE\nBut I need a decision: A or B?\nAUTO-MODE: BLOCKED\n' ;;
+      prefix)  echo work > "$dir/out.txt"; $G add -A; $G commit -qm "feat: work"; printf 'AUTO-MODE: DONE until the tests pass.\nStill working.\n' ;;
+      period)  echo work > "$dir/out.txt"; $G add -A; $G commit -qm "feat: work"; printf 'Built it.\n  AUTO-MODE: DONE.  \n' ;;
     esac
     exit 0 ;;
 esac
@@ -72,9 +77,27 @@ STUBMODE=dirty zsh "$RUN" solve s4 claude-fable-5-2 "$T/src" main "$T/brief.md" 
 check "dirty exit" "$rc" 4
 check "dirty flag" "$(res s4 dirty)" 1
 
-# a marker mentioned inside the text, not at the end, does not count
+# a marker mentioned inside a sentence does not count
 STUBMODE=mention zsh "$RUN" solve s5 claude-fable-5-2 "$T/src" main "$T/brief.md" >/dev/null 2>&1; rc=$?
 check "mention marker" "$(res s5 marker)" NONE
+STUBMODE=prefix zsh "$RUN" solve s5b claude-fable-5-2 "$T/src" main "$T/brief.md" >/dev/null 2>&1; rc=$?
+check "marker followed by words on the same line" "$(res s5b marker)" NONE
+check "marker followed by words exits 4" "$rc" 4
+
+# the marker is found anywhere as a line of its own: a long recap after it, or it first, or with a trailing period
+STUBMODE=recap zsh "$RUN" solve s5c claude-fable-5-2 "$T/src" main "$T/brief.md" >/dev/null 2>&1; rc=$?
+check "marker with a 7-line recap after it" "$(res s5c marker)" DONE
+check "recap after marker exits 0" "$rc" 0
+STUBMODE=first zsh "$RUN" solve s5d claude-fable-5-2 "$T/src" main "$T/brief.md" >/dev/null 2>&1; rc=$?
+check "marker as the first line" "$(res s5d marker)" DONE
+check "marker first exits 0" "$rc" 0
+STUBMODE=period zsh "$RUN" solve s5e claude-fable-5-2 "$T/src" main "$T/brief.md" >/dev/null 2>&1; rc=$?
+check "marker with a trailing period and spaces" "$(res s5e marker)" DONE
+
+# both markers: BLOCKED wins, so a question is never lost
+STUBMODE=both zsh "$RUN" solve s5f claude-fable-5-2 "$T/src" main "$T/brief.md" >/dev/null 2>&1; rc=$?
+check "both markers give BLOCKED" "$(res s5f marker)" BLOCKED
+check "both markers exit 3" "$rc" 3
 
 # guards
 zsh "$RUN" solve s1 claude-fable-5-2 "$T/src" main "$T/brief.md" >/dev/null 2>&1; check "reused name refused" "$?" 1
