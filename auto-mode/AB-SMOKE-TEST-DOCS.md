@@ -145,7 +145,7 @@ unknown, and do two things so the comparison stays honest:
 
 - Request every review at the same effort for both arms. Set it once on the scratch repo (Settings → Copilot → Code review)
   if you can. `review-round` requests the review through the API and cannot set effort; if you want a specific level, click
-  the Reviewers menu on the PR yourself. Record which level applied. On `msusol/ab-scratch` it is **Balanced**: the repo's
+  the Reviewers menu on the PR yourself. Record which level applied. On `msusol/ab-review-scratch` it is **Balanced**: the repo's
   Review effort level is "Default (Balanced)" with no maximum, and each review's footer reads "Review effort: Balanced"
   (confirmed 2026-11-14/15 on both PRs).
 - Put `copilot: effort <level>, model not disclosed by GitHub` in the results front matter.
@@ -160,9 +160,9 @@ rely on this. Both arms are reviewed by the same reviewer, so the A/B comparison
 
 ```zsh
 gh auth status                                  # logged in with the Copilot-licensed account
-gh repo view msusol/ab-scratch --json isPrivate # must say true; create with: gh repo create ab-scratch --private
+gh repo view msusol/ab-review-scratch --json isPrivate # must say true; create with: gh repo create ab-review-scratch --private
 grep msusol ~/.config/git-guard/allowlist       # must match (it does today)
-export AB_REVIEW_REPO=msusol/ab-scratch
+export AB_REVIEW_REPO=msusol/ab-review-scratch
 ```
 
 `gh` here is `/usr/bin/gh` (the Spark). GitHub bills each Copilot review in AI credits ($0.01 each) from your plan's included credits (1,500 a month on Copilot Pro); one review averaged about 29 credits, or $0.29, over 8 reviews in our runs.
@@ -178,7 +178,7 @@ rerunning `review-round` is safe: it reuses the existing PR.
 tmux new -s ab-review
 cd ~/LosusAI/Projects/Claude/claude-code-plugins
 export AB=auto-mode/ab-docker/run-ab.zsh AB_DOCS=1 AB_RUNS_DIR=~/experiments/runs
-export AB_REVIEW_REPO=msusol/ab-scratch
+export AB_REVIEW_REPO=msusol/ab-review-scratch
 ```
 
 Detach with Ctrl-b then d; reattach with `tmux attach -t ab-review`. Then:
@@ -192,7 +192,7 @@ $AB review-round $R     # pushes, opens PR, requests Copilot, waits; logs to ~/e
 
 Every round's `REVIEW-N.md` is copied to `~/experiments/runs/$R.reviews/`. The run folder gets `REVIEW-N.md` only when there are findings.
 After each round, confirm on GitHub that `copilot-pull-request-reviewer[bot]` really reviewed the arm's final commit
-(`gh api repos/msusol/ab-scratch/pulls/<N>/reviews`), so an empty wait is not read as CLEAN.
+(`gh api repos/msusol/ab-review-scratch/pulls/<N>/reviews`), so an empty wait is not read as CLEAN.
 
 - Prints `CLEAN`: this arm is done. Go to the next arm.
 - Prints findings: resume the arm, paste the prompt the script printed, wait for its commits, then exit:
@@ -261,7 +261,7 @@ rm -rf ~/experiments/runs/wordfreq-docs-sonnet-r1 ~/experiments/runs/wordfreq-do
 rm -rf ~/experiments/runs/wordfreq-docs-fable-r1 ~/experiments/runs/wordfreq-docs-fable-r1.reviews ~/experiments/runs/wordfreq-docs-fable-r1.session
 ```
 
-Close the two scratch PRs in `msusol/ab-scratch` if you do not want to keep them.
+Close the two scratch PRs in `msusol/ab-review-scratch` if you do not want to keep them.
 
 ## Pass criteria (tick these)
 
@@ -277,7 +277,7 @@ One run per model proves the pipeline works. It does not rank the models: repeat
 ## Recorded run: 2026-11-14/15 (r1)
 
 Plan `wordfreq-docs` @ `b0bbd51`, image `ab-claude-docs` `b6e447d50d5c`, Claude Max login, Copilot effort Balanced
-(model not disclosed). Reviews went to `msusol/ab-scratch`, reviewer `copilot-pull-request-reviewer[bot]`.
+(model not disclosed). Reviews went to `msusol/ab-review-scratch`, reviewer `copilot-pull-request-reviewer[bot]`.
 
 | Arm | Model | Task commits | pytest | `wordfreq.py` / tests / README (lines) | Copilot rounds | PR |
 |---|---|---|---|---|---|---|
@@ -312,7 +312,7 @@ so it needed no interactive session. Model `claude-fable-5-2`, key from `~/exper
 |---|---|---|---|
 | 1 | `af4ca71` | 1 finding (same hyphen-test gap as arm B) | headless fix session started |
 | fix | `dbc3b50` | n/a | `claude -p` committed the fix, 10 tests pass, `wordfreq.py` unchanged |
-| 2 | `dbc3b50` | 0 findings | CLEAN after 2 rounds, PR #3 in `msusol/ab-scratch` |
+| 2 | `dbc3b50` | 0 findings | CLEAN after 2 rounds, PR #3 in `msusol/ab-review-scratch` |
 
 Observed: the fix session ran with no TTY and only `api.anthropic.com` reachable; its commit passed git-guard normally; `origin` stayed the
 container remote (the `review-round` restore works); the run folder ended clean; nothing was pushed from the container. From Copilot's first
