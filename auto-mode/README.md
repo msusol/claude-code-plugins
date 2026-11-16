@@ -74,6 +74,8 @@ Restart Claude Code afterwards. Requires `jq`.
 
 Or skip the flag and work on an `exp/*` branch: auto-mode switches itself on there, so `/auto-mode on` is not needed.
 
+To hand one `[hard]` plan task to an autonomous solver, use `/auto-mode:solve <plan> [task]`. It drafts the brief, proves the done condition fails on the unmodified ref, waits for your go-ahead (it spends money), runs `solver-docker/solver.zsh solve`, then coalesces the patch and runs the checks before anything is ticked. The installed plugin does not carry `solver-docker/`, so set `AUTO_MODE_SOLVER_DIR` to the checkout's `auto-mode/solver-docker` folder, or run it from a repo that has `auto-mode/solver-docker/solver.zsh`. See [solver-docker/BRIEF.md](solver-docker/BRIEF.md).
+
 ## Running an A/B experiment (two models, same task)
 
 Goal: give two models the same task in isolated copies of the repo, let each work and commit without
