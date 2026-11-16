@@ -57,7 +57,7 @@ zsh "$RUN" run wordfreq-sonnet-r2 some-model "$E/plans/wordfreq" >/dev/null 2>&1
 R="$E/runs/wordfreq-sonnet-r2"
 check "run lands in <experiments>/runs by default" "[[ -f $R/PLAN.md ]]"
 check "the plan's .gitignore is exported into the run" "[[ -f $R/.gitignore ]]"
-(cd "$R" && AB_NAME=wordfreq-sonnet-r2 bash "$HERE/prepare-workdir.sh")
+(cd "$R" && AB_NAME=wordfreq-sonnet-r2 bash "$HERE/../solver-docker/prepare-workdir.sh")
 mkdir -p "$R/__pycache__" "$R/.pytest_cache"; echo x > "$R/__pycache__/a.pyc"; echo x > "$R/.pytest_cache/x"; echo x > "$R/REVIEW-1.md"
 printf 'REVIEW-*.md\n' >> "$R/.git/info/exclude"
 check "run repo ignores caches and REVIEW files" "[[ -z \"\$(git -C $R status --porcelain)\" ]]"
@@ -83,10 +83,10 @@ check "run mounts its session folder as the container's projects dir" "grep -q -
 check "AB_EFFORT=medium passes --effort medium to claude" "grep -q 'claude --model some-model --effort medium' $T/docker.log"
 check "AB_EFFORT is logged in steps.csv" "grep -q 'interactive;exit=0;effort=medium\$' $E/runs/wordfreq-docs-r2.reviews/steps.csv"
 check "an invalid AB_EFFORT is refused" "! AB_EFFORT=bogus zsh $RUN run wordfreq-docs-r3 some-model $E/plans/wordfreq >/dev/null 2>&1"
-check "Dockerfile: docs deploy is conditional and docs removed when off" "grep -q 'WITH_DOCS\" = \"1\".*docs/deploy.zsh' $HERE/Dockerfile && grep -q 'rm -rf /opt/claude-code-plugins/docs' $HERE/Dockerfile"
+check "Dockerfile: docs deploy is conditional and docs removed when off" "grep -q 'WITH_DOCS\" = \"1\".*docs/deploy.zsh' $HERE/../solver-docker/Dockerfile && grep -q 'rm -rf /opt/claude-code-plugins/docs' $HERE/../solver-docker/Dockerfile"
 
 print "=== isolation-check docs section"
-IC="$HERE/isolation-check.sh"; H="$T/home"; P="$T/opt"
+IC="$HERE/../solver-docker/isolation-check.sh"; H="$T/home"; P="$T/opt"
 mkdir -p "$H/.claude/rules" "$P/docs"
 printf '<!-- BEGIN git-guard-imports -->\n@~/.claude/rules/git-branch-naming.md\n' > "$H/.claude/CLAUDE.md"; : > "$H/.claude/rules/git-branch-naming.md"
 rmdir "$P/docs"

@@ -76,7 +76,7 @@ extra files the arm creates (specs, ADRs) as a finding to note, not a failure.
    **Docs variant:** `AB_DOCS=1 auto-mode/ab-docker/run-ab.zsh build` builds a separate image, `ab-claude-docs`, with the
    docs/ planning rules installed. Use the same `AB_DOCS=1` on every later command in the docs variant.
 
-   Libraries a task needs at run time go in [ab-docker/requirements.txt](ab-docker/requirements.txt) before the build
+   Libraries a task needs at run time go in [solver-docker/requirements.txt](solver-docker/requirements.txt) before the build
    (the container has no network). The wordfreq plan needs none.
 
 3. **Check the isolation before spending anything on models:**
