@@ -56,6 +56,7 @@ check "done dirty" "$(res s1 dirty)" 0
 check "docs files listed" "$(res s1 docs_files)" docs/plans/TODO.md
 git clone -q "$T/src" "$T/apply" && git -C "$T/apply" -c user.name=t -c user.email=t@t am -q --3way "$AB_RUNS_DIR/s1.out/solve.patch" 2>/dev/null
 check "patch applies to the source" "$(cat "$T/apply/out.txt" 2>/dev/null)" work
+check "a run with commits names its patch in result.txt" "$(res s1 patch)" "$AB_RUNS_DIR/s1.out/solve.patch"
 check "steps.csv has a solve row" "$(grep -c ',solve,' "$AB_RUNS_DIR/s1.reviews/steps.csv")" 1
 check "brief text reached claude -p" "$(grep -c 'Build the thing' "$STUBDIR/calls")" 1
 check "docs preamble added" "$(grep -c "docs/ planning rules" "$STUBDIR/calls")" 1
@@ -66,11 +67,16 @@ STUBMODE=blocked zsh "$RUN" solve s2 claude-fable-5-2 "$T/src" main "$T/brief.md
 check "blocked exit" "$rc" 3
 check "blocked marker" "$(res s2 marker)" BLOCKED
 check "blocked has no patch" "$([[ -e $AB_RUNS_DIR/s2.out/solve.patch ]] && echo yes || echo no)" no
+check "and result.txt leaves the patch value empty, not pointing at a missing file" "$(res s2 patch)" ""
+check "but keeps the patch key, so a key=value reader still finds it" "$(grep -c '^patch=$' "$AB_RUNS_DIR/s2.out/result.txt")" 1
+check "no key=value line points at a file that does not exist" "$(grep -E '^patch=.' "$AB_RUNS_DIR/s2.out/result.txt" | wc -l | tr -d ' ')" 0
 
 # commits but no marker: exit 4
 STUBMODE=nomarker zsh "$RUN" solve s3 claude-fable-5-2 "$T/src" main "$T/brief.md" >/dev/null 2>&1; rc=$?
 check "no-marker exit" "$rc" 4
 check "no-marker marker" "$(res s3 marker)" NONE
+check "a run with commits and no marker still names its patch" "$(res s3 patch)" "$AB_RUNS_DIR/s3.out/solve.patch"
+check "and that file exists" "$([[ -f $AB_RUNS_DIR/s3.out/solve.patch ]] && echo yes || echo no)" yes
 
 # DONE but uncommitted changes: exit 4
 STUBMODE=dirty zsh "$RUN" solve s4 claude-fable-5-2 "$T/src" main "$T/brief.md" >/dev/null 2>&1; rc=$?

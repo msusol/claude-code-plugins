@@ -38,6 +38,7 @@ cmd_check() {
 # Exports <ref>, runs `claude -p "<brief text>"` in the container (same image, mount and firewall as `run`; auto-mode and git-guard
 # apply because the branch is exp/*), then writes the outcome to $RUNS_DIR/<name>.out/:
 #   result.txt   key=value lines: marker (DONE|BLOCKED|NONE), exit, base, head, commits, dirty, docs_files (changed under docs/), patch
+#                (the path of solve.patch, or empty when there is no patch because the solver made no commit)
 #   solve.patch  `git format-patch --stdout base..head` (apply to a branch cut from <ref> with: git am --3way solve.patch)
 #   report.txt   the session's final message (the solver's report; owner questions come back here, it cannot ask)
 # Exit status: 0 DONE with commits and a clean tree; 3 BLOCKED; 4 no marker, no commits or uncommitted changes; else the session's own status.
@@ -76,7 +77,8 @@ cmd_solve() {
   (( commits > 0 )) && docs_files=$(git -C "$dir" diff --name-only "$base..$head" -- docs | paste -sd, -)
   {
     print "marker=$marker"; print "exit=$rc"; print "base=$base"; print "head=$head"
-    print "commits=$commits"; print "dirty=$dirty"; print "docs_files=$docs_files"; print "patch=$out/solve.patch"
+    print "commits=$commits"; print "dirty=$dirty"; print "docs_files=$docs_files"
+    print "patch=$([[ -f "$out/solve.patch" ]] && print -r -- "$out/solve.patch")"
   } > "$out/result.txt"
   print "solve $name: marker=$marker exit=$rc commits=$commits dirty=$dirty   result: $out/result.txt"
 
