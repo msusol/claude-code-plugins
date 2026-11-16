@@ -298,19 +298,19 @@ class Page(AbBase):
         self.assertIn("2 → 0", t, "findings per round")
         self.assertIn("$2.25", t)
 
-    def test_the_steps_table_lists_every_step_with_totals(self):
+    def test_opening_a_run_lists_every_step_under_it(self):
         self.make_run(calls=self.standard_calls())
-        out = self.draw()
-        t = self.text(out, "ab-steps")
-        for want in ("Arm session", "Review 1", "Fix 1", "Review 2", "Copilot · balanced", "2 findings", "clean", "Outside any step", "Total"):
+        out = self.draw([{"abToggle": "run:r1"}])
+        t = self.text(out, "ab-runs")
+        for want in ("Arm session", "Review 1", "Fix 1", "Review 2", "Copilot · balanced", "2 findings", "clean", "Outside any step"):
             self.assertIn(want, t)
-        self.assertEqual(out["ab-steps"].count('<tr class="tot"'), 1)
+        self.assertEqual(len(re.findall(r'<tr class="ab step[ "]', out["ab-runs"])), 5, "four steps, then the calls that fell outside every step")
 
-    def test_picking_another_run_redraws_the_steps(self):
+    def test_each_run_opens_to_its_own_steps(self):
         self.make_run("a-run", calls=self.standard_calls())
         self.make_run("b-run", rows=[standard_rows()[0]], calls=[assistant(5, "claude-opus-4-9", OPUS_USAGE)])
-        self.assertIn("Fix 1", self.text(self.draw(), "ab-steps"))
-        self.assertNotIn("Fix 1", self.text(self.draw([{"abPick": "b-run"}]), "ab-steps"))
+        self.assertIn("Fix 1", self.text(self.draw([{"abToggle": "run:a-run"}]), "ab-runs"))
+        self.assertNotIn("Fix 1", self.text(self.draw([{"abToggle": "run:b-run"}]), "ab-runs"))
 
     def test_unknown_claude_cost_shows_a_dash_and_a_note(self):
         self.make_run()
@@ -320,9 +320,9 @@ class Page(AbBase):
 
     def test_without_a_rate_a_run_total_is_claude_only_and_the_note_says_so(self):
         self.make_run(calls=self.standard_calls())
-        out = self.draw()
+        out = self.draw([{"abToggle": "run:r1"}])
         self.assertIn("Claude only", out["ab-note"])
-        self.assertNotIn("~$", self.text(out, "ab-runs") + self.text(out, "ab-steps"))
+        self.assertNotIn("~$", self.text(out, "ab-runs"), "neither the run row nor its steps carry an estimate")
         self.assertIn("$2.25", self.text(out, "ab-runs"))
 
     def test_with_a_rate_the_note_and_the_estimates_appear(self):
@@ -332,18 +332,16 @@ class Page(AbBase):
         self.assertIn("reviews x $0.04", out["ab-note"])
         self.assertIn("AI credits", out["ab-note"], "the note says how GitHub actually bills it")
         self.assertIn("~$2.33", self.text(out, "ab-runs"), "Claude $2.25 + two reviews at $0.04")
-        self.assertIn("~$2.33", self.text(out, "ab-steps"), "the total row carries the same figure")
 
     def test_there_is_one_cost_column_for_claude_and_copilot_steps(self):
         self.make_run(calls=self.standard_calls())
         with mock.patch.object(b, "PRICING", dict(FIXED_PRICING, copilot_usd_per_review=0.04)):
-            out = self.draw()
-        for table in ("ab-runs", "ab-steps"):
-            head = re.findall(r"<th[^>]*>(.*?)</th>", out[table])
-            self.assertIn("Cost", head)
-            self.assertNotIn("Claude $", head, "no per-vendor cost column")
-            self.assertFalse([h for h in head if "Copilot $" in h])
-        rows = [re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", r)).strip() for r in re.findall(r"<tr><td>\d.*?</tr>", out["ab-steps"])]
+            out = self.draw([{"abToggle": "run:r1"}])
+        head = re.findall(r"<th[^>]*>(.*?)</th>", out["ab-runs"])
+        self.assertIn("Cost", head)
+        self.assertNotIn("Claude $", head, "no per-vendor cost column")
+        self.assertFalse([h for h in head if "Copilot $" in h])
+        rows = [re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", r)).strip() for r in re.findall(r'<tr class="ab step[^"]*"[^>]*>(.*?)</tr>', out["ab-runs"], re.S)][:4]
         self.assertEqual(len(rows), 4)
         self.assertIn("$0.75", rows[0], "a Claude step's cost")
         self.assertNotIn("~", rows[0], "a Claude step is priced from its log, not estimated")
@@ -353,10 +351,10 @@ class Page(AbBase):
 
     def test_the_page_says_reviews_not_requests(self):
         self.make_run(calls=self.standard_calls())
-        out = self.draw()
+        out = self.draw([{"abToggle": "run:r1"}])
         self.assertIn("Copilot reviews", out["ab-runs"])
-        self.assertIn("2 findings", self.text(out, "ab-steps"))
-        self.assertNotIn("request", self.text(out, "ab-runs") + self.text(out, "ab-steps") + out["ab-note"])
+        self.assertIn("2 findings", self.text(out, "ab-runs"))
+        self.assertNotIn("request", self.text(out, "ab-runs") + out["ab-note"])
 
     def test_the_shipped_rate_is_a_positive_number_with_its_source_and_date(self):
         shipped = json.loads((PLUGIN / "pricing.json").read_text())
@@ -367,7 +365,7 @@ class Page(AbBase):
 
     def test_no_ab_data_draws_nothing_and_changes_nothing_else(self):
         out = run_page(self, b.render(b.collect(self.main, days=0)))
-        for k in ("ab-runs", "ab-steps", "ab-note"):
+        for k in ("ab-runs", "ab-note"):
             self.assertNotIn(k, out)
 
     def test_run_names_are_escaped(self):
