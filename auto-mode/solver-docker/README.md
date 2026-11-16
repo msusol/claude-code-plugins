@@ -17,8 +17,11 @@ It always runs on the docs image and never pushes or merges anything. Optional `
 
 The same three commands work through `ab-docker/run-ab.zsh`, which hands them to `solver.zsh`.
 
+To hand a task to a solver, write the brief first: [BRIEF.md](BRIEF.md) has the template, the provenance rule, a checklist, and the steps for reading the result and merging the patch.
+
 ## Files
 
+- `BRIEF.md` — how to write a brief for `solve`, and what to check after the run.
 - `solver.zsh` — the `build`, `check` and `solve` commands.
 - `lib.zsh` — shared by `solver.zsh` and `ab-docker/run-ab.zsh`: image choice, auth (key or `AB_LOGIN=1`), export, interactive and headless launch, the step log.
 - `Dockerfile`, `entrypoint.sh`, `init-firewall.sh`, `prepare-workdir.sh`, `isolation-check.sh`, `requirements.txt` — the image, the firewall, and the checks.
