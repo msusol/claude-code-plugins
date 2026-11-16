@@ -9,6 +9,7 @@ import argparse
 import glob
 import json
 import os
+import re
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -30,6 +31,7 @@ def load_pricing():
 PRICING = load_pricing()
 UNPRICED = set()
 SPEED_FLAGS = set()    # non-standard speed / service tier values seen; priced at standard rates and flagged, not guessed
+LAUNCHES = {}          # run name -> [(timestamp, session id)] of the ordinary sessions whose Bash calls started that run (see launched_runs)
 
 
 def price_for(model, context=0):
@@ -117,6 +119,75 @@ def prompt_text(msg):
     if not t or t.startswith("<command-") or t.startswith("<local-command") or t.startswith("Caveat:"):
         return None
     return t
+
+
+# A run is started by `run-ab.zsh run|resume|solve|review-loop|review-round <name>` (or the same through solver.zsh). The session that ran
+# that Bash command is the run's parent: an orchestrator that handed a task to a solver, or the session that drove an A/B arm.
+LAUNCH_RE = re.compile(r"(?:run-ab\.zsh|solver\.zsh)\s+(?:run|resume|solve|review-loop|review-round)\s+([a-z0-9]+(?:-[a-z0-9]+)*)")
+
+
+def launched_runs(msg):
+    """Names of the runs started by the Bash tool calls in one assistant message."""
+    out = []
+    c = msg.get("content")
+    if isinstance(c, list):
+        for blk in c:
+            if isinstance(blk, dict) and blk.get("type") == "tool_use" and blk.get("name") == "Bash":
+                cmd = (blk.get("input") or {}).get("command")
+                if isinstance(cmd, str):
+                    out.extend(LAUNCH_RE.findall(cmd))
+    return out
+
+
+SECRET_RE = re.compile(r"(sk-ant-[A-Za-z0-9_-]{6,}|gh[pousr]_[A-Za-z0-9]{16,}|github_pat_[A-Za-z0-9_]{16,}|AKIA[0-9A-Z]{12,})")
+
+
+def _short(text, n):
+    t = SECRET_RE.sub("[secret]", " ".join(str(text).split()))
+    return t if len(t) <= n else t[: n - 1] + "…"
+
+
+def call_blocks(msg):
+    """One (kind, text) pair per content block of an assistant message: a tool call (`Bash: pytest -q`, `Read: docs/plan.md`), a text reply, or thinking."""
+    out = []
+    c = msg.get("content")
+    if not isinstance(c, list):
+        return out
+    for blk in c:
+        if not isinstance(blk, dict):
+            continue
+        kind = blk.get("type")
+        if kind == "tool_use":
+            name, inp = blk.get("name") or "tool", blk.get("input") or {}
+            arg = (inp.get("command") or inp.get("file_path") or inp.get("path") or inp.get("pattern") or inp.get("url")
+                   or inp.get("description") or inp.get("prompt") or inp.get("query") or "") if isinstance(inp, dict) else ""
+            out.append(("tool", name + (": " + _short(arg, 70) if arg else "")))
+        elif kind == "text" and (blk.get("text") or "").strip():
+            out.append(("text", _short(blk["text"], 70)))
+        elif kind == "thinking":
+            out.append(("think", "thinking"))
+    return out
+
+
+def call_summary(blocks):
+    """What one model call did, in a line: its first tool call (and how many more), else the start of its reply, else thinking."""
+    tools = [t for k, t in blocks if k == "tool"]
+    if tools:
+        return tools[0] + (" (+%d more)" % (len(tools) - 1) if len(tools) > 1 else "")
+    texts = [t for k, t in blocks if k == "text"]
+    if texts:
+        return "reply: " + texts[0]
+    return "thinking" if blocks else ""
+
+
+def run_kind(ab_root, run):
+    """"solver" for a run made by `solve`, otherwise "A/B" (an arm), read from the run's step log."""
+    try:
+        with open(os.path.join(ab_root, run + ".reviews", "steps.csv"), encoding="utf-8") as fh:
+            types = {ln.split(",")[2] for ln in fh.read().splitlines()[1:] if ln.count(",") >= 2}
+    except OSError:
+        return "A/B"
+    return "solver" if "solve" in types else "A/B"
 
 
 def effort_of(e):
@@ -208,6 +279,9 @@ def process_file(path, sessions, project_name=None, ab=None):
                     turns_for_file.append(current_turn)
             elif typ == "assistant":
                 msg = e.get("message", {})
+                if ab is None:      # a run's own container session never counts as its parent
+                    for run in launched_runs(msg):
+                        LAUNCHES.setdefault(run, []).append((e.get("timestamp") or "", sid))
                 u = msg.get("usage")
                 if not u:
                     continue
@@ -218,9 +292,11 @@ def process_file(path, sessions, project_name=None, ab=None):
                 rec = {"sid": sid, "ts": e.get("timestamp"), "model": model, "u": u,
                        "effort": effort_of(e), "speed": u.get("speed"), "tier": u.get("service_tier"),
                        "sub": bool(e.get("isSidechain")) or is_sub_file,
-                       "turn": current_turn}
+                       "turn": current_turn, "blocks": call_blocks(msg) if (ab or CALL_SINK is not None) else []}
                 if key and key in seen:
+                    merged = seen[key].get("blocks", []) + rec["blocks"]    # a call is spread over several lines, one per content block
                     seen[key].update(rec)   # keep the last (final usage) record
+                    seen[key]["blocks"] = merged
                 else:
                     if key:
                         seen[key] = rec
@@ -257,9 +333,15 @@ def process_file(path, sessions, project_name=None, ab=None):
         if CALL_SINK is not None and ts:
             CALL_SINK.append({"ts": ts, "model": rec["model"], "cost": c, "in_tok": context_tokens(rec["u"]),
                               "out_tok": rec["u"].get("output_tokens", 0) or 0,
-                              "in_cost": parts["input"] + parts["cache_write"] + parts["cache_read"], "out_cost": parts["output"]})
+                              "in_cost": parts["input"] + parts["cache_write"] + parts["cache_read"], "out_cost": parts["output"],
+                              "effort": rec["effort"], "sub": bool(rec["sub"]), "what": call_summary(rec.get("blocks", [])), "sid": rec["sid"]})
         m["ctx_tokens"] += context_tokens(rec["u"])
         m["ctx_cost"] += parts["input"] + parts["cache_write"] + parts["cache_read"]
+        if ab:   # a run's session keeps its individual calls (a few hundred over all runs), so the page can list them; ordinary sessions do not
+            s.setdefault("call_list", []).append({
+                "ts": rec["ts"], "model": rec["model"], "effort": rec["effort"], "sub": bool(rec["sub"]),
+                "in_tok": context_tokens(rec["u"]), "out_tok": rec["u"].get("output_tokens", 0) or 0, "what": call_summary(rec.get("blocks", [])),
+                "in_cost": round(parts["input"] + parts["cache_write"] + parts["cache_read"], 4), "out_cost": round(parts["output"], 4), "cost": round(c, 4)})
         s["cw1h"] += write_split(rec["u"])[1]
         for k, v in parts.items():
             s["parts"][k] += v
@@ -357,6 +439,7 @@ def collect(root, days=30, project="", now=None, ab_root=None, ab_sessions=True)
     """
     UNPRICED.clear()
     SPEED_FLAGS.clear()
+    LAUNCHES.clear()
     sessions = {}
     ab_dirs = sorted(glob.glob(os.path.join(ab_root, "*.session"))) if ab_root and os.path.isdir(ab_root) else []
     ab_real = [os.path.realpath(d) + os.sep for d in ab_dirs]
@@ -404,10 +487,24 @@ def collect(root, days=30, project="", now=None, ab_root=None, ab_sessions=True)
         })
         if s.get("ab"):
             rows[-1]["ab"] = s["ab"]     # only A/B sessions carry this, so the data is unchanged for everyone else
+            rows[-1]["call_list"] = sorted(s.get("call_list", []), key=lambda c: c["ts"] or "")   # likewise: one entry per model call, oldest first
     rows.sort(key=lambda r: r["last"] or "", reverse=True)
+
+    # Link each run's session to the ordinary session that launched it (earliest launcher still in the data), and say what kind of run it is:
+    # a "solver" (made by `solve`) or an "A/B" arm. Only A/B-tagged rows get these fields, so the data is unchanged for everyone else.
+    row_ids = {r["id"] for r in rows}
+    for r in rows:
+        run = r.get("ab")
+        if not run:
+            continue
+        r["kind"] = run_kind(ab_root, run) if ab_root else "A/B"
+        launchers = sorted(c for c in LAUNCHES.get(run, []) if c[1] in row_ids and c[1] != r["id"])
+        if launchers:
+            r["parent"] = launchers[0][1]
 
     ab = None
     if ab_root and os.path.isdir(ab_root):
+        sys.path.insert(0, str(Path(__file__).resolve().parent))    # `python3 -I script.py` leaves the script's folder off the path
         import ab_steps
         ab = ab_steps.collect_ab(ab_root, sys.modules[__name__], PRICING.get("copilot_usd_per_review"))
 

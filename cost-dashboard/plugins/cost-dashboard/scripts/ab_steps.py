@@ -21,7 +21,7 @@ from pathlib import Path
 
 SLACK_BEFORE = 2.0     # seconds a call may be stamped before its step's recorded start
 SLACK_AFTER = 5.0      # ...and after its recorded end (the host logs the end just after the container exits)
-CLAUDE_TYPES = ("arm", "resume", "fix")
+CLAUDE_TYPES = ("arm", "resume", "fix", "solve")    # steps that ran Claude; a `solve` run (run-ab.zsh solve) is one headless session
 
 
 def _ts(s):
@@ -138,6 +138,13 @@ def _step_index(steps, when):
     return None
 
 
+def _call_row(c):
+    """One call as the page lists it under its step: when, what it did, its model and effort, tokens in and out, and its cost."""
+    return {"ts": c["ts"].isoformat(), "model": c["model"], "effort": c.get("effort", "unknown"), "sub": bool(c.get("sub")),
+            "what": c.get("what", ""), "sid": c.get("sid", ""), "in_tok": c["in_tok"], "out_tok": c["out_tok"],
+            "in_cost": round(c["in_cost"], 4), "out_cost": round(c["out_cost"], 4), "cost": round(c["cost"], 4)}
+
+
 def _int(v, default=0):
     try:
         return int(v)
@@ -169,6 +176,8 @@ def collect_ab(runs_dir, bd, usd_per_review=None):
                    "mode": s["words"][0] if s["words"] else "",
                    "exit": _int(s["pairs"].get("exit"), None) if "exit" in s["pairs"] else None,
                    "claude": bd.rounded_cell(_cell(bd, cs)), "copilot": None,
+                   # the calls behind the totals, oldest first, so a step can open to what each one did (a review is Copilot's: none)
+                   "call_list": [_call_row(c) for c in cs] if s["type"] in CLAUDE_TYPES else [],
                    # one cost for any step, whoever incurred it: a Claude step's priced calls, or a review's average (an estimate)
                    "cost": round(sum(c["cost"] for c in cs), 4) if have_logs and s["type"] in CLAUDE_TYPES else None,
                    "cost_est": False}
@@ -195,7 +204,7 @@ def collect_ab(runs_dir, bd, usd_per_review=None):
             "name": name, "arm_model": arm_model, "claude_known": have_logs,
             "start": steps[0]["start"].isoformat(), "end": steps[-1]["end"].isoformat(),
             "wall_s": int((steps[-1]["end"] - steps[0]["start"]).total_seconds()),
-            "steps": out_steps, "unassigned": bd.rounded_cell(_cell(bd, loose)),
+            "steps": out_steps, "unassigned": bd.rounded_cell(_cell(bd, loose)), "loose_calls": [_call_row(c) for c in loose],
             "totals": {"claude": bd.rounded_cell(claude), "copilot_requests": requests,
                        "copilot_usd": copilot_usd, "cost": total, "cost_est": total is not None and bool(copilot_usd),
                        "reviews": len(reviews), "fixes": sum(1 for s in steps if s["type"] == "fix"),

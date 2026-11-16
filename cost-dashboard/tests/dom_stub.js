@@ -1,6 +1,7 @@
 // Runs the dashboard page's script against a stub DOM and prints {element id: innerHTML} as JSON. Used by test_build_dashboard.py.
 // Optional argv[3] is a JSON list of actions replayed after load: {"pager":"next"|"prev"}, {"pageSize":25}, {"toggleWide":true},
-// {"sort":"in_tok"}, {"expand":"<session id>"}, {"search":"text"}, {"abPick":"<run name>"}. Elements that got a className are reported as "<id>:class".
+// {"sort":"in_tok"}, {"expand":"<session id>"}, {"search":"text"}, {"abToggle":"<row key>"} (click an A/B row, for
+// example "plan:x", "round:x-r2" or "run:x-fable-r2"), {"abAll":true|false} (Expand all / Collapse all), {"clickLink":"<session id>"} and {"abLink":"<row key>"} (click a link inside a row). Elements that got a className are reported as "<id>:class".
 const fs = require('fs');
 const ids = {}, listeners = {};
 function el(id) {
@@ -23,7 +24,10 @@ for (const a of JSON.parse(process.argv[3] || '[]')) {
   else if (a.sort) fire('sess', 'click', { target: { closest: closest({ th: { dataset: { k: a.sort } } }) } });
   else if (a.expand) fire('sess', 'click', { target: { closest: closest({ 'tr.s': { dataset: { id: a.expand } } }) } });
   else if (a.search !== undefined) { el('q').value = a.search; fire('q', 'input', {}); }
-  else if (a.abPick) fire('ab-sel', 'change', { target: { value: a.abPick } });
+  else if (a.abToggle) fire('ab-runs', 'click', { target: { closest: closest({ 'tr.ab': { dataset: { key: a.abToggle } } }) } });
+  else if (a.clickLink) fire('sess', 'click', { target: { closest: closest({ a: {}, 'tr.s': { dataset: { id: a.clickLink } } }) } });
+  else if (a.abLink) fire('ab-runs', 'click', { target: { closest: closest({ a: {}, 'tr.ab': { dataset: { key: a.abLink } } }) } });
+  else if (a.abAll !== undefined) fire(a.abAll ? 'ab-expand' : 'ab-collapse', 'click', {});
 }
 const out = {};
 for (const k of Object.keys(ids)) { out[k] = ids[k]._h || ids[k].textContent; if (ids[k].className) out[k + ':class'] = ids[k].className; }

@@ -7,14 +7,19 @@
     Open http://HOST:PORT/ for the page and http://HOST:PORT/data.json for the data
     behind it. The page is built in memory; nothing is written to disk.
 
-Only those two paths are served, so no file on disk can be reached through the server.
+Only those two paths are served, plus /raw/<session id> when a runs folder is given: the raw log of one A/B run's session, read from
+<runs folder>/<run>.session/ only (the id may hold letters, digits, _ and - and nothing else, so no request can name a path), with keys and
+tokens masked. Nothing else on disk can be reached through the server.
 The data holds prompts, project paths and spend, so it binds to localhost by default and
 refuses requests whose Host header is not the address it was started on (a web page
 cannot reach it through DNS rebinding). For another machine use an SSH tunnel.
 """
 import argparse
+import glob
 import importlib
 import json
+import os
+import re
 import sys
 import threading
 import urllib.parse
@@ -25,6 +30,21 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import build_dashboard  # noqa: E402
 
 LOOPBACK_NAMES = {"localhost", "127.0.0.1", "::1"}
+RAW_MAX_BYTES = 64 * 1024 * 1024     # a run's log is a few MB; anything much larger is refused rather than read into memory
+SID_RE = re.compile(r"^[A-Za-z0-9_-]{1,80}$")
+
+
+def raw_log_path(ab_root, sid):
+    """The log file of one A/B run's session, or None. Only <ab_root>/<run>.session/**/<sid>.jsonl can ever be returned: the id is
+    checked against SID_RE (no dots or slashes) and the resolved file must still sit inside the runs folder. Subagent logs are not served."""
+    if not ab_root or not SID_RE.match(sid or ""):
+        return None
+    root = os.path.realpath(ab_root)
+    for p in sorted(glob.glob(os.path.join(glob.escape(root), "*.session", "**", sid + ".jsonl"), recursive=True)):
+        real = os.path.realpath(p)
+        if real.startswith(root + os.sep) and os.path.isfile(real) and "subagents" not in Path(real).parts:
+            return real
+    return None
 
 
 def code_files():
@@ -76,6 +96,8 @@ class State:
             cur = (build_dashboard.newest_mtime(self.root), self._ab_mtime(), code)
             if cur != self.seen or self.page is None:
                 data = build_dashboard.collect(self.root, self.days, self.project, ab_root=self.ab_root, ab_sessions=self.ab_sessions)
+                if self.ab_root and os.path.isdir(self.ab_root):
+                    data["raw"] = True       # tells the page it is being served, so run sessions can link to /raw/<id>; a saved snapshot has no links
                 page = build_dashboard.render(data)
                 self.page, self.json = page, json.dumps(data)
                 self.seen = cur
@@ -120,6 +142,8 @@ class Handler(BaseHTTPRequestHandler):
         if not host_allowed(self.headers.get("Host"), self.server.bound_host):
             return self._reply(403, "forbidden host\n", "text/plain; charset=utf-8")
         path = urllib.parse.urlsplit(self.path).path
+        if path.startswith("/raw/"):
+            return self._raw(urllib.parse.unquote(path[len("/raw/"):]))
         if path not in ("/", "/data.json"):
             return self._reply(404, "not found\n", "text/plain; charset=utf-8")
         try:
@@ -130,6 +154,20 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/":
             return self._reply(200, page, "text/html; charset=utf-8")
         return self._reply(200, data, "application/json")
+
+    def _raw(self, sid):
+        """One run session's raw log as plain text, read-only, with keys and tokens masked as it is served."""
+        p = raw_log_path(self.server.state.ab_root, sid)
+        if p is None:
+            return self._reply(404, "not found\n", "text/plain; charset=utf-8")
+        try:
+            if os.path.getsize(p) > RAW_MAX_BYTES:
+                return self._reply(413, "log too large to serve\n", "text/plain; charset=utf-8")
+            with open(p, "r", encoding="utf-8", errors="replace") as fh:
+                text = fh.read()
+        except OSError:
+            return self._reply(404, "not found\n", "text/plain; charset=utf-8")
+        return self._reply(200, build_dashboard.SECRET_RE.sub("[secret]", text), "text/plain; charset=utf-8")
 
     do_HEAD = do_GET
 

@@ -197,6 +197,102 @@ class AbRuns(ServerCase):
         resp, body = self.get("/data.json")
         self.assertNotIn("ab", json.loads(body))
 
+    # ---- /raw/<session id>: the raw log of one run's session, and nothing else
+    def ab_get(self, path, method="GET", host=None):
+        conn = http.client.HTTPConnection("127.0.0.1", self.ab_port, timeout=10)
+        conn.request(method, path, headers={"Host": host} if host else {})
+        resp = conn.getresponse()
+        body = resp.read()
+        conn.close()
+        return resp, body
+
+    def run_log(self, sid="abc-123", text=None, rel="-work"):
+        p = self.runs / "r1.session" / rel / (sid + ".jsonl")
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(text if text is not None else '{"type":"user","message":{"content":"hello"}}\n')
+        return p
+
+    def test_a_run_sessions_raw_log_is_served_as_plain_text(self):
+        self.run_log(text='{"type":"user","message":{"content":"hello raw"}}\n{"type":"assistant"}\n')
+        resp, body = self.ab_get("/raw/abc-123")
+        self.assertEqual(resp.status, 200)
+        self.assertEqual(resp.getheader("Content-Type"), "text/plain; charset=utf-8")
+        self.assertEqual(resp.getheader("X-Content-Type-Options"), "nosniff")
+        self.assertEqual(resp.getheader("Cache-Control"), "no-store")
+        self.assertEqual(body.decode().count("\n"), 2)
+        self.assertIn("hello raw", body.decode())
+
+    def test_keys_and_tokens_are_masked_as_the_log_is_served(self):
+        self.run_log(text='{"cmd":"ANTHROPIC_API_KEY=sk-ant-api03-ABCDEF1234567890 run"}\n{"cmd":"git push https://ghp_abcdefghijklmnopqrstuvwxyz0123@github.com"}\n')
+        _, body = self.ab_get("/raw/abc-123")
+        text = body.decode()
+        self.assertNotIn("sk-ant-api03", text)
+        self.assertNotIn("ghp_abcdef", text)
+        self.assertEqual(text.count("[secret]"), 2)
+        for line in text.splitlines():
+            json.loads(line)          # masking keeps every line valid JSON
+
+    def test_ids_that_could_name_a_path_are_refused(self):
+        self.run_log()
+        for sid in ("..", "../abc-123", "..%2Fabc-123", "%2e%2e%2f%2e%2e%2fetc%2fpasswd", "abc/def", "abc-123.jsonl", "abc%20123", "abc%00", "a" * 81, "", "*",
+                    "abc-123/", "r1.session/-work/abc-123"):
+            resp, _ = self.ab_get("/raw/" + sid)
+            self.assertEqual(resp.status, 404, repr(sid))
+
+    def test_only_run_session_logs_are_reachable_not_the_ordinary_ones(self):
+        resp, _ = self.ab_get("/raw/s1")            # the ordinary session under the main root
+        self.assertEqual(resp.status, 404)
+        resp, _ = self.ab_get("/raw/nope")
+        self.assertEqual(resp.status, 404)
+
+    def test_a_subagent_log_is_not_served(self):
+        self.run_log(sid="agent-x", rel="-work/abc-123/subagents")
+        resp, _ = self.ab_get("/raw/agent-x")
+        self.assertEqual(resp.status, 404)
+
+    def test_a_link_that_leaves_the_runs_folder_is_refused(self):
+        secret = Path(self._tmp.name) / "outside.jsonl"
+        secret.write_text("outside the runs folder\n")
+        link = self.runs / "r1.session" / "-work" / "evil.jsonl"
+        link.parent.mkdir(parents=True, exist_ok=True)
+        link.symlink_to(secret)
+        resp, body = self.ab_get("/raw/evil")
+        self.assertEqual(resp.status, 404)
+        self.assertNotIn(b"outside the runs folder", body)
+
+    def test_the_host_check_applies_to_the_raw_path_too(self):
+        self.run_log()
+        for host in ("evil.example.com", "127.0.0.1.evil.com", "10.0.0.5"):
+            resp, _ = self.ab_get("/raw/abc-123", host=host)
+            self.assertEqual(resp.status, 403, host)
+
+    def test_a_server_without_a_runs_folder_has_no_raw_path(self):
+        resp, _ = self.get("/raw/abc-123")
+        self.assertEqual(resp.status, 404)
+        resp, body = self.get("/data.json")
+        self.assertNotIn("raw", json.loads(body), "and its page is not told to draw raw links")
+
+    def test_the_page_is_told_to_link_only_when_a_runs_folder_is_given(self):
+        self.assertTrue(self.data()["raw"])
+
+    def test_a_log_over_the_size_limit_is_refused_not_read(self):
+        self.run_log(text="x" * 100)
+        with mock.patch.object(sd, "RAW_MAX_BYTES", 10):
+            resp, _ = self.ab_get("/raw/abc-123")
+        self.assertEqual(resp.status, 413)
+
+    def test_head_gives_the_headers_and_no_body(self):
+        self.run_log()
+        resp, body = self.ab_get("/raw/abc-123", method="HEAD")
+        self.assertEqual(resp.status, 200)
+        self.assertEqual(body, b"")
+
+    def test_other_methods_are_refused_on_the_raw_path(self):
+        self.run_log()
+        for method in ("POST", "PUT", "DELETE"):
+            resp, _ = self.ab_get("/raw/abc-123", method=method)
+            self.assertIn(resp.status, (405, 501), method)
+
     def test_a_run_session_counts_in_the_main_data_unless_the_flag_is_off(self):
         write_log(self.runs / "r1.session", "-work/ab1.jsonl",
                   [dict(user(0, "go"), sessionId="ab1"), assistant(1, "claude-opus-4-9", OPUS_USAGE, "x1", "rx1", sid="ab1")])

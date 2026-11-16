@@ -1107,8 +1107,10 @@ class CommandLine(unittest.TestCase):
     """Runs the script the way the slash command does."""
 
     def run_cli(self, *args):
+        # Point the default A/B folder at one that does not exist, so the host's real ~/experiments/runs never leaks into a test.
+        env = {**os.environ, "AB_RUNS_DIR": os.path.join(tempfile.gettempdir(), "cost-dashboard-test-no-ab-runs")}
         return subprocess.run([sys.executable, "-I", str(PLUGIN / "scripts" / "build_dashboard.py"), *args],
-                              capture_output=True, text=True, timeout=60)
+                              capture_output=True, text=True, timeout=60, env=env)
 
     def test_no_logs_exits_1_with_a_message_and_writes_nothing(self):
         with tempfile.TemporaryDirectory() as tmp:
