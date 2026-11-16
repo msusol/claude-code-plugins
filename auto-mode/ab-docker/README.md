@@ -193,12 +193,14 @@ real project and commit with `/git-commit`.
 ## Copilot review loop (host side)
 
 To measure how many Copilot review rounds each arm needs, run the review from your host. The arm containers have no
-GitHub access, so findings reach the arm as a file. Setup once: a **private** scratch repo (`gh repo create ab-scratch
+GitHub access, so findings reach the arm as a file. Setup once: a **private** scratch repo (`gh repo create ab-review-scratch
 --private`), its URL allowlisted in `~/.config/git-guard/allowlist` (pushes go through your normal `git`), and `gh`
 logged in with your Copilot-licensed account. The Copilot code-review policy must be enabled for your org.
+Use a repo that only does this job, never a seed or plan repo: the loop pushes each arm's `base/<name>` and `exp/<name>` branches and opens a PR
+per arm, and those would mix unrelated histories and full solutions into the seed. (The author's was `ab-scratch`, renamed `ab-review-scratch`; GitHub redirects the old name.)
 
 ```zsh
-export AB_REVIEW_REPO=msusol/ab-scratch            # owner/name of the scratch repo
+export AB_REVIEW_REPO=msusol/ab-review-scratch            # owner/name of the scratch repo
 auto-mode/ab-docker/run-ab.zsh review-round model-a   # push exp/model-a, open the PR, request Copilot, wait,
                                                       # write ~/experiments/runs/model-a/REVIEW-1.md
 auto-mode/ab-docker/run-ab.zsh resume model-a <model-a>   # new session on the same folder; paste the printed prompt
@@ -258,7 +260,7 @@ session (`claude -p`, no TTY) in the arm's container, then `review-round` again,
 it runs on the host. The arm still never gets GitHub access: pushes and the Copilot wait happen on the host.
 
 ```zsh
-AB_DOCS=1 AB_REVIEW_REPO=msusol/ab-scratch auto-mode/ab-docker/run-ab.zsh review-loop wordfreq-docs-fable-r1 claude-fable-5-2
+AB_DOCS=1 AB_REVIEW_REPO=msusol/ab-review-scratch auto-mode/ab-docker/run-ab.zsh review-loop wordfreq-docs-fable-r1 claude-fable-5-2
 ```
 
 - **Needs an API key.** `/login` needs a human, so `AB_LOGIN=1` is refused. Put the key in `~/experiments/.env` (see below).
