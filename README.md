@@ -10,7 +10,7 @@ Personal collection of [Claude Code](https://claude.ai/code) plugins.
 
 | Plugin | Version | Description |
 |--------|---------|-------------|
-| [auto-mode](auto-mode/) | 1.11.0 | Stop hook + `/auto-mode` skill: Claude keeps working through its own recommended next steps (capped) when switched on or on an `exp/*` branch; grants no permissions |
+| [auto-mode](auto-mode/) | 1.12.0 | Stop hook + `/auto-mode` skill: Claude keeps working through its own recommended next steps (capped) when switched on or on an `exp/*` branch; grants no permissions |
 | [bug-bash](bug-bash/) | 1.0.0 | The `/bug-bash` skill: given a ticket key, sweeps `docs/plans/` and `TODO.md` for stale entries tied to that ticket and archives what is done |
 | [cost-dashboard](cost-dashboard/) | 0.3.0 | The `/cost-dashboard:dashboard` command: HTML dashboard of estimated Claude Code cost per session, task, model, and subagent from local session logs |
 | [db-guard](db-guard/) | 1.0.0 | Two-layer guard against unauthorized `DROP TABLE`, `TRUNCATE`, `DROP DATABASE`, `DROP SCHEMA`, and `DROP COLUMN` |
