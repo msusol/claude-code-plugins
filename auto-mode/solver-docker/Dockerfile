@@ -3,7 +3,7 @@
 # sees only /work and can reach only the Anthropic API.
 #
 # Build from the repo root (run-ab.zsh does this for you):
-#   docker build -f auto-mode/ab-docker/Dockerfile --build-arg HOST_UID=$(id -u) -t ab-claude .
+#   docker build -f auto-mode/solver-docker/Dockerfile --build-arg HOST_UID=$(id -u) -t ab-claude .
 # Add the docs/ harness (planning rules) with --build-arg WITH_DOCS=1; `AB_DOCS=1 run-ab.zsh build` does this and tags
 # the image ab-claude-docs, so both variants can coexist. Leave it off for the plain baseline (the smoke test).
 FROM node:22-bookworm-slim
@@ -40,8 +40,8 @@ RUN jq --arg docs "$WITH_DOCS" \
  && mv /tmp/marketplace.json /opt/claude-code-plugins/.claude-plugin/marketplace.json
 RUN chown -R claude /opt/claude-code-plugins
 
-COPY auto-mode/ab-docker/entrypoint.sh auto-mode/ab-docker/init-firewall.sh \
-     auto-mode/ab-docker/prepare-workdir.sh auto-mode/ab-docker/isolation-check.sh /usr/local/bin/
+COPY auto-mode/solver-docker/entrypoint.sh auto-mode/solver-docker/init-firewall.sh \
+     auto-mode/solver-docker/prepare-workdir.sh auto-mode/solver-docker/isolation-check.sh /usr/local/bin/
 RUN chmod 755 /usr/local/bin/entrypoint.sh /usr/local/bin/init-firewall.sh \
               /usr/local/bin/prepare-workdir.sh /usr/local/bin/isolation-check.sh
 
@@ -82,7 +82,7 @@ RUN echo "example.invalid/ab" >> "$HOME/.config/git-guard/allowlist" \
 # run time (the firewall allows only the Anthropic API), so anything a task needs must be installed here, at build
 # time: edit requirements.txt and rebuild. The venv also sees the apt packages (pytest) and is first on PATH, so
 # `python`, `python3` and `pip` all mean the same thing. The installed set is recorded in ~/.ab-pip-freeze.txt.
-COPY --chown=claude auto-mode/ab-docker/requirements.txt /home/claude/.ab-requirements.txt
+COPY --chown=claude auto-mode/solver-docker/requirements.txt /home/claude/.ab-requirements.txt
 RUN python3 -m venv --system-site-packages "$HOME/.venv" \
  && "$HOME/.venv/bin/pip" install --no-cache-dir -r "$HOME/.ab-requirements.txt" \
  && "$HOME/.venv/bin/pip" freeze > "$HOME/.ab-pip-freeze.txt"

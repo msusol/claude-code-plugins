@@ -5,6 +5,11 @@ see your global `~/.claude`, your other projects, the other arm's branch, or any
 plan. Worktrees and "a folder outside the IDE root" hide things from the IDE but not from a process running as
 you; a container actually removes them.
 
+> **Layering.** The generic sandbox (image, firewall, isolation check, export of a ref, interactive and headless launch, `solve`) lives in
+> [../solver-docker/](../solver-docker/README.md); this folder adds the A/B parts (experiments folder, `run` and `resume`, the Copilot
+> review loop). `run-ab.zsh build`, `check` and `solve` hand over to `solver-docker/solver.zsh`, so every command here still works as before.
+> See ADR 0001 in the experiments repo.
+
 > **Status: untested end to end.** The scripts pass syntax checks and the export/prepare logic is tested with a
 > stubbed `docker`, but the image has not been built or run. Build it, then run `run-ab.zsh check` before you
 > trust a result.
@@ -109,7 +114,7 @@ needs an allowlisted `origin`; give it one that is never pushed).
 ## Python libraries for a task
 
 The container has no network at run time, so a task cannot `pip install` anything; the libraries it needs go into the
-image at build time. List them in [requirements.txt](requirements.txt) (one per line, versions pinned so every arm gets the
+image at build time. List them in [requirements.txt](../solver-docker/requirements.txt) (one per line, versions pinned so every arm gets the
 same ones), then rebuild with `run-ab.zsh build`. The file ships with no requirements, which is right for a task that uses
 only the standard library, like the wordfreq smoke test.
 
@@ -308,6 +313,8 @@ chmod 600 ~/experiments/.env
 ```
 
 ## How it works
+
+These five files now live in [../solver-docker/](../solver-docker/) (moved, not changed apart from their `COPY` paths); the descriptions stay here for context.
 
 - `Dockerfile` — Node + Claude Code, a `claude` user with your host uid (so mounted files stay yours), and the
   plugin sources copied in without any git history; runs the plugins' own `deploy.zsh` to install them.

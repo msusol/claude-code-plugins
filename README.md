@@ -10,12 +10,12 @@ Personal collection of [Claude Code](https://claude.ai/code) plugins.
 
 | Plugin | Version | Description |
 |--------|---------|-------------|
-| [auto-mode](auto-mode/) | 1.9.0 | Stop hook + `/auto-mode` skill: Claude keeps working through its own recommended next steps (capped) when switched on or on an `exp/*` branch; grants no permissions |
+| [auto-mode](auto-mode/) | 1.11.0 | Stop hook + `/auto-mode` skill: Claude keeps working through its own recommended next steps (capped) when switched on or on an `exp/*` branch; grants no permissions |
 | [bug-bash](bug-bash/) | 1.0.0 | The `/bug-bash` skill: given a ticket key, sweeps `docs/plans/` and `TODO.md` for stale entries tied to that ticket and archives what is done |
 | [cost-dashboard](cost-dashboard/) | 0.3.0 | The `/cost-dashboard:dashboard` command: HTML dashboard of estimated Claude Code cost per session, task, model, and subagent from local session logs |
 | [db-guard](db-guard/) | 1.0.0 | Two-layer guard against unauthorized `DROP TABLE`, `TRUNCATE`, `DROP DATABASE`, `DROP SCHEMA`, and `DROP COLUMN` |
 | [dgx-spark](dgx-spark/) | 1.0.0 | Global `dgx-spark-*` rules for the DGX Spark host: Docker context/daemon gotchas and other host-level facts |
-| [docs](docs/) | 1.5.0 | Deploys `planning-*` rules to `~/.claude/rules/` and @-imports them in `~/.claude/CLAUDE.md` — Claude Code-native only |
+| [docs](docs/) | 1.6.0 | Deploys `planning-*` rules to `~/.claude/rules/` and @-imports them in `~/.claude/CLAUDE.md` — Claude Code-native only |
 | [docs-hub](docs-hub/) | 0.6.0 | The `/docs-hub:hub` command: builds a docs hub page (plan progress, decisions, specs, process docs, investigations, open work) from a repo's planning-docs layout, or serves it with live rebuilds |
 | [git-guard](git-guard/) | 1.5.2 | Three-layer protection against unauthorized `git commit` and `git push`, plus branch-naming enforcement (GitFlow Lite) |
 | [jira-tickets](jira-tickets/) | 1.0.0 | The `/jira-describe` skill: a living Current Status + append-only History layout for Jira ticket descriptions, and which Atlassian tool path renders real Markdown/ADF |
