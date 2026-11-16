@@ -61,9 +61,10 @@ cmd_solve() {
     > "$out/report.txt" 2> "$out/stderr.txt" || rc=$?
   log_step "$name" solve 0 "$model" "$dir" "headless;exit=$rc;effort=${AB_EFFORT:-default}" "$t0"
 
-  # The marker must be on a line of its own at the end of the report; a mention inside the text does not count.
-  if tail -5 "$out/report.txt" | grep -qE '^[[:space:]]*AUTO-MODE: DONE'; then marker=DONE
-  elif tail -5 "$out/report.txt" | grep -qE '^[[:space:]]*AUTO-MODE: BLOCKED'; then marker=BLOCKED; fi
+  # The marker must be a line of its own, anywhere in the report (a solver often adds a recap after it, so "last line" is not
+  # reliable); a mention inside a sentence does not count. If both appear, BLOCKED wins, so a question is never lost.
+  if grep -qE '^[[:space:]]*AUTO-MODE: BLOCKED\.?[[:space:]]*$' "$out/report.txt"; then marker=BLOCKED
+  elif grep -qE '^[[:space:]]*AUTO-MODE: DONE\.?[[:space:]]*$' "$out/report.txt"; then marker=DONE; fi
 
   base=$(git -C "$dir" rev-list --max-parents=0 HEAD 2>/dev/null | tail -1 || true)
   head=$(git -C "$dir" rev-parse HEAD 2>/dev/null || true)
