@@ -135,6 +135,7 @@ single_branch_repo() {
 if [[ -n "$branch_name" && "$branch_name" != "main" && "$branch_name" != "develop" ]] && ! single_branch_repo; then
   if ! echo "$branch_name" | grep -qE '^(feature|bugfix|chore)/[A-Z][A-Z0-9]+-[0-9]+-[a-z0-9]+(-[a-z0-9]+)*$' \
      && ! echo "$branch_name" | grep -qE '^(release|hotfix)/[0-9]+\.[0-9]+\.[0-9]+$' \
+     && ! echo "$branch_name" | grep -qE '^docs/([A-Z][A-Z0-9]+-[0-9]+-)?[a-z0-9]+(-[a-z0-9]+)*$' \
      && ! echo "$branch_name" | grep -qE '^exp/[a-z0-9]+(-[a-z0-9]+)*$'; then
     echo "git-guard: branch name '$branch_name' doesn't match the GitFlow (Lite) naming convention." >&2
     echo "  feature/<TICKET>-<slug>      e.g. feature/PROJ-1234-bulk-export" >&2
@@ -142,6 +143,7 @@ if [[ -n "$branch_name" && "$branch_name" != "main" && "$branch_name" != "develo
     echo "  chore/<TICKET>-<slug>        e.g. chore/PROJ-1310-bump-node-20" >&2
     echo "  release/<major.minor.patch>  e.g. release/2.4.0" >&2
     echo "  hotfix/<major.minor.patch>   e.g. hotfix/2.3.1" >&2
+    echo "  docs/<slug>                  e.g. docs/eval-pilot-budget (optional ticket: docs/PROJ-12-slug)" >&2
     echo "  exp/<slug>                   e.g. exp/sonnet-vs-fable (commits allowed without /git-commit)" >&2
     echo "See the git-branch-naming rule for the full GitFlow (Lite) convention." >&2
     echo "Deliberate, explained exception: prefix with GIT_GUARD_SANCTIONED=1." >&2

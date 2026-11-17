@@ -83,6 +83,8 @@ pass through untouched). If `<name>` isn't `main`/`develop` and doesn't match:
 
 - `(feature|bugfix|chore)/<TICKET>-<slug>` — e.g. `feature/PROJ-1234-bulk-export`
 - `(release|hotfix)/<major.minor.patch>` — e.g. `release/2.4.0`
+- `docs/<slug>` (ticket key optional) — e.g. `docs/eval-pilot-budget`
+- `exp/<slug>` — see the experiment branches section below
 
 the hook blocks with exit 2 and prints the convention. This is the GitFlow (Lite)
 branching convention; the full rationale (cut-from/merge-into mapping, merge strategy,
@@ -309,7 +311,7 @@ The suite covers:
 - Malformed / empty JSON input — allowed (no false positives)
 - Sentinel without required trailing space — still blocked
 - Branch creation with a non-conforming name (`checkout -b`, `switch -c`, `branch <name>`) — blocked (exit 2)
-- Branch creation matching the convention, `main`/`develop`, `exp/<slug>`, or a start-point argument after the name — allowed
+- Branch creation matching the convention, `main`/`develop`, `docs/<slug>`, `exp/<slug>`, or a start-point argument after the name — allowed
 - `git commit` on an `exp/*` branch (judged from the hook's `cwd`) — allowed; push, tag, `cd`/`--git-dir` forms, other branches, missing/bad `cwd` — still blocked
 - Non-creation `git branch` invocations (`-d`, `-a`, `--show-current`, bare `branch`) — never treated as a name to validate
 - Sentinel bypasses the branch-naming check the same way it bypasses commit/push

@@ -47,6 +47,7 @@ personal/other repos (it doesn't).
 | `feature/*` | `develop` | `develop` | New functionality. |
 | `bugfix/*` | `develop` | `develop` | Non-urgent bug fixes found in `develop` or a release candidate. |
 | `chore/*` | `develop` | `develop` | Non-functional work: dependency bumps, refactors, CI/tooling, docs. |
+| `docs/*` | `develop` | `develop` | Documentation-only changes (specs, plans, ADRs, READMEs), e.g. `docs/eval-pilot-budget`. A ticket key is optional. |
 | `release/*` | `develop` | `main` **and** `develop` | Stabilizes a release candidate; no new features. |
 | `hotfix/*` | `main` | `main` **and** `develop` | Urgent production fix that can't wait for the release train. |
 | `exp/*` | any | nothing (discard or cherry-pick) | Throwaway experiments and A/B runs, e.g. `exp/sonnet-vs-fable`. Plain `git commit` is allowed here; never pushed or merged as-is. |
@@ -74,6 +75,8 @@ release/2.4.0
 hotfix/2.3.1
 ```
 
+`docs/<slug>` takes a lowercase hyphenated slug; a ticket key may lead it (`docs/PROJ-12-update-readme`) but is not required.
+
 `exp/<slug>` takes a lowercase hyphenated slug and no ticket key. Never use it for work that should ship.
 
 `main` and `develop` are the two permanent branches — never invent a
@@ -94,6 +97,8 @@ doesn't match one of:
 
 - `^(feature|bugfix|chore)/[A-Z][A-Z0-9]+-[0-9]+-[a-z0-9]+(-[a-z0-9]+)*$`
 - `^(release|hotfix)/[0-9]+\.[0-9]+\.[0-9]+$`
+- `^docs/([A-Z][A-Z0-9]+-[0-9]+-)?[a-z0-9]+(-[a-z0-9]+)*$` (ticket key optional)
+- `^exp/[a-z0-9]+(-[a-z0-9]+)*$`
 - the literals `main` or `develop`
 
 The hook applies the single-branch exemption above on its own: when the session's
