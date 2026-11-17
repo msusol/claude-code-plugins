@@ -6,9 +6,9 @@ A brief is the one document a solver sees besides the repository. `solver.zsh so
 
 - The task is a plan task the owner has marked for a solver (see the `docs` plugin's `planning-hard-tasks` rule for who tags a task `[hard]`, and when). A task that mixes solver work with live checks, decisions or pushes is split first, and the brief assigns only the solver's part.
 - The plan, its `TODO.md` section and the spec are committed at the ref you will export. The solver reads the export, not your working tree.
-- The ref holds nothing the solver must not see: no oracle, hidden tests or results that the task is scored against. `AB_SEED_CHECK=<script>` runs your own leak check before export and stops the run if it fails.
+- The ref holds nothing the solver must not see: no oracle, hidden tests or results that the task is scored against. `SOLVER_SEED_CHECK=<script>` runs your own leak check before export and stops the run if it fails.
 - You can state the done condition as a command you can run yourself.
-- An API key with a spend limit is available (`ANTHROPIC_API_KEY`, or the key file `solver.zsh` reads). `solve` refuses `AB_LOGIN=1`, because it runs unattended.
+- An API key with a spend limit is available (`ANTHROPIC_API_KEY`, or the key file `solver.zsh` reads). `solve` refuses `SOLVER_LOGIN=1`, because it runs unattended.
 
 ## Steps
 
@@ -21,14 +21,14 @@ A brief is the one document a solver sees besides the repository. `solver.zsh so
 7. Run it, with bounds that fit the task:
 
 ```zsh
-AB_SOLVE_BUDGET_USD=5 \
-AB_SOLVE_TIMEOUT=1800 \
+SOLVER_SOLVE_BUDGET_USD=5 \
+SOLVER_SOLVE_TIMEOUT=1800 \
 auto-mode/solver-docker/solver.zsh solve <name> <model> <src-repo> <ref> <brief-file>
 ```
 
-`<src-repo>` must not contain the runs folder; set `AB_RUNS_DIR` to a folder outside it if it would.
+`<src-repo>` must not contain the runs folder; set `SOLVER_RUNS_DIR` to a folder outside it if it would.
 
-8. Read `$AB_RUNS_DIR/<name>.out/result.txt` and `report.txt`. Exit 0 means DONE, a commit and a clean tree. Exit 3 means `BLOCKED`: the question is in `report.txt`; bring it to the owner and do not answer it yourself. Exit 4 means anything else (no marker, no commit, or uncommitted changes). The marker counts only as a line of its own, anywhere in the report, and `BLOCKED` wins if both appear. `patch=` in `result.txt` is empty when the solver made no commit.
+8. Read `$SOLVER_RUNS_DIR/<name>.out/result.txt` and `report.txt`. Exit 0 means DONE, a commit and a clean tree. Exit 3 means `BLOCKED`: the question is in `report.txt`; bring it to the owner and do not answer it yourself. Exit 4 means anything else (no marker, no commit, or uncommitted changes). The marker counts only as a line of its own, anywhere in the report, and `BLOCKED` wins if both appear. `patch=` in `result.txt` is empty when the solver made no commit.
 9. Coalesce and verify; do not trust the report:
    - cut a branch from the same ref (a worktree keeps your own working tree untouched) and run `git am --3way solve.patch`;
    - if `result.txt` lists `docs_files`, expect overlap with your own edits to the same plan or `TODO.md`, and resolve it so the solver's checkboxes apply only to its assigned tasks;

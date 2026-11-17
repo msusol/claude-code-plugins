@@ -1,13 +1,13 @@
 #!/usr/bin/env zsh
 # Run one task for one model in an isolated container (no GitHub, API only, one folder mounted). Generic: nothing here knows about A/B.
 #
-#   solver.zsh build                                              build the image (once, and after plugin changes); AB_DOCS=1 adds the docs/ harness
+#   solver.zsh build                                              build the image (once, and after plugin changes); SOLVER_DOCS=1 adds the docs/ harness
 #   solver.zsh check                                              prove the isolation (filesystem, network, tooling)
 #   solver.zsh solve <name> <model> <src-repo> <ref> <brief-file>   unattended: export <ref>, run one headless session on the brief, write the result (see cmd_solve)
 #
 # ab-docker/run-ab.zsh calls build, check and solve through here; it adds A/B pairing, the interactive run, and the Copilot review loop.
-# <name> becomes the branch exp/<name> and the run folder $AB_RUNS_DIR/<name> (default ~/experiments/runs/<name>).
-# Auth: ANTHROPIC_API_KEY in the environment, or in $AB_ENV_FILE (default ~/experiments/.env, chmod 600). `solve` is unattended and refuses AB_LOGIN=1.
+# <name> becomes the branch exp/<name> and the run folder $SOLVER_RUNS_DIR/<name> (default ~/experiments/runs/<name>).
+# Auth: ANTHROPIC_API_KEY in the environment, or in $SOLVER_ENV_FILE (default ~/experiments/.env, chmod 600). `solve` is unattended and refuses SOLVER_LOGIN=1.
 # Use a dedicated key with a spend limit: the model can read it inside the container.
 
 set -euo pipefail
@@ -23,12 +23,12 @@ cmd_build() {
   # The image installs the plugins from this checkout (see the Dockerfile); record which commit, and whether it was dirty.
   local rev; rev=$(git -C "$REPO_ROOT" rev-parse --short HEAD 2>/dev/null || print unknown)
   [[ -z "$(git -C "$REPO_ROOT" status --porcelain -- .claude-plugin git-guard auto-mode docs 2>/dev/null)" ]] || rev="$rev+dirty"
-  docker build -f "$SCRIPT_DIR/Dockerfile" --build-arg "HOST_UID=$(id -u)" --build-arg "WITH_DOCS=${AB_DOCS:-0}" --build-arg "SRC_REV=$rev" -t "$IMAGE" "$REPO_ROOT"
+  docker build -f "$SCRIPT_DIR/Dockerfile" --build-arg "HOST_UID=$(id -u)" --build-arg "WITH_DOCS=${SOLVER_DOCS:-0}" --build-arg "SRC_REV=$rev" -t "$IMAGE" "$REPO_ROOT"
 }
 
 cmd_check() {
   local tmp; tmp=$(mktemp -d)
-  docker run --rm --cap-add NET_ADMIN -e AB_NAME=check -e "AB_DOCS=${AB_DOCS:-0}" -v "$tmp:/work" "$IMAGE" /usr/local/bin/isolation-check.sh
+  docker run --rm --cap-add NET_ADMIN -e SOLVER_NAME=check -e AB_NAME=check -e "SOLVER_DOCS=${SOLVER_DOCS:-0}" -e "AB_DOCS=${SOLVER_DOCS:-0}" -v "$tmp:/work" "$IMAGE" /usr/local/bin/isolation-check.sh
   local rc=$?
   rm -rf "$tmp"
   return $rc
@@ -44,12 +44,12 @@ cmd_check() {
 # Exit status: 0 DONE with commits and a clean tree; 3 BLOCKED; 4 no marker, no commits or uncommitted changes; else the session's own status.
 # Runs on the docs image (docs/ planning rules); a standard preamble is added before the brief. Merging the result into the source
 # repo (cut a branch from <ref>, git am --3way, check plan/TODO parity) is the orchestrator's job; see the spec's Coalescing section.
-# Bounds: AB_SOLVE_TIMEOUT seconds (default 3600) and AB_SOLVE_BUDGET_USD (default 10). It never pushes or merges anything.
+# Bounds: SOLVER_SOLVE_TIMEOUT seconds (default 3600) and SOLVER_SOLVE_BUDGET_USD (default 10). It never pushes or merges anything.
 cmd_solve() {
   (( $# == 5 )) || usage
   local name="$1" model="$2" src="$3" ref="$4" brief="$5" dir
   [[ -r "$brief" && -s "$brief" ]] || die "brief file '$brief' is missing or empty"
-  [[ "${AB_LOGIN:-0}" != 1 ]] || die "solve runs unattended and needs ANTHROPIC_API_KEY; AB_LOGIN=1 needs a human for /login"
+  [[ "${SOLVER_LOGIN:-0}" != 1 ]] || die "solve runs unattended and needs ANTHROPIC_API_KEY; SOLVER_LOGIN=1 needs a human for /login"
   prepare_run "$name" "$src" "$ref"
 
   local out="$RUNS_DIR/$name.out" logdir="$RUNS_DIR/$name.reviews" t0 rc=0 marker=NONE base head commits dirty=1 code=1
@@ -58,9 +58,9 @@ cmd_solve() {
   local preamble="Follow this repository's docs/ planning rules. Check off only the plan tasks this brief assigns you, in both the plan file and its docs/plans/TODO.md section, in the same commit as the work; do not edit other tasks, other plans or docs/index.md. Commit after each task with a Conventional Commits message that ends in a Verified: line. You cannot ask questions: put any owner question in your final report and end with AUTO-MODE: BLOCKED. When done, end with AUTO-MODE: DONE.
 
 "
-  launch_headless "$name" "$model" "$dir" "$preamble$(<"$brief")" "${AB_SOLVE_TIMEOUT:-3600}" "${AB_SOLVE_BUDGET_USD:-10}" \
+  launch_headless "$name" "$model" "$dir" "$preamble$(<"$brief")" "${SOLVER_SOLVE_TIMEOUT:-3600}" "${SOLVER_SOLVE_BUDGET_USD:-10}" \
     > "$out/report.txt" 2> "$out/stderr.txt" || rc=$?
-  log_step "$name" solve 0 "$model" "$dir" "headless;exit=$rc;effort=${AB_EFFORT:-default}$(agents_detail)" "$t0"
+  log_step "$name" solve 0 "$model" "$dir" "headless;exit=$rc;effort=${SOLVER_EFFORT:-default}$(agents_detail)" "$t0"
 
   # The marker must be a line of its own, anywhere in the report (a solver often adds a recap after it, so "last line" is not
   # reliable); a mention inside a sentence does not count. If both appear, BLOCKED wins, so a question is never lost.

@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Egress firewall: drop everything outbound except DNS, loopback, and HTTPS to the allowlisted hosts.
 # Needs NET_ADMIN (docker run --cap-add NET_ADMIN). Hosts are resolved once at start; extend the list with
-# AB_ALLOW_DOMAINS="api.anthropic.com other.example". DNS is allowed to anywhere, so DNS lookups remain a
+# SOLVER_ALLOW_DOMAINS="api.anthropic.com other.example". DNS is allowed to anywhere, so DNS lookups remain a
 # (slow, low-bandwidth) side channel -- the firewall stops file fetches, git clones and web requests, not that.
 # Only the `filter` table is touched: Docker's embedded-DNS rules live in `nat` and must be left alone.
 set -euo pipefail
 
-ALLOW_DOMAINS="${AB_ALLOW_DOMAINS:-api.anthropic.com}"
+ALLOW_DOMAINS="${SOLVER_ALLOW_DOMAINS:-${AB_ALLOW_DOMAINS:-api.anthropic.com}}"
 
 ipset create ab_allowed hash:ip -exist
 ipset flush ab_allowed

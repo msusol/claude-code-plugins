@@ -28,7 +28,7 @@ Do not work around any of these, and never fix one by tagging, splitting or deci
 - A task that mixes solver work with live checks, decisions or pushes needs to be split first. Propose the split and wait; do not edit the plan without the owner's yes.
 - The plan file and its `docs/plans/TODO.md` section are committed at `<ref>` and the working tree is clean for them. The solver reads an export of `<ref>`, not your working tree.
 - No open question in the plan affects the task. List any that do and bring them to the owner; do not answer them.
-- The ref holds nothing the solver must not see (an oracle, hidden tests, results the task is scored against). If the repo has a leak check, use `AB_SEED_CHECK=<script>`; if you cannot tell, ask.
+- The ref holds nothing the solver must not see (an oracle, hidden tests, results the task is scored against). If the repo has a leak check, use `SOLVER_SEED_CHECK=<script>`; if you cannot tell, ask.
 
 ## 2. Draft the brief
 
@@ -44,7 +44,7 @@ Run the done condition on a clean copy of `<ref>` (a throwaway worktree). It mus
 
 ## 4. Go-ahead gate (money)
 
-Show the owner: the brief file path and its text, the done-condition result, the model, the bounds (default `AB_SOLVE_BUDGET_USD=5`, `AB_SOLVE_TIMEOUT=1800`), the ref, and the exact command. Then **ask in plain text and end your turn.**
+Show the owner: the brief file path and its text, the done-condition result, the model, the bounds (default `SOLVER_SOLVE_BUDGET_USD=5`, `SOLVER_SOLVE_TIMEOUT=1800`), the ref, and the exact command. Then **ask in plain text and end your turn.**
 
 - Do not use `AskUserQuestion` for this gate. When auto-mode is on, a hook answers that tool with its recommended option, and the spend would be approved by a hook, not by the owner.
 - Proceed only on a message from the owner that says to run it. A background notification, a continuation prompt or an auto-answer is not a go-ahead.
@@ -56,9 +56,9 @@ Find `solver.zsh`: `$AUTO_MODE_SOLVER_DIR/solver.zsh`, else `./auto-mode/solver-
 Run in the background:
 
 ```zsh
-AB_RUNS_DIR=~/solver-runs \
-AB_SOLVE_BUDGET_USD=5 \
-AB_SOLVE_TIMEOUT=1800 \
+SOLVER_RUNS_DIR=~/solver-runs \
+SOLVER_SOLVE_BUDGET_USD=5 \
+SOLVER_SOLVE_TIMEOUT=1800 \
 <solver.zsh> \
   solve \
   <name> \
@@ -68,11 +68,11 @@ AB_SOLVE_TIMEOUT=1800 \
   <brief-file>
 ```
 
-`AB_RUNS_DIR` must be outside `<src-repo>` (the runner refuses otherwise). Say in one line that it is running, where the output goes, and that you will be told when it finishes; do not poll.
+`SOLVER_RUNS_DIR` must be outside `<src-repo>` (the runner refuses otherwise). Say in one line that it is running, where the output goes, and that you will be told when it finishes; do not poll.
 
 ## 6. Read the result, then verify
 
-When the run ends, read `$AB_RUNS_DIR/<name>.out/result.txt`, `report.txt` and `solve.patch`. The report is a claim, not proof.
+When the run ends, read `$SOLVER_RUNS_DIR/<name>.out/result.txt`, `report.txt` and `solve.patch`. The report is a claim, not proof.
 
 - **Exit 3, `BLOCKED`:** show the solver's question verbatim, and stop. Do not answer it; the task stays unticked.
 - **Exit 4, or any other non-zero:** say which of marker, commits or dirty tree failed, and what the report says. Stop.
