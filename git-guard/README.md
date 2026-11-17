@@ -90,6 +90,15 @@ release vs. hotfix process) lives in `src/rules/git-branch-naming.md`, installed
 `~/.claude/rules/git-branch-naming.md` and @-imported into `~/.claude/CLAUDE.md` so Claude
 follows it proactively instead of only getting blocked reactively.
 
+**Single-branch repos are exempt.** The naming check is skipped when the session's working
+directory is a git repo with no `develop` branch (local or on any remote) and no
+`feature/`, `bugfix/` or `chore/` branch (local or remote): such a repo never used the
+convention, and a ticket-keyed name only gets in the way. The exemption is scoped like the
+`exp/*` commit exemption: the repo is read from the hook's own `cwd`, and a command that
+could act on another repo (`cd`, `-C`, `--git-dir`, `--work-tree`) is still checked. With no
+`cwd`, or a `cwd` that is not a git repo, the check runs as before. Commit, tag and push stay
+guarded everywhere. (Added 1.6.0; an installed older hook enforces the name in every repo.)
+
 ### `/git-commit` skill — the sanctioned path for commits
 
 The only way through all three guards for `git commit`/`git tag`. Invoked by `/git-commit`

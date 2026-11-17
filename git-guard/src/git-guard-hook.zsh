@@ -114,7 +114,25 @@ else
   fi
 fi
 
-if [[ -n "$branch_name" && "$branch_name" != "main" && "$branch_name" != "develop" ]]; then
+# Single-branch exemption (see src/rules/git-branch-naming.md): the naming model
+# only applies to a repo that has a permanent `develop` branch or already uses
+# feature/bugfix/chore branches. A repo with neither (only main/master) skips the
+# naming check. Scoped like the exp/* commit exemption: the repo is read from the
+# hook's own `cwd`, and a command that could act on a different repo (`cd`, or
+# `-C` / `--git-dir` / `--work-tree`) is never exempt. No cwd, or a cwd that is
+# not a git repo, means the check runs as before.
+single_branch_repo() {
+  [[ -n "$hook_cwd" && -d "$hook_cwd" ]] || return 1
+  echo "$cmd" | grep -qE '(^|[^[:alnum:]_-])cd[[:space:]]' && return 1
+  echo "$cmd" | grep -qE '(^|[[:space:]])(-C[[:space:]]|--git-dir|--work-tree)' && return 1
+  git -C "$hook_cwd" rev-parse --git-dir >/dev/null 2>&1 || return 1
+  [[ -z "$(git -C "$hook_cwd" for-each-ref --count=1 \
+    'refs/heads/develop' 'refs/remotes/*/develop' \
+    'refs/heads/feature' 'refs/heads/bugfix' 'refs/heads/chore' \
+    'refs/remotes/*/feature/*' 'refs/remotes/*/bugfix/*' 'refs/remotes/*/chore/*' 2>/dev/null)" ]]
+}
+
+if [[ -n "$branch_name" && "$branch_name" != "main" && "$branch_name" != "develop" ]] && ! single_branch_repo; then
   if ! echo "$branch_name" | grep -qE '^(feature|bugfix|chore)/[A-Z][A-Z0-9]+-[0-9]+-[a-z0-9]+(-[a-z0-9]+)*$' \
      && ! echo "$branch_name" | grep -qE '^(release|hotfix)/[0-9]+\.[0-9]+\.[0-9]+$' \
      && ! echo "$branch_name" | grep -qE '^exp/[a-z0-9]+(-[a-z0-9]+)*$'; then

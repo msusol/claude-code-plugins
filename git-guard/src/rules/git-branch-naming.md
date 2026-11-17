@@ -96,6 +96,11 @@ doesn't match one of:
 - `^(release|hotfix)/[0-9]+\.[0-9]+\.[0-9]+$`
 - the literals `main` or `develop`
 
+The hook applies the single-branch exemption above on its own: when the session's
+working directory is a repo with no `develop` branch and no `feature/`, `bugfix/` or
+`chore/` branch (local or remote), it does not check the name at all. A command that
+could act on a different repo (`cd`, `-C`, `--git-dir`, `--work-tree`) is still checked.
+
 Choosing a conforming name up front avoids the block entirely — that's the
 point of this rule. If a name is legitimately exempt (rare), prefix the
 command with `GIT_GUARD_SANCTIONED=1` the same way the commit/push sentinel
