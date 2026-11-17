@@ -53,6 +53,37 @@ class GroupBase(AbBase):
         return [r for r in self.data["ab"]["runs"] if r["name"].startswith(prefix)]
 
 
+class PilotAndSearch(GroupBase):
+    def setUp(self):
+        super().setUp()
+        for arm in "abc":
+            self.add("pilot-p1-" + arm, SONNET)
+        self.add("pilot-p2-c", SONNET)
+        self.data = b.collect(self.main, days=0, ab_root=self.runs)
+        self.html = b.render(self.data)
+
+    def test_a_pilots_three_arms_are_one_group(self):
+        h = self.text(self.page())
+        self.assertIn("pilot-p1 3 runs", h)
+        self.assertNotIn("pilot-p1-r0", h)
+        self.assertEqual(self.page().count('data-key="run:pilot-p1-a"'), 0, "the arms sit inside the closed group")
+        self.assertEqual(self.page({"abToggle": "round:pilot-p1"}).count('data-key="run:pilot-p1-'), 3)
+
+    def test_a_pilot_with_one_arm_is_a_plain_run(self):
+        self.assertEqual(self.page().count('data-key="run:pilot-p2-c"'), 1)
+
+    def test_search_keeps_only_runs_that_match(self):
+        h = self.page({"abSearch": "pilot-p1"})
+        self.assertIn("pilot-p1 3 runs", self.text(h))
+        self.assertNotIn("leave-engine", h)
+        self.assertNotIn("solo-check", h)
+
+    def test_search_matches_the_model_too_and_empty_search_shows_all(self):
+        self.assertIn("solo-check-r1", self.page({"abSearch": "sonnet"}))
+        self.assertNotIn("leave-engine-docs-fable-r2", self.page({"abSearch": "sonnet"}))
+        self.assertIn("solo-check-r1", self.page({"abSearch": "x"}, {"abSearch": ""}))
+
+
 class Collapsed(GroupBase):
     def test_each_plan_is_one_row_and_lone_runs_stay_plain_rows(self):
         h = self.page()

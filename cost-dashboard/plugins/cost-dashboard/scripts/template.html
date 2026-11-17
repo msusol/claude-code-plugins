@@ -185,7 +185,7 @@ body { padding: 1.5rem 1rem; }
   </section>
   <section id="tab-ab" class="cd-main" hidden>
     <div class="cd-grid">
-      <div class="cd-card cd-span"><h2>A/B runs side by side</h2><p class="cd-sub">Runs are grouped by plan and round (the two arms of a round sit together), with totals on each group row; click a row to open it, down to the steps of a run (its arm session, each Copilot review round and each fix), each with its calls, tokens and cost. One row per run that logged its steps: what the whole run cost (Claude across all its sessions, plus Copilot's reviews), how many Copilot reviews it used, and how many review rounds it took to come back clean. Dollars are estimates: Claude from the session logs, Copilot as an average per review.</p><div class="cd-tools"><button class="cd-btn" type="button" id="ab-expand">Expand all</button> <button class="cd-btn" type="button" id="ab-collapse">Collapse all</button></div><div class="cd-box"><table class="cd-table" id="ab-runs"></table></div><p class="cd-sub" id="ab-note"></p></div>
+      <div class="cd-card cd-span"><h2>A/B runs side by side</h2><p class="cd-sub">Runs are grouped by plan and round (the two arms of a round sit together), with totals on each group row; click a row to open it, down to the steps of a run (its arm session, each Copilot review round and each fix), each with its calls, tokens and cost. One row per run that logged its steps: what the whole run cost (Claude across all its sessions, plus Copilot's reviews), how many Copilot reviews it used, and how many review rounds it took to come back clean. Dollars are estimates: Claude from the session logs, Copilot as an average per review.</p><div class="cd-tools"><input class="cd-search" id="ab-q" type="search" placeholder="Search runs" aria-label="Search runs"> <button class="cd-btn" type="button" id="ab-expand">Expand all</button> <button class="cd-btn" type="button" id="ab-collapse">Collapse all</button></div><div class="cd-box"><table class="cd-table" id="ab-runs"></table></div><p class="cd-sub" id="ab-note"></p></div>
     </div>
   </section>
   <p class="cd-foot" id="foot"></p>
@@ -396,7 +396,11 @@ const NOWRAP = ['last','project','model'];
 // Project and First prompt are one collapsible unit: Project alone by default, Project then First prompt once expanded
 const colsNow = () => [['last','Last active'],['project','Project'], ...(showPrompt ? [['title','First prompt']] : []),
   ['model','Model · effort'],['turns','Tasks'],['calls','Calls'],['in_tok','In tokens'],['out_tok','Out tokens'],['in_cost','$ In'],['out_cost','$ Out'],['sub_cost','Subagent'],['cost','Cost']];
-const comboOf = s => { const c = topCombo(s.matrix); return c ? comboLabel(c[0], c[1]) + (comboCount(s.matrix) > 1 ? ` +${comboCount(s.matrix)-1}` : '') : ''; };
+// a run with subagents is labelled by the model that ran its main thread (the orchestrator), not by whichever model cost most: the highest-cost combo among calls that are not a subagent's
+const leadCombo = calls => { const m = {}; (calls || []).forEach(c => { if (c.sub) return; const k = c.model + '\u0000' + c.effort; (m[k] = m[k] || {model: c.model, effort: c.effort, cost: 0}).cost += c.cost; });
+  const top = Object.values(m).sort((a, b) => b.cost - a.cost)[0]; return top ? [top.model, top.effort] : null; };
+const headCombo = s => (s.call_list && leadCombo(s.call_list)) || topCombo(s.matrix);
+const comboOf = s => { const c = headCombo(s); return c ? comboLabel(c[0], c[1]) + (comboCount(s.matrix) > 1 ? ` +${comboCount(s.matrix)-1}` : '') : ''; };
 // the calls of a run's session sort with the table's own key and direction, so every level reads the same way (ties keep the order the calls were made)
 const callVal = (c, k) => k==='last' ? (c.ts||'') : k==='cost' ? c.cost : k==='sub_cost' ? (c.sub ? c.cost : 0) : ['in_tok','out_tok','in_cost','out_cost'].includes(k) ? c[k]
   : k==='model' ? c.model+' '+c.effort : (k==='project' || k==='title') ? (c.what||'') : 0;
@@ -429,24 +433,44 @@ function render(){
     const role = roleOf(s), oneTask = !!s.ab && s.turns.length <= 1;   // a run's session is nearly always one prompt, which would only repeat the row: no task count, and it opens to its calls instead
     h += `<tr class="s${kid?' kid':''}${open.has(s.id)?' open':''}" data-id="${esc(s.id)}" tabindex="0"><td class="nw">${s.last?s.last.slice(0,16).replace('T',' '):''}</td><td class="nw">${kid?'↳ ':''}${esc(s.project)}${role ? ` <span class="cd-tag">${role}</span>` : ''}${s.ab ? ' ' + rawLink(s.id, 'raw ↗', 'cd-raw') : ''}</td>` +
       (showPrompt ? `<td class="p"><div class="cd-pc" title="${esc(s.title)}">${esc(s.title)}</div></td>` : '') +
-      `<td class="nw">${(()=>{const c=topCombo(s.matrix); return c ? sw(c[0],c[1])+' ' : '';})()}${esc(comboOf(s))}</td>
+      `<td class="nw">${(()=>{const c=headCombo(s); return c ? sw(c[0],c[1])+' ' : '';})()}${esc(comboOf(s))}</td>
       <td class="n">${oneTask ? '' : s.turns.length}</td><td class="n">${s.calls}</td>${ioCells(s.io)}
       <td class="n">${usd(s.sub_cost)}</td><td class="n">${usd(s.cost)}<div class="cd-bar" style="width:${100*s.cost/mxc}%"></div></td></tr>`;
+    const callRow = (c, cmax, indent) => { const what = (c.sub ? '[subagent] ' : '') + (c.what || 'reply'), pr = `<div class="cd-pc" title="${esc(what)}">${indent ? '&nbsp;&nbsp;&nbsp;' : ''}↳ ${esc(what)}</div>`;
+      return `<tr class="t call"><td class="nw r">${c.ts ? rawLink(s.id, c.ts.slice(11,19), 'cd-rawt') : ''}</td>` + (showPrompt ? `<td></td><td class="p">${pr}</td>` : `<td class="p">${pr}</td>`) +
+      `<td class="nw">${sw(c.model, c.effort)} ${esc(comboLabel(c.model, c.effort))}</td><td class="n"></td><td class="n"></td>${ioCells(c)}
+      <td class="n">${c.sub ? usd(c.cost) : ''}</td><td class="n">${usd(c.cost)}<div class="cd-bar t" style="width:${100*c.cost/cmax}%"></div></td></tr>`; };
+    // calls in the table's order; a call that launched a subagent is followed by a header row and that agent's own calls (oldest first), indented
+    const nest = (calls, cmax) => {
+      const subs = calls.filter(c => c.launch), mains = calls.filter(c => !c.launch), launched = new Set(mains.flatMap(c => c.launches || []));
+      const flow = mains.concat(subs.filter(c => !launched.has(c.launch))).sort(callCmp);   // a subagent call whose launching call is not in this list stays in the flow
+      return flow.map(c => callRow(c, cmax) + (c.launches || []).map(id => {
+        const g = subs.filter(x => x.launch === id).sort((a, b) => (a.ts || '').localeCompare(b.ts || ''));
+        if (!g.length) return '';
+        const m = g[0], sum = k => g.reduce((a, x) => a + (x[k] || 0), 0), cost = sum('cost');
+        const pr = `<div class="cd-pc">&nbsp;&nbsp;⤷ ${esc(m.agent || 'subagent')} · ${esc(m.model.replace(/^claude-/, ''))} · ${g.length} call${g.length === 1 ? '' : 's'}</div>`;
+        return `<tr class="t callgrp"><td class="nw r"></td>` + (showPrompt ? `<td></td><td class="p">${pr}</td>` : `<td class="p">${pr}</td>`) +
+          `<td class="nw">${sw(m.model, m.effort)} ${esc(comboLabel(m.model, m.effort))}</td><td class="n"></td><td class="n">${g.length}</td>${ioCells({in_tok: sum('in_tok'), out_tok: sum('out_tok'), in_cost: sum('in_cost'), out_cost: sum('out_cost')})}
+          <td class="n">${usd(cost)}</td><td class="n">${usd(cost)}</td></tr>` + g.map(x => callRow(x, cmax, true)).join('');
+      }).join('')).join(''); };
     if(open.has(s.id) && oneTask){   // a run's session opens to the individual model calls it made
       const calls = (s.call_list || []).slice().sort(callCmp), cmax = Math.max(...calls.map(c => c.cost), 0.01);
-      h += calls.map(c => { const what = (c.sub ? '[subagent] ' : '') + (c.what || 'reply'), pr = `<div class="cd-pc" title="${esc(what)}">↳ ${esc(what)}</div>`;
-        return `<tr class="t call"><td class="nw r">${c.ts ? rawLink(s.id, c.ts.slice(11,19), 'cd-rawt') : ''}</td>` + (showPrompt ? `<td></td><td class="p">${pr}</td>` : `<td class="p">${pr}</td>`) +
-        `<td class="nw">${sw(c.model, c.effort)} ${esc(comboLabel(c.model, c.effort))}</td><td class="n"></td><td class="n"></td>${ioCells(c)}
-        <td class="n">${usd(c.sub ? c.cost : 0)}</td><td class="n">${usd(c.cost)}<div class="cd-bar t" style="width:${100*c.cost/cmax}%"></div></td></tr>`; }).join('')
+      h += nest(calls, cmax)
         || `<tr class="t"><td colspan="${cols.length}">No calls found in this run's session logs</td></tr>`;
     } else if(open.has(s.id) && !kidsOf(s).length){   // a row with runs nested under it opens to those runs, not to its own task list
       const tmax = Math.max(...s.turns.map(t=>t.cost),0.01);
-      h += s.turns.slice().sort((a,b)=>b.cost-a.cost).map(t=>{ const c = topCombo(t.me), pr = `<div class="cd-pc" title="${esc(t.prompt)}">↳ ${esc(t.prompt)}</div>`;
+      // a run with several tasks (an orchestrator and its subagents) lists them in time order, each followed by the calls it made, subagent calls included
+      const callsOfTurn = {}; (s.call_list || []).forEach(c => (callsOfTurn[c.turn || ''] = callsOfTurn[c.turn || ''] || []).push(c));
+      const rcmax = Math.max(...(s.call_list || []).map(c => c.cost), 0.01);
+      const loose = s.ab ? (callsOfTurn[''] || []) : [];   // calls not tied to any task (for example a subagent whose launching call is not in the log)
+      const looseRows = loose.length ? `<tr class="t"><td class="nw r"></td><td class="p" colspan="${cols.length - 1}"><div class="cd-pc">↳ ${loose.length} call${loose.length === 1 ? '' : 's'} not tied to a task</div></td></tr>` + nest(loose, rcmax) : '';
+      h += s.turns.slice().sort(s.ab ? ((a,b) => (a.ts || '').localeCompare(b.ts || '')) : ((a,b) => b.cost - a.cost)).map(t=>{ const c = (s.ab && leadCombo(callsOfTurn[t.ts])) || topCombo(t.me), pr = `<div class="cd-pc" title="${esc(t.prompt)}">↳ ${esc(t.prompt)}</div>` + (s.ab ? '' : (t.subs || []).map(x => `<div class="cd-pc" title="subagent launched by this task">&nbsp;&nbsp;⤷ ${esc(x.agent)} · ${esc(x.model.replace(/^claude-/, ''))} ${usd(x.cost)}</div>`).join(''));
         // collapsed: the task's prompt sits in the Project column (capped, full text on hover); expanded: it gets the First prompt column
         return `<tr class="t"><td class="nw r">${t.ts?t.ts.slice(11,16):''}</td>` + (showPrompt ? `<td></td><td class="p">${pr}</td>` : `<td class="p">${pr}</td>`) +
         `<td class="nw">${c ? sw(c[0],c[1]) + ' ' + esc(comboLabel(c[0], c[1])) : ''}</td>
         <td class="n"></td><td class="n">${t.calls}</td>${ioCells(sumNest(t.me))}
-        <td class="n">${usd(t.sub_cost)}</td><td class="n">${usd(t.cost)}<div class="cd-bar t" style="width:${100*t.cost/tmax}%"></div></td></tr>`; }).join('')
+        <td class="n">${!s.ab && t.sub_cost ? usd(t.sub_cost) : ''}</td><td class="n">${usd(t.cost)}<div class="cd-bar t" style="width:${100*t.cost/tmax}%"></div></td></tr>` +
+        (s.ab ? nest(callsOfTurn[t.ts] || [], rcmax) : ''); }).join('') + looseRows
         || `<tr class="t"><td colspan="${cols.length}">No task breakdown (subagent-only or no prompts found)</td></tr>`;
     }
   };
@@ -476,7 +500,11 @@ const dur = s => s >= 3600 ? Math.floor(s/3600)+'h '+Math.floor(s%3600/60)+'m' :
 const abBar = (v, max) => `<span style="display:inline-block;height:6px;width:${max ? Math.round(60*v/max) : 0}px;background:var(--bar);margin-right:6px;border-radius:1px"></span>`;
 const abCost = (c, est, max) => c == null ? '–' : abBar(c, max) + (est ? '~' : '') + usd(c);
 // step labels, shared by the Steps table and the rows that expand under a run
-const abWho = s => s.type === 'review' ? 'Copilot' + (s.copilot && s.copilot.effort ? ' · ' + s.copilot.effort : '') : esc(s.model || '–');
+// models and efforts are drawn as on the Sessions tab: the same swatch (hue = model, shade = effort) and label
+const abCombo = (m, e) => m ? sw(m, e) + ' ' + esc(e ? comboLabel(m, e) : short(m)) : '–';
+const abLead = calls => { const k = new Set((calls || []).map(c => c.model + '\u0000' + c.effort)).size; const c = leadCombo(calls); return c ? abCombo(c[0], c[1]) + (k > 1 ? ` +${k - 1}` : '') : ''; };
+const abRunCalls = r => r.steps.flatMap(s => s.call_list || []).concat(r.loose_calls || []);
+const abWho = s => s.type === 'review' ? 'Copilot' + (s.copilot && s.copilot.effort ? ' · ' + s.copilot.effort : '') : (abLead(s.call_list) || abCombo(s.model));
 const abLabel = s => s.type === 'review' ? `Review ${s.round}` : s.type === 'fix' ? `Fix ${s.round}` : s.type === 'solve' ? 'Solve' : s.type === 'resume' ? 'Resume' : 'Arm session';
 const abCop = s => s.copilot ? (s.copilot.status === 'clean' ? 'clean' : `${s.copilot.findings} finding${s.copilot.findings === 1 ? '' : 's'}`) : '';
 
@@ -484,6 +512,8 @@ const abCop = s => s.copilot ? (s.copilot.status === 'clean' ? 'clean' : `${s.co
 // plan > round > run > its steps. A level with one child collapses into that child, so a lone run is a plain row.
 const AB_FAMILY = /-(sonnet|fable|opus|haiku|model-[ab])(-loop)?$/;
 function abGroupOf(name) {
+  const pm = name.match(/^(pilot-.+)-[abc]$/);   // a pilot's three arms: pilot-<label>-a, -b, -c
+  if (pm) return { plan: pm[1], round: 0 };
   const m = name.match(/^(.*)-r(\d+)$/);
   return m ? { plan: m[1].replace(AB_FAMILY, ''), round: +m[2] } : { plan: name, round: 0 };
 }
@@ -493,7 +523,7 @@ function abTree(runs) {
   return [...plans].sort((a, b) => a[0] < b[0] ? -1 : 1).map(([plan, rounds]) => {
     const kids = [...rounds].sort((a, b) => a[0] - b[0]).map(([round, rs]) => {
       rs.sort((a, b) => a.name < b.name ? -1 : 1);
-      return rs.length === 1 ? { kind: 'run', run: rs[0] } : { kind: 'round', key: 'round:' + plan + '-r' + round, label: plan + '-r' + round, kids: rs.map(run => ({ kind: 'run', run })) };
+      return rs.length === 1 ? { kind: 'run', run: rs[0] } : { kind: 'round', key: 'round:' + plan + (round ? '-r' + round : ''), label: plan + (round ? '-r' + round : ''), kids: rs.map(run => ({ kind: 'run', run })) };
     });
     return kids.length === 1 ? kids[0] : { kind: 'plan', key: 'plan:' + plan, label: plan, kids };
   });
@@ -516,15 +546,25 @@ const abDepthCost = {};   // largest cost seen at each depth, so a bar compares 
 function abRows(n, depth, out) {
   if (n.kind === 'run') {
     const r = n.run, t = r.totals, k = r.claude_known, key = abKeyOf(n), open = abOpen.has(key);
-    out.push(`<tr class="ab run x${open ? ' open' : ''}" data-key="${esc(key)}" style="--d:${depth}" tabindex="0"><td>${esc(r.name)}</td><td>${esc(r.arm_model || '–')}</td><td class="n">${k ? t.claude.calls : '–'}</td><td class="n">${k ? kfmt(t.claude.in_tok) : '–'}</td><td class="n">${k ? kfmt(t.claude.out_tok) : '–'}</td>` +
+    out.push(`<tr class="ab run x${open ? ' open' : ''}" data-key="${esc(key)}" style="--d:${depth}" tabindex="0"><td>${esc(r.name)}</td><td class="nw">${abLead(abRunCalls(r)) || abCombo(r.arm_model)}</td><td class="n">${k ? t.claude.calls : '–'}</td><td class="n">${k ? kfmt(t.claude.in_tok) : '–'}</td><td class="n">${k ? kfmt(t.claude.out_tok) : '–'}</td>` +
       `<td class="n">${abCost(t.cost, t.cost_est, abDepthCost[depth])}</td><td class="n">${t.copilot_requests}</td>` +
       `<td>${t.clean_round ? 'round ' + t.clean_round : (t.reviews ? 'not clean after ' + t.rounds : '–')}</td><td>${t.findings.length ? esc(t.findings.join(' → ')) : '–'}</td><td class="n">${t.fixes}</td><td class="n">${dur(r.wall_s)}</td></tr>`);
     if (open) {
       const sm = Math.max(...r.steps.map(s => s.cost || 0), 0), tok = (s, f) => s.type === 'review' || !k ? '–' : f(s.claude);
       // the calls behind a step (or behind "outside any step"): when, what each one did, its model, tokens and cost; oldest first, as logged
-      const callRows = (list, d) => { const cm = Math.max(...list.map(c => c.cost), 0.01);
-        return list.map(c => { const what = (c.sub ? '[subagent] ' : '') + (c.what || 'reply');
-          return `<tr class="ab call" style="--d:${d}"><td title="${esc(what)}"><span class="cd-note">${rawLink(c.sid, c.ts.slice(11, 19), 'cd-rawt')}</span> ${esc(what)}</td><td>${esc(c.model.replace(/^claude-/, ''))} · ${esc(c.effort)}</td><td class="n"></td><td class="n">${kfmt(c.in_tok)}</td><td class="n">${kfmt(c.out_tok)}</td><td class="n">${abCost(c.cost, false, cm)}</td><td class="n"></td><td></td><td></td><td class="n"></td><td class="n"></td></tr>`; }); };
+      const callRows = (list, d) => { const cm = Math.max(...list.map(c => c.cost), 0.01), cell = '<td class="n"></td>';
+        const row = (c, dd) => { const what = (c.sub ? '[subagent] ' : '') + (c.what || 'reply');
+          return `<tr class="ab call" style="--d:${dd}"><td title="${esc(what)}"><span class="cd-note">${rawLink(c.sid, c.ts.slice(11, 19), 'cd-rawt')}</span> ${esc(what)}</td><td class="nw">${abCombo(c.model, c.effort)}</td>${cell}<td class="n">${kfmt(c.in_tok)}</td><td class="n">${kfmt(c.out_tok)}</td><td class="n">${abCost(c.cost, false, cm)}</td><td class="n"></td><td></td><td></td>${cell}${cell}</tr>`; };
+        // like the Sessions tab: a call that launched a subagent is followed by a header row and that agent's own calls (oldest first), indented
+        const subs = list.filter(c => c.launch), mains = list.filter(c => !c.launch), launched = new Set(mains.flatMap(c => c.launches || []));
+        const flow = mains.concat(subs.filter(c => !launched.has(c.launch)));   // a subagent call whose launching call is not in this list stays in the flow
+        flow.sort((a, b) => (a.ts || '').localeCompare(b.ts || ''));
+        return flow.flatMap(c => [row(c, d)].concat((c.launches || []).flatMap(id => {
+          const g = subs.filter(x => x.launch === id).sort((a, b) => (a.ts || '').localeCompare(b.ts || ''));
+          if (!g.length) return [];
+          const m = g[0], sum = f => g.reduce((a, x) => a + (x[f] || 0), 0);
+          return [`<tr class="ab call callgrp" style="--d:${d}"><td>⤷ ${esc(m.agent || 'subagent')} · ${g.length} call${g.length === 1 ? '' : 's'}</td><td class="nw">${abCombo(m.model, m.effort)}</td><td class="n">${g.length}</td><td class="n">${kfmt(sum('in_tok'))}</td><td class="n">${kfmt(sum('out_tok'))}</td><td class="n">${abCost(sum('cost'), false, cm)}</td><td class="n"></td><td></td><td></td>${cell}${cell}</tr>`].concat(g.map(x => row(x, d + 1)));
+        }))); };
       r.steps.forEach((s, i) => {
         const skey = `step:${r.name}:${i}`, can = k && s.call_list && s.call_list.length > 0, sopen = can && abOpen.has(skey);
         out.push(`<tr class="ab step${can ? ' x' + (sopen ? ' open' : '') : ''}"${can ? ` data-key="${esc(skey)}" tabindex="0"` : ''} style="--d:${depth + 1}"><td>${abLabel(s)}${s.exit ? ` <span class="cd-note">exit ${s.exit}</span>` : ''}</td><td>${abWho(s)}</td><td class="n">${tok(s, c => c.calls)}</td><td class="n">${tok(s, c => kfmt(c.in_tok))}</td><td class="n">${tok(s, c => kfmt(c.out_tok))}</td>` +
@@ -539,7 +579,7 @@ function abRows(n, depth, out) {
     return;
   }
   const rs = abLeaves(n), a = abAgg(rs), key = abKeyOf(n), open = abOpen.has(key), lt = a.known ? '' : '≥';
-  out.push(`<tr class="ab grp x${open ? ' open' : ''}" data-key="${esc(key)}" style="--d:${depth}" tabindex="0"><td>${esc(n.label)} <span class="cd-kids">${rs.length} runs</span></td><td>${esc([...a.models].sort().join(', ') || '–')}</td><td class="n">${lt}${a.calls}</td><td class="n">${lt}${kfmt(a.inT)}</td><td class="n">${lt}${kfmt(a.outT)}</td>` +
+  out.push(`<tr class="ab grp x${open ? ' open' : ''}" data-key="${esc(key)}" style="--d:${depth}" tabindex="0"><td>${esc(n.label)} <span class="cd-kids">${rs.length} runs</span></td><td class="nw">${[...a.models].sort().map(m => abCombo('claude-' + m)).join(', ') || '–'}</td><td class="n">${lt}${a.calls}</td><td class="n">${lt}${kfmt(a.inT)}</td><td class="n">${lt}${kfmt(a.outT)}</td>` +
     `<td class="n">${abBar(a.cost, abDepthCost[depth])}${a.partial ? '≥' : ''}${a.est ? '~' : ''}${usd(a.cost)}</td><td class="n">${a.reviews}</td><td>${a.reviewed ? `${a.clean} of ${a.reviewed} clean` : '–'}</td><td>–</td><td class="n">${a.fixes}</td><td class="n">${dur(a.wall)}</td></tr>`);
   if (open) n.kids.forEach(c => abRows(c, depth + 1, out));
 }
@@ -548,7 +588,7 @@ function abSeedDepthCost(nodes, depth) { nodes.forEach(n => { abDepthCost[depth]
 function drawAB() {
   $('tab-ab-btn').hidden = !AB;
   if (!AB) return;
-  const rate = AB.copilot_usd_per_review, runs = AB.runs, tree = abTree(runs), rows = [];
+  const rate = AB.copilot_usd_per_review, q = ($('ab-q').value || '').toLowerCase(), runs = AB.runs.filter(r => !q || (r.name + ' ' + (r.arm_model || '')).toLowerCase().includes(q)), tree = abTree(runs), rows = [];
   for (const d in abDepthCost) delete abDepthCost[d];
   abSeedDepthCost(tree, 0);
   tree.forEach(n => abRows(n, 0, rows));
@@ -564,6 +604,7 @@ if (AB) {
     if (n.run) { n.run.steps.forEach((st, i) => keys.push(`step:${n.run.name}:${i}`)); keys.push(`step:${n.run.name}:loose`); } }; abTree(AB.runs).forEach(walk); return keys; };
   $('ab-runs').addEventListener('click', e => { if (e.target.closest('a')) return; const tr = e.target.closest('tr.ab'); if (!tr || !tr.dataset.key) return; const k = tr.dataset.key; abOpen.has(k) ? abOpen.delete(k) : abOpen.add(k); drawAB(); });
   $('ab-runs').addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('tr.ab.x')) { e.preventDefault(); e.target.click(); } });
+  $('ab-q').addEventListener('input', drawAB);
   $('ab-expand').addEventListener('click', () => { abOpen = new Set(abAllKeys()); drawAB(); });
   $('ab-collapse').addEventListener('click', () => { abOpen = new Set(); drawAB(); });
 }
