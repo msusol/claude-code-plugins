@@ -71,6 +71,14 @@ session can spend. Details and what each entry allows: [experiments-template/REA
 Set the same value for every arm of a comparison; unset, each model uses its own default, which can differ between models. Use the same value for `run`, `resume` and
 `review-loop`. The value is logged in each `steps.csv` row (`effort=medium`, or `effort=default`). An invalid value is refused. Confirm it in a transcript on the first run.
 
+## Giving one arm subagents
+
+`AB_AGENTS_FILE=<file>` defines subagents for every Claude Code session of a run (`claude --agents`), for `run`, `resume`, `solve` and the fix sessions. The file is a JSON object of agents,
+for example `{"hard-solver": {"description": "...", "prompt": "...", "model": "claude-fable-5-2"}}`. It is passed as a string, so it works in an interactive session too.
+Set it for the arm that is meant to delegate and leave it unset for the others, so an arm that must not delegate never sees an agent. Unset, nothing is added and the step log is unchanged;
+set, each `steps.csv` row ends with `;agents=<file name>`. A missing file, or one that is not a non-empty JSON object, is refused. A subagent runs at the session's `--effort`, and its cost is
+in `modelUsage` and under `<session>/subagents/` in the session logs (checked 2026-11-16 in the experiments repo, `docs/investigate/2026-11-16-subagent-accounting.md`).
+
 ## Adding the docs/ harness
 
 The default image has Claude Code, git-guard and auto-mode only. To test with the `docs/` plugin's planning rules too

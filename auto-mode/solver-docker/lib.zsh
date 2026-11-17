@@ -21,6 +21,19 @@ if [[ -n "${AB_EFFORT:-}" ]]; then
   effort_args=(--effort "$AB_EFFORT")
 fi
 
+# AB_AGENTS_FILE=<file> defines subagents for every session of that run (claude --agents). The file holds a JSON object of agents
+# ({"name": {"description", "prompt", "model", ...}}) and is passed as a string, so it works for interactive and headless sessions.
+# Unset, nothing is added, so an arm that must not delegate never sees an agent. The file's name is logged in steps.csv.
+typeset -a agent_args; agent_args=()
+if [[ -n "${AB_AGENTS_FILE:-}" ]]; then
+  [[ -f "$AB_AGENTS_FILE" ]] || die "AB_AGENTS_FILE=$AB_AGENTS_FILE not found"
+  python3 -I -c 'import json, sys; d = json.load(open(sys.argv[1])); sys.exit(0 if isinstance(d, dict) and d else 1)' "$AB_AGENTS_FILE" 2>/dev/null \
+    || die "AB_AGENTS_FILE=$AB_AGENTS_FILE must hold a non-empty JSON object of agents"
+  agent_args=(--agents "$(<"$AB_AGENTS_FILE")")
+fi
+# ";agents=<file name>" for the step log's detail column when AB_AGENTS_FILE is set, nothing otherwise (older readers see no change).
+agents_detail() { [[ -n "${AB_AGENTS_FILE:-}" ]] && print -rn -- ";agents=${AB_AGENTS_FILE:t}"; return 0 }
+
 now_utc() { date -u +%FT%TZ }
 
 # Appends one row to <run>.reviews/steps.csv (outside the run folder, so the arm cannot touch it). The cost dashboard joins
@@ -76,7 +89,7 @@ launch() {  # name model dir   (uses auth_args)
     -e "AB_NAME=$1" \
     -v "$3:/work" \
     -v "$sess:/home/claude/.claude/projects" \
-    "$IMAGE" claude --model "$2" "${effort_args[@]}"
+    "$IMAGE" claude --model "$2" "${effort_args[@]}" "${agent_args[@]}"
 }
 
 # Validates a new run and exports <ref> of <src> to $RUNS_DIR/<name> (no .git, no history). Sets the global `dir`.
@@ -127,6 +140,7 @@ launch_headless() {  # name model dir prompt   (uses auth_args)
     "$IMAGE" claude -p "$prompt" \
       --model "$model" \
       "${effort_args[@]}" \
+      "${agent_args[@]}" \
       --dangerously-skip-permissions \
       --max-budget-usd "$budget" || rc=$?
   if (( rc == 124 )); then docker rm -f "ab-$name" >/dev/null 2>&1 || true; print -u2 -- "run-ab: headless session timed out after ${secs}s"; fi
