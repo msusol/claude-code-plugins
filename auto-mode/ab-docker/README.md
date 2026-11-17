@@ -9,6 +9,10 @@ you; a container actually removes them.
 > [../solver-docker/](../solver-docker/README.md); this folder adds the A/B parts (experiments folder, `run` and `resume`, the Copilot
 > review loop). `run-ab.zsh build`, `check` and `solve` hand over to `solver-docker/solver.zsh`, so every command here still works as before.
 > See ADR 0001 in the experiments repo.
+>
+> **Variable names.** The shared options are now `SOLVER_<X>` (`SOLVER_RUNS_DIR`, `SOLVER_EFFORT`, `SOLVER_AGENTS_FILE`, and so on, listed in the
+> [solver-docker README](../solver-docker/README.md#environment-variables)). The `AB_<X>` names used throughout this README are kept as aliases indefinitely, and `SOLVER_<X>`
+> wins if both are set. The options that belong only to A/B runs (`AB_REVIEW_REPO`, `AB_MAX_ROUNDS` and the other `review-round` settings) keep their `AB_` names.
 
 > **Status: untested end to end.** The scripts pass syntax checks and the export/prepare logic is tested with a
 > stubbed `docker`, but the image has not been built or run. Build it, then run `run-ab.zsh check` before you

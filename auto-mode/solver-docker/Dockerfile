@@ -4,7 +4,7 @@
 #
 # Build from the repo root (run-ab.zsh does this for you):
 #   docker build -f auto-mode/solver-docker/Dockerfile --build-arg HOST_UID=$(id -u) -t ab-claude .
-# Add the docs/ harness (planning rules) with --build-arg WITH_DOCS=1; `AB_DOCS=1 run-ab.zsh build` does this and tags
+# Add the docs/ harness (planning rules) with --build-arg WITH_DOCS=1; `SOLVER_DOCS=1 solver.zsh build` (or `AB_DOCS=1 run-ab.zsh build`) does this and tags
 # the image ab-claude-docs, so both variants can coexist. Leave it off for the plain baseline (the smoke test).
 FROM node:22-bookworm-slim
 

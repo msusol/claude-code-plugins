@@ -29,7 +29,7 @@
 
 set -euo pipefail
 
-RUNS_DIR="${AB_RUNS_DIR:-${AB_EXPERIMENTS_DIR:-$HOME/experiments}/runs}"
+RUNS_DIR="${SOLVER_RUNS_DIR:-${AB_RUNS_DIR:-${SOLVER_EXPERIMENTS_DIR:-${AB_EXPERIMENTS_DIR:-$HOME/experiments}}/runs}}"   # SOLVER_* names win, as in solver-docker/lib.zsh
 REPO="${AB_REVIEW_REPO:-}"
 REMOTE_URL="${AB_REVIEW_REMOTE_URL:-https://github.com/${REPO}.git}"
 REVIEWER="${AB_COPILOT_REVIEWER:-copilot-pull-request-reviewer[bot]}"

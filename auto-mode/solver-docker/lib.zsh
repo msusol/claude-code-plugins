@@ -1,38 +1,52 @@
 # Shared by solver.zsh and ab-docker/run-ab.zsh (source it; do not run it). The generic sandbox pieces: image selection, auth,
 # export of a ref, interactive and headless launch, and the step log. Nothing in here knows about A/B pairing or reviews.
-# Callers set `set -euo pipefail` and define their own `usage`. Env vars keep their AB_ prefix (see ADR 0001, open question).
+# Callers set `set -euo pipefail` and define their own `usage`.
+
+# Environment variables are named SOLVER_<X>. The older AB_<X> names are kept as aliases indefinitely (ADR 0001); new code uses SOLVER_<X>. Each pair is read once, here:
+# SOLVER_<X> wins when both are set and differ (a note goes to stderr). Afterwards both names are set and exported, so the code
+# below uses SOLVER_*, ab-docker scripts that source this file still read AB_*, and the container gets both (see launch).
+for _v in DOCS IMAGE EXPERIMENTS_DIR RUNS_DIR EFFORT AGENTS_FILE ENV_FILE LOGIN ALLOW_DOMAINS SEED_CHECK FIX_TIMEOUT FIX_BUDGET_USD SOLVE_TIMEOUT SOLVE_BUDGET_USD; do
+  _n="SOLVER_$_v" _a="AB_$_v"
+  if [[ -n "${(P)_n:-}" ]]; then
+    [[ -z "${(P)_a:-}" || "${(P)_a}" == "${(P)_n}" ]] || print -u2 -- "solver: $_n and $_a are both set and differ; using $_n"
+    export "$_a=${(P)_n}"
+  elif [[ -n "${(P)_a:-}" ]]; then
+    export "$_n=${(P)_a}"
+  fi
+done
+unset _v _n _a
 
 SOLVER_DIR="${${(%):-%x}:A:h}"
 REPO_ROOT="${SOLVER_DIR:h:h}"
-# AB_DOCS=1 builds and uses the image with the docs/ harness (planning rules); it is a separate image tag.
+# SOLVER_DOCS=1 builds and uses the image with the docs/ harness (planning rules); it is a separate image tag.
 # `solve` always runs on the docs image: the solver must follow the docs/ planning rules (plan and TODO sync, commits).
-[[ "${1:-}" == solve ]] && AB_DOCS=1
-if [[ "${AB_DOCS:-0}" == 1 ]]; then IMAGE="${AB_IMAGE:-ab-claude-docs}"; else IMAGE="${AB_IMAGE:-ab-claude}"; fi
-EXP_DIR="${AB_EXPERIMENTS_DIR:-$HOME/experiments}"
-RUNS_DIR="${AB_RUNS_DIR:-$EXP_DIR/runs}"
+[[ "${1:-}" == solve ]] && export SOLVER_DOCS=1 AB_DOCS=1
+if [[ "${SOLVER_DOCS:-0}" == 1 ]]; then IMAGE="${SOLVER_IMAGE:-ab-claude-docs}"; else IMAGE="${SOLVER_IMAGE:-ab-claude}"; fi
+EXP_DIR="${SOLVER_EXPERIMENTS_DIR:-$HOME/experiments}"
+RUNS_DIR="${SOLVER_RUNS_DIR:-$EXP_DIR/runs}"
 
 die() { print -u2 -- "run-ab: $*"; exit 1 }
 
-# AB_EFFORT (low|medium|high|xhigh|max) is passed to every Claude Code session as --effort, so both arms of a comparison run at
+# SOLVER_EFFORT (low|medium|high|xhigh|max) is passed to every Claude Code session as --effort, so both arms of a comparison run at
 # the same effort. Unset, each model uses its own default, which can differ between models. The value is logged in steps.csv.
 typeset -a effort_args; effort_args=()
-if [[ -n "${AB_EFFORT:-}" ]]; then
-  [[ "$AB_EFFORT" =~ '^(low|medium|high|xhigh|max)$' ]] || die "AB_EFFORT must be low, medium, high, xhigh or max (got '$AB_EFFORT')"
-  effort_args=(--effort "$AB_EFFORT")
+if [[ -n "${SOLVER_EFFORT:-}" ]]; then
+  [[ "$SOLVER_EFFORT" =~ '^(low|medium|high|xhigh|max)$' ]] || die "SOLVER_EFFORT must be low, medium, high, xhigh or max (got '$SOLVER_EFFORT')"
+  effort_args=(--effort "$SOLVER_EFFORT")
 fi
 
-# AB_AGENTS_FILE=<file> defines subagents for every session of that run (claude --agents). The file holds a JSON object of agents
+# SOLVER_AGENTS_FILE=<file> defines subagents for every session of that run (claude --agents). The file holds a JSON object of agents
 # ({"name": {"description", "prompt", "model", ...}}) and is passed as a string, so it works for interactive and headless sessions.
 # Unset, nothing is added, so an arm that must not delegate never sees an agent. The file's name is logged in steps.csv.
 typeset -a agent_args; agent_args=()
-if [[ -n "${AB_AGENTS_FILE:-}" ]]; then
-  [[ -f "$AB_AGENTS_FILE" ]] || die "AB_AGENTS_FILE=$AB_AGENTS_FILE not found"
-  python3 -I -c 'import json, sys; d = json.load(open(sys.argv[1])); sys.exit(0 if isinstance(d, dict) and d else 1)' "$AB_AGENTS_FILE" 2>/dev/null \
-    || die "AB_AGENTS_FILE=$AB_AGENTS_FILE must hold a non-empty JSON object of agents"
-  agent_args=(--agents "$(<"$AB_AGENTS_FILE")")
+if [[ -n "${SOLVER_AGENTS_FILE:-}" ]]; then
+  [[ -f "$SOLVER_AGENTS_FILE" ]] || die "SOLVER_AGENTS_FILE=$SOLVER_AGENTS_FILE not found"
+  python3 -I -c 'import json, sys; d = json.load(open(sys.argv[1])); sys.exit(0 if isinstance(d, dict) and d else 1)' "$SOLVER_AGENTS_FILE" 2>/dev/null \
+    || die "SOLVER_AGENTS_FILE=$SOLVER_AGENTS_FILE must hold a non-empty JSON object of agents"
+  agent_args=(--agents "$(<"$SOLVER_AGENTS_FILE")")
 fi
-# ";agents=<file name>" for the step log's detail column when AB_AGENTS_FILE is set, nothing otherwise (older readers see no change).
-agents_detail() { [[ -n "${AB_AGENTS_FILE:-}" ]] && print -rn -- ";agents=${AB_AGENTS_FILE:t}"; return 0 }
+# ";agents=<file name>" for the step log's detail column when SOLVER_AGENTS_FILE is set, nothing otherwise (older readers see no change).
+agents_detail() { [[ -n "${SOLVER_AGENTS_FILE:-}" ]] && print -rn -- ";agents=${SOLVER_AGENTS_FILE:t}"; return 0 }
 
 now_utc() { date -u +%FT%TZ }
 
@@ -53,7 +67,7 @@ log_step() {  # name type round model dir detail start
 # so nothing else in it can run, and it must not be readable by other users.
 load_env_key() {
   [[ -z "${ANTHROPIC_API_KEY:-}" ]] || return 0
-  local f="${AB_ENV_FILE:-$EXP_DIR/.env}" line mode
+  local f="${SOLVER_ENV_FILE:-$EXP_DIR/.env}" line mode
   [[ -f "$f" ]] || return 0
   mode=$(stat -c %a "$f" 2>/dev/null || stat -f %Lp "$f")
   [[ "$mode" == 600 || "$mode" == 400 ]] || die "$f is readable by others (mode $mode); run: chmod 600 $f"
@@ -64,21 +78,21 @@ load_env_key() {
   export ANTHROPIC_API_KEY="$line"
 }
 
-# Sets the global auth_args array: an API key (default), or AB_LOGIN=1 to sign in inside the container (/login) with a
+# Sets the global auth_args array: an API key (default), or SOLVER_LOGIN=1 to sign in inside the container (/login) with a
 # Claude account, e.g. a Pro, Max or Enterprise plan. Login needs claude.ai and platform.claude.com reachable, so they join the firewall allowlist.
 typeset -a auth_args
 auth_setup() {
   auth_args=()
-  local allow="api.anthropic.com ${AB_ALLOW_DOMAINS:-}"   # AB_ALLOW_DOMAINS adds to the API host, never replaces it
-  if [[ "${AB_LOGIN:-0}" == 1 ]]; then
+  local allow="api.anthropic.com ${SOLVER_ALLOW_DOMAINS:-}"   # SOLVER_ALLOW_DOMAINS adds to the API host, never replaces it
+  if [[ "${SOLVER_LOGIN:-0}" == 1 ]]; then
     allow="$allow claude.ai platform.claude.com"
-    print "AB_LOGIN=1: not passing ANTHROPIC_API_KEY; run /login inside the session. claude.ai and platform.claude.com are allowed through the firewall."
+    print "SOLVER_LOGIN=1 (or AB_LOGIN=1): not passing ANTHROPIC_API_KEY; run /login inside the session. claude.ai and platform.claude.com are allowed through the firewall."
   else
     load_env_key
-    [[ -n "${ANTHROPIC_API_KEY:-}" ]] || die "ANTHROPIC_API_KEY is not set and not in ${AB_ENV_FILE:-$EXP_DIR/.env} (or use AB_LOGIN=1 to sign in with an account)"
+    [[ -n "${ANTHROPIC_API_KEY:-}" ]] || die "ANTHROPIC_API_KEY is not set and not in ${SOLVER_ENV_FILE:-$EXP_DIR/.env} (or use SOLVER_LOGIN=1 to sign in with an account)"
     auth_args=(-e ANTHROPIC_API_KEY)
   fi
-  auth_args+=(-e "AB_ALLOW_DOMAINS=${allow% }")
+  auth_args+=(-e "SOLVER_ALLOW_DOMAINS=${allow% }" -e "AB_ALLOW_DOMAINS=${allow% }")
 }
 
 launch() {  # name model dir   (uses auth_args)
@@ -86,7 +100,7 @@ launch() {  # name model dir   (uses auth_args)
   docker run --rm -it --name "ab-$1" \
     --cap-add NET_ADMIN \
     "${auth_args[@]}" \
-    -e "AB_NAME=$1" \
+    -e "SOLVER_NAME=$1" -e "AB_NAME=$1" \
     -v "$3:/work" \
     -v "$sess:/home/claude/.claude/projects" \
     "$IMAGE" claude --model "$2" "${effort_args[@]}" "${agent_args[@]}"
@@ -106,16 +120,16 @@ prepare_run() {  # name src ref   (calls auth_setup)
   dir="$RUNS_DIR/$name"
   mkdir -p "$RUNS_DIR"
   runreal="${RUNS_DIR:A}"
-  [[ "$runreal/" != "$srcreal/"* ]] || die "runs folder ($runreal) is inside the source repo; set AB_RUNS_DIR elsewhere"
+  [[ "$runreal/" != "$srcreal/"* ]] || die "runs folder ($runreal) is inside the source repo; set SOLVER_RUNS_DIR elsewhere"
   [[ ! -e "$dir" ]] || die "$dir already exists; remove it or pick another name (never reuse a run)"
   local stale; for stale in "$dir.session" "$dir.reviews"; do
     [[ ! -e "$stale" ]] || die "$stale is left over from an earlier run of this name; remove it first (it would mix two runs' logs)"
   done
 
-  # Optional leak check: AB_SEED_CHECK=<script> is run as `zsh <script> <src> <ref>` and must exit 0 before anything is exported.
-  if [[ -n "${AB_SEED_CHECK:-}" ]]; then
-    [[ -f "$AB_SEED_CHECK" ]] || die "AB_SEED_CHECK=$AB_SEED_CHECK not found"
-    zsh "$AB_SEED_CHECK" "$src" "$ref" || die "seed leak check failed for $src @ $ref; nothing exported"
+  # Optional leak check: SOLVER_SEED_CHECK=<script> is run as `zsh <script> <src> <ref>` and must exit 0 before anything is exported.
+  if [[ -n "${SOLVER_SEED_CHECK:-}" ]]; then
+    [[ -f "$SOLVER_SEED_CHECK" ]] || die "SOLVER_SEED_CHECK=$SOLVER_SEED_CHECK not found"
+    zsh "$SOLVER_SEED_CHECK" "$src" "$ref" || die "seed leak check failed for $src @ $ref; nothing exported"
   fi
 
   # Export the files at <ref> only: no .git, no other branches, no history.
@@ -126,15 +140,15 @@ prepare_run() {  # name src ref   (calls auth_setup)
 
 # One non-interactive Claude Code turn in the arm's container (no TTY, nothing to answer). Same image, mount and firewall
 # as `run`. --dangerously-skip-permissions only skips permission prompts: the container is the sandbox, and git-guard and
-# auto-mode are hooks, so they still apply. AB_FIX_TIMEOUT (seconds) and AB_FIX_BUDGET_USD bound one fix session.
+# auto-mode are hooks, so they still apply. SOLVER_FIX_TIMEOUT (seconds) and SOLVER_FIX_BUDGET_USD bound one fix session.
 launch_headless() {  # name model dir prompt   (uses auth_args)
   local name="$1" model="$2" dir="$3" prompt="$4" rc=0 sess="$RUNS_DIR/$1.session"
-  local secs="${5:-${AB_FIX_TIMEOUT:-1200}}" budget="${6:-${AB_FIX_BUDGET_USD:-2}}"   # solve passes its own, larger bounds
+  local secs="${5:-${SOLVER_FIX_TIMEOUT:-1200}}" budget="${6:-${SOLVER_FIX_BUDGET_USD:-2}}"   # solve passes its own, larger bounds
   mkdir -p "$sess"
   timeout "$secs" docker run --rm --name "ab-$name" \
     --cap-add NET_ADMIN \
     "${auth_args[@]}" \
-    -e "AB_NAME=$name" \
+    -e "SOLVER_NAME=$name" -e "AB_NAME=$name" \
     -v "$dir:/work" \
     -v "$sess:/home/claude/.claude/projects" \
     "$IMAGE" claude -p "$prompt" \
