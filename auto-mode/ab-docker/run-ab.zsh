@@ -74,7 +74,7 @@ cmd_run() {
 
   local t0 rc=0; t0=$(now_utc)
   launch "$name" "$model" "$dir" || rc=$?
-  log_step "$name" arm 0 "$model" "$dir" "interactive;exit=$rc;effort=${AB_EFFORT:-default}" "$t0"
+  log_step "$name" arm 0 "$model" "$dir" "interactive;exit=$rc;effort=${AB_EFFORT:-default}$(agents_detail)" "$t0"
 
   print "run folder: $dir   (git -C $dir log --oneline)"
   print "session logs: $dir.session   step log: $dir.reviews/steps.csv"
@@ -93,7 +93,7 @@ cmd_resume() {
   docker ps --format '{{.Names}}' | grep -qx "ab-$name" && die "a container for '$name' is already running"
   local t0 rc=0; t0=$(now_utc)
   launch "$name" "$model" "$dir" || rc=$?
-  log_step "$name" resume "$(rounds_done "$name")" "$model" "$dir" "interactive;exit=$rc;effort=${AB_EFFORT:-default}" "$t0"
+  log_step "$name" resume "$(rounds_done "$name")" "$model" "$dir" "interactive;exit=$rc;effort=${AB_EFFORT:-default}$(agents_detail)" "$t0"
   return $rc
 }
 
@@ -131,7 +131,7 @@ cmd_review_loop() {
     launch_headless "$name" "$model" "$dir" \
       "Read REVIEW-$round.md and resolve every finding: fix the code or add the missing test. If you disagree with one, say why in your commit message. Run the tests, commit, and end with AUTO-MODE: DONE." \
       2>&1 | tee "$logdir/fix-$round.log" || fix_rc=$?
-    log_step "$name" fix "$round" "$model" "$dir" "headless;exit=$fix_rc;effort=${AB_EFFORT:-default}" "$t0"
+    log_step "$name" fix "$round" "$model" "$dir" "headless;exit=$fix_rc;effort=${AB_EFFORT:-default}$(agents_detail)" "$t0"
     (( fix_rc == 0 )) || die "fix session failed (see $logdir/fix-$round.log); nothing was reviewed again"
     [[ "$(git -C "$dir" rev-parse HEAD)" != "$head_before" ]] || die "fix session made no new commit (see $logdir/fix-$round.log); stopping"
     [[ -z "$(git -C "$dir" status --porcelain)" ]] || die "fix session left uncommitted changes in $dir; stopping"

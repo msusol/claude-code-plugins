@@ -60,7 +60,7 @@ cmd_solve() {
 "
   launch_headless "$name" "$model" "$dir" "$preamble$(<"$brief")" "${AB_SOLVE_TIMEOUT:-3600}" "${AB_SOLVE_BUDGET_USD:-10}" \
     > "$out/report.txt" 2> "$out/stderr.txt" || rc=$?
-  log_step "$name" solve 0 "$model" "$dir" "headless;exit=$rc;effort=${AB_EFFORT:-default}" "$t0"
+  log_step "$name" solve 0 "$model" "$dir" "headless;exit=$rc;effort=${AB_EFFORT:-default}$(agents_detail)" "$t0"
 
   # The marker must be a line of its own, anywhere in the report (a solver often adds a recap after it, so "last line" is not
   # reliable); a mention inside a sentence does not count. If both appear, BLOCKED wins, so a question is never lost.

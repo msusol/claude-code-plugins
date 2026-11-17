@@ -83,6 +83,17 @@ check "run mounts its session folder as the container's projects dir" "grep -q -
 check "AB_EFFORT=medium passes --effort medium to claude" "grep -q 'claude --model some-model --effort medium' $T/docker.log"
 check "AB_EFFORT is logged in steps.csv" "grep -q 'interactive;exit=0;effort=medium\$' $E/runs/wordfreq-docs-r2.reviews/steps.csv"
 check "an invalid AB_EFFORT is refused" "! AB_EFFORT=bogus zsh $RUN run wordfreq-docs-r3 some-model $E/plans/wordfreq >/dev/null 2>&1"
+print '{"hard-solver":{"description":"d","prompt":"p","model":"claude-fable-5-2"}}' > "$T/agents.json"
+: > "$T/docker.log"; AB_AGENTS_FILE="$T/agents.json" AB_DOCS=1 zsh "$RUN" run wordfreq-docs-r4 some-model "$E/plans/wordfreq" >/dev/null 2>&1
+check "AB_AGENTS_FILE passes --agents with the JSON to an interactive run" "grep -q -- '--agents {\"hard-solver\"' $T/docker.log"
+check "AB_AGENTS_FILE is logged in steps.csv" "grep -q 'interactive;exit=0;effort=default;agents=agents.json\$' $E/runs/wordfreq-docs-r4.reviews/steps.csv"
+: > "$T/docker.log"; AB_DOCS=1 zsh "$RUN" run wordfreq-docs-r5 some-model "$E/plans/wordfreq" >/dev/null 2>&1
+check "without AB_AGENTS_FILE no --agents is passed" "! grep -q -- '--agents' $T/docker.log"
+check "and the step detail is unchanged" "grep -q 'interactive;exit=0;effort=default\$' $E/runs/wordfreq-docs-r5.reviews/steps.csv"
+check "a missing AB_AGENTS_FILE is refused" "! AB_AGENTS_FILE=$T/nope.json zsh $RUN run wordfreq-docs-r6 some-model $E/plans/wordfreq >/dev/null 2>&1"
+print '[1]' > "$T/bad-agents.json"; : > "$T/empty-agents.json"
+check "an agents file that is not a JSON object is refused" "! AB_AGENTS_FILE=$T/bad-agents.json zsh $RUN run wordfreq-docs-r7 some-model $E/plans/wordfreq >/dev/null 2>&1"
+check "an empty agents file is refused" "! AB_AGENTS_FILE=$T/empty-agents.json zsh $RUN run wordfreq-docs-r8 some-model $E/plans/wordfreq >/dev/null 2>&1"
 check "Dockerfile: docs deploy is conditional and docs removed when off" "grep -q 'WITH_DOCS\" = \"1\".*docs/deploy.zsh' $HERE/../solver-docker/Dockerfile && grep -q 'rm -rf /opt/claude-code-plugins/docs' $HERE/../solver-docker/Dockerfile"
 
 print "=== isolation-check docs section"

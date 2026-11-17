@@ -1,6 +1,6 @@
 {
   "name": "auto-mode",
-  "version": "1.13.0",
+  "version": "1.14.0",
   "description": "A Stop hook plus the /auto-mode skill: when enabled (flag file, or the session is on an exp/* branch), Claude keeps working through its own recommended next steps instead of stopping to ask, up to a capped number of continuations. A SessionStart hook tells Claude the AUTO-MODE: DONE / BLOCKED stop protocol from turn 1, so a prompt need not. A PreToolUse hook answers AskUserQuestion with the (Recommended) option when no human is there (on by default on exp/* branches only). Pushes, destructive actions and every git-guard / db-guard check stay as they are.",
   "author": {
     "name": "Mark Susol"

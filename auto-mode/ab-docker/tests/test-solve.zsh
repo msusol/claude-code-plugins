@@ -118,6 +118,13 @@ check "nothing exported on leak" "$([[ -e $AB_RUNS_DIR/s9 ]] && echo yes || echo
 STUBMODE=done AB_SEED_CHECK="$T/ok-check.zsh" zsh "$RUN" solve s10 claude-fable-5-2 "$T/src" main "$T/brief.md" >/dev/null 2>&1; check "passing seed check runs" "$?" 0
 STUBMODE=done AB_SEED_CHECK="$T/missing.zsh" zsh "$RUN" solve s11 claude-fable-5-2 "$T/src" main "$T/brief.md" >/dev/null 2>&1; check "missing check script refused" "$?" 1
 
+# AB_AGENTS_FILE reaches the headless session too, and is logged
+print '{"hard-solver":{"description":"d","prompt":"p"}}' > "$T/agents.json"
+: > "$STUBDIR/calls"
+STUBMODE=done AB_AGENTS_FILE="$T/agents.json" zsh "$RUN" solve s12 claude-fable-5-2 "$T/src" main "$T/brief.md" >/dev/null 2>&1
+check "solve passes --agents to the headless session" "$(grep -c -- '--agents {"hard-solver"' "$STUBDIR/calls")" 1
+check "solve logs the agents file" "$(grep -c 'headless;exit=0;effort=default;agents=agents.json$' "$AB_RUNS_DIR/s12.reviews/steps.csv")" 1
+
 rm -rf "$T"
 print "test-solve: $pass passed, $fail failed"
 (( fail == 0 ))
