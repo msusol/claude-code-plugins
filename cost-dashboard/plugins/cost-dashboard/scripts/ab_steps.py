@@ -140,9 +140,15 @@ def _step_index(steps, when):
 
 def _call_row(c):
     """One call as the page lists it under its step: when, what it did, its model and effort, tokens in and out, and its cost."""
-    return {"ts": c["ts"].isoformat(), "model": c["model"], "effort": c.get("effort", "unknown"), "sub": bool(c.get("sub")),
+    row = {"ts": c["ts"].isoformat(), "model": c["model"], "effort": c.get("effort", "unknown"), "sub": bool(c.get("sub")),
             "what": c.get("what", ""), "sid": c.get("sid", ""), "in_tok": c["in_tok"], "out_tok": c["out_tok"],
             "in_cost": round(c["in_cost"], 4), "out_cost": round(c["out_cost"], 4), "cost": round(c["cost"], 4)}
+    # the same links the Sessions tab uses, so the page can nest an agent's calls under the call that launched it
+    if c.get("launches"):
+        row["launches"] = c["launches"]
+    if c.get("launch"):
+        row["launch"], row["agent"] = c["launch"], c.get("agent") or ""
+    return row
 
 
 def _int(v, default=0):

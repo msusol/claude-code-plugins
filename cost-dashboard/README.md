@@ -109,7 +109,8 @@ Every step has a single Cost, whoever incurred it: a Claude step's cost is price
 (`leave-engine-docs-r4`), and each round holds the runs of its arms side by side (`…-fable-r4`, `…-sonnet-r4`). A group row shows the sums of
 its runs (Claude tokens in and out, Cost, Copilot reviews, fixes, wall time), the models used, and `N of M clean` for the runs that had
 reviews. A `≥` on a cost means a run in the group has no session logs, so the figure is a lower bound. A level with one child collapses into
-it, so a lone run is a plain row. Click a row (or press Enter) to open it: a plan opens to its rounds, a round to its runs, and a run to its
+it, so a lone run is a plain row. Models are drawn as on the Sessions tab (same swatch and `model · effort` label; a run is labelled by its main thread's model), and a call that launched a subagent is followed by a `⤷ <agent>` header row and the agent's calls, indented. A pilot's arms (`pilot-p1-a`, `-b`, `-c`) form one group row (`pilot-p1`). The **Search runs** box above the
+table keeps the runs whose name or model contains the text, and the groups of those runs. Click a row (or press Enter) to open it: a plan opens to its rounds, a round to its runs, and a run to its
 steps (**Arm session**, **Solve**, each **Review N** with what Copilot found, each **Fix N**), each with its own calls, tokens and cost. A step
 that made Claude calls opens again, to **each call**: its time, what it did (`Bash: pytest -q`, `Edit: wordfreq.py`, `reply: …`, with a subagent's
 call marked), its model, tokens in and out, and its cost, oldest first. A Copilot review made none, so it is a plain row; calls that fall
@@ -177,7 +178,23 @@ Run from the repo root. The tests build synthetic session logs, so they need no 
   and `inference_geo: us` (1.1x) are not priced: calls using them are flagged and priced at the standard rate.
   Update `pricing.json` and its `verified` date when prices change.
 - Subagent transcripts stored in separate files count toward the session total and the
-  "Subagent" column, but cannot always be tied to a specific task row.
+  "Subagent" column. Since 0.5.0 each one is also put on the task row that launched it: the subagent's
+  `agent-X.meta.json` names the tool call (`toolUseId`) that started it, and the task whose assistant
+  message made that call gets the cost, so the task rows add up to the session. An ordinary session's task
+  row lists the subagent under its prompt as `⤷ <agent type> · <model> $cost` and fills its Subagent cell; a
+  run's task row leaves both out, because the subagent has its own header row among the calls (below). A
+  subagent log with no meta file, or one naming a tool call that is not in the main log, stays on the
+  session row only.
+- **Run sessions with several tasks (0.5.0).** An A/B run's session with one task opens straight to its
+  individual calls. One with several tasks (an orchestrator and its subagents) opens to its tasks in time
+  order, and under each task the calls it made, so the Sessions tab shows the same call-by-call detail as the
+  A/B tab. A call that launched a subagent (an `Agent` or `Task` tool call) is followed by a header row
+  (`⤷ <agent type> · <model> · N calls`, with the agent's summed cost) and that agent's own calls, oldest
+  first, indented and marked `[subagent]`. A subagent call whose launching call is not in the log is listed
+  under "calls not tied to a task" instead of being dropped. A run's row and its task rows are labelled
+  by the model that ran the main thread (the orchestrator), from the calls that are not a subagent's, and
+  the subagent's model shows only in the `+N` and in its own rows, so a cheap orchestrator is not relabelled
+  by an expensive agent.
 - Subscription plans (Pro/Max) are not billed per token; the numbers show API-equivalent value.
 
 ## Uninstall

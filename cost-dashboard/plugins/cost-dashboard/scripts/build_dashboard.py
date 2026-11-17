@@ -124,6 +124,20 @@ def prompt_text(msg):
 # A run is started by `run-ab.zsh run|resume|solve|review-loop|review-round <name>` (or the same through solver.zsh). The session that ran
 # that Bash command is the run's parent: an orchestrator that handed a task to a solver, or the session that drove an A/B arm.
 LAUNCH_RE = re.compile(r"(?:run-ab\.zsh|solver\.zsh)\s+(?:run|resume|solve|review-loop|review-round)\s+([a-z0-9]+(?:-[a-z0-9]+)*)")
+# `run-pilot.zsh start <label> --go` starts one run per arm, named pilot-<label>-<arm> (a, b and c, or the arms in PILOT_ARMS="c"). Without --go it
+# is a dry run that starts nothing, so it links nothing.
+PILOT_RE = re.compile(r"run-pilot\.zsh\s+start\s+([a-z0-9]+(?:-[a-z0-9]+)*)([^|;&]*)")
+PILOT_ARMS_RE = re.compile(r"PILOT_ARMS=[\"']?([abc](?: [abc])*)")
+
+
+def pilot_runs(cmd):
+    """Names of the arm runs one `run-pilot.zsh start <label> --go` command starts (none for a dry run)."""
+    out = []
+    for label, rest in PILOT_RE.findall(cmd):
+        if "--go" in rest.split():
+            m = PILOT_ARMS_RE.search(cmd)
+            out.extend("pilot-%s-%s" % (label, arm) for arm in (m.group(1).split() if m else ["a", "b", "c"]))
+    return out
 
 
 def launched_runs(msg):
@@ -136,6 +150,7 @@ def launched_runs(msg):
                 cmd = (blk.get("input") or {}).get("command")
                 if isinstance(cmd, str):
                     out.extend(LAUNCH_RE.findall(cmd))
+                    out.extend(pilot_runs(cmd))
     return out
 
 
@@ -228,6 +243,10 @@ def add_tokens(t, u):
     t["cache_read"] += u.get("cache_read_input_tokens", 0) or 0
 
 
+TOOL_TURN = {}      # id of an Agent/Task tool call -> the turn (task) that made it, so a subagent's cost can land on that task
+SUBAGENT_TOOLS = ("Agent", "Task")
+
+
 CALL_SINK = None    # ab_steps sets this to a list to receive every priced call (ts, model, cost, tokens); None in normal builds
 
 
@@ -246,6 +265,15 @@ def process_file(path, sessions, project_name=None, ab=None):
     if project_name:
         project = project_name
 
+    sub_launch, sub_type = None, None
+    if is_sub_file:
+        # <session>/subagents/agent-X.jsonl has agent-X.meta.json beside it, naming the tool call that launched it and its agent type
+        try:
+            with open(str(p)[: -len(".jsonl")] + ".meta.json", "r", encoding="utf-8") as mf:
+                meta = json.load(mf)
+            sub_launch, sub_type = meta.get("toolUseId"), meta.get("agentType")
+        except (OSError, ValueError, AttributeError):
+            pass
     seen = {}   # dedupe streamed duplicates: key -> record
     order = []
     current_turn = None
@@ -279,6 +307,10 @@ def process_file(path, sessions, project_name=None, ab=None):
                     turns_for_file.append(current_turn)
             elif typ == "assistant":
                 msg = e.get("message", {})
+                if not is_sub_file and not e.get("isSidechain") and current_turn is not None and isinstance(msg.get("content"), list):
+                    for blk in msg["content"]:
+                        if isinstance(blk, dict) and blk.get("type") == "tool_use" and blk.get("name") in SUBAGENT_TOOLS and blk.get("id"):
+                            TOOL_TURN[blk["id"]] = current_turn
                 if ab is None:      # a run's own container session never counts as its parent
                     for run in launched_runs(msg):
                         LAUNCHES.setdefault(run, []).append((e.get("timestamp") or "", sid))
@@ -292,11 +324,18 @@ def process_file(path, sessions, project_name=None, ab=None):
                 rec = {"sid": sid, "ts": e.get("timestamp"), "model": model, "u": u,
                        "effort": effort_of(e), "speed": u.get("speed"), "tier": u.get("service_tier"),
                        "sub": bool(e.get("isSidechain")) or is_sub_file,
-                       "turn": current_turn, "blocks": call_blocks(msg) if (ab or CALL_SINK is not None) else []}
+                       "turn": TOOL_TURN.get(sub_launch) if is_sub_file else current_turn,
+                       "agent": sub_type or "subagent" if is_sub_file else None,
+                       "launches": [blk["id"] for blk in (msg.get("content") if isinstance(msg.get("content"), list) else [])
+                                    if isinstance(blk, dict) and blk.get("type") == "tool_use" and blk.get("name") in SUBAGENT_TOOLS and blk.get("id")],
+                       "launch": sub_launch if is_sub_file else None,
+                       "blocks": call_blocks(msg) if (ab or CALL_SINK is not None) else []}
                 if key and key in seen:
                     merged = seen[key].get("blocks", []) + rec["blocks"]    # a call is spread over several lines, one per content block
+                    merged_launches = seen[key].get("launches", []) + rec["launches"]
                     seen[key].update(rec)   # keep the last (final usage) record
                     seen[key]["blocks"] = merged
+                    seen[key]["launches"] = merged_launches
                 else:
                     if key:
                         seen[key] = rec
@@ -334,14 +373,22 @@ def process_file(path, sessions, project_name=None, ab=None):
             CALL_SINK.append({"ts": ts, "model": rec["model"], "cost": c, "in_tok": context_tokens(rec["u"]),
                               "out_tok": rec["u"].get("output_tokens", 0) or 0,
                               "in_cost": parts["input"] + parts["cache_write"] + parts["cache_read"], "out_cost": parts["output"],
-                              "effort": rec["effort"], "sub": bool(rec["sub"]), "what": call_summary(rec.get("blocks", [])), "sid": rec["sid"]})
+                              "effort": rec["effort"], "sub": bool(rec["sub"]), "what": call_summary(rec.get("blocks", [])), "sid": rec["sid"],
+                              "launches": rec.get("launches") or [], "launch": rec.get("launch"), "agent": rec.get("agent")})
         m["ctx_tokens"] += context_tokens(rec["u"])
         m["ctx_cost"] += parts["input"] + parts["cache_write"] + parts["cache_read"]
         if ab:   # a run's session keeps its individual calls (a few hundred over all runs), so the page can list them; ordinary sessions do not
-            s.setdefault("call_list", []).append({
+            entry = {
                 "ts": rec["ts"], "model": rec["model"], "effort": rec["effort"], "sub": bool(rec["sub"]),
                 "in_tok": context_tokens(rec["u"]), "out_tok": rec["u"].get("output_tokens", 0) or 0, "what": call_summary(rec.get("blocks", [])),
-                "in_cost": round(parts["input"] + parts["cache_write"] + parts["cache_read"], 4), "out_cost": round(parts["output"], 4), "cost": round(c, 4)})
+                "in_cost": round(parts["input"] + parts["cache_write"] + parts["cache_read"], 4), "out_cost": round(parts["output"], 4), "cost": round(c, 4),
+                "turn": (rec["turn"] or {}).get("ts")}      # the task (turn) it belongs to; a subagent's calls belong to the task that launched it
+            if rec.get("launches"):
+                entry["launches"] = rec["launches"]         # ids of the Agent/Task tool calls this call made, so the page can nest the subagents' calls under it
+            if rec.get("launch"):
+                entry["launch"] = rec["launch"]             # a subagent's call: the id of the tool call that launched its agent
+                entry["agent"] = rec.get("agent")
+            s.setdefault("call_list", []).append(entry)
         s["cw1h"] += write_split(rec["u"])[1]
         for k, v in parts.items():
             s["parts"][k] += v
@@ -366,6 +413,10 @@ def process_file(path, sessions, project_name=None, ab=None):
             add_call(t["me"].setdefault(rec["model"], {}).setdefault(eff, new_cell()), parts, rec["u"])
             if rec["sub"]:
                 t["sub_cost"] += c
+            if rec.get("agent"):
+                k = (rec["agent"], rec["model"])
+                subs = t.setdefault("subs", {})
+                subs[k] = subs.get(k, 0.0) + c
             add_tokens(t["tokens"], rec["u"])
 
     # attach this file's turns to the session they belong to
@@ -413,7 +464,8 @@ def rounded_cells(d):
 
 def log_files(root):
     """Every session and subagent log under root."""
-    return glob.glob(os.path.join(root, "**", "*.jsonl"), recursive=True)
+    files = glob.glob(os.path.join(root, "**", "*.jsonl"), recursive=True)
+    return sorted(files, key=lambda f: ("subagents" in Path(f).parts, f))    # main logs first: a subagent's cost needs the turn that launched it
 
 
 def newest_mtime(root):
@@ -440,6 +492,7 @@ def collect(root, days=30, project="", now=None, ab_root=None, ab_sessions=True)
     UNPRICED.clear()
     SPEED_FLAGS.clear()
     LAUNCHES.clear()
+    TOOL_TURN.clear()
     sessions = {}
     ab_dirs = sorted(glob.glob(os.path.join(ab_root, "*.session"))) if ab_root and os.path.isdir(ab_root) else []
     ab_real = [os.path.realpath(d) + os.sep for d in ab_dirs]
@@ -482,6 +535,7 @@ def collect(root, days=30, project="", now=None, ab_root=None, ab_sessions=True)
             "ctx": context_summary(s["ctx_series"]),
             "turns": [{"ts": t["ts"], "prompt": t["prompt"], "cost": round(t["cost"], 4),
                        "sub_cost": round(t["sub_cost"], 4), "calls": t["calls"], "tokens": t["tokens"],
+                       "subs": [{"agent": a, "model": m, "cost": round(v, 4)} for (a, m), v in sorted(t.get("subs", {}).items())],
                        "me": {m: rounded_cells(e) for m, e in t["me"].items()}}
                       for t in turns],
         })

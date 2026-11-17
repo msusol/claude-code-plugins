@@ -5,6 +5,7 @@ Run from the plugin repo root:  python3 -m unittest discover -s cost-dashboard/t
 The link comes from the launcher's own log: a Bash tool call whose command is `run-ab.zsh solve <run> ...` (or run, resume,
 review-loop, review-round, or the same through solver.zsh). Nothing in the run scripts has to record it.
 """
+import json
 import re
 import sys
 import unittest
@@ -407,7 +408,7 @@ class RunSessions(NestingBase):
         self.assertEqual(cells[-1], "$1.95", "the session's cost is the sum of its calls")
         sub = next(c for c in calls if "[subagent]" in c[1])
         self.assertEqual(sub[-2], "$0.45", "a subagent call's cost also sits in the Subagent column")
-        self.assertEqual(next(c for c in calls if "Read:" in c[1])[-2], "$0.00")
+        self.assertEqual(next(c for c in calls if "Read:" in c[1])[-2], "", "a call that is not a subagent's leaves the Subagent cell blank")
         self.assertIn("sonnet-5-5", sub[2], "each call keeps its own model")
 
     def test_a_run_session_with_several_tasks_still_shows_its_count_and_opens_to_them(self):
@@ -416,7 +417,9 @@ class RunSessions(NestingBase):
         self.assertEqual(cells[3], "3")
         self.assertIn(" open", tr.split(">")[0])
         self.assertEqual(h.count('<tr class="t"'), 3, "one row per task")
-        self.assertEqual(h.count('<tr class="t call"'), 0, "tasks, not calls")
+        self.assertEqual(h.count('<tr class="t call"'), 3, "and under each task the calls it made (one each in this fixture)")
+        order = re.findall(r'<tr class="t( call)?"', h)
+        self.assertEqual(order, ["", " call", "", " call", "", " call"], "each task row is followed by its own call")
 
     def test_an_ordinary_session_with_one_task_is_unchanged(self):
         h = self.page({"expand": "s1"})
@@ -472,9 +475,136 @@ class RunSessions(NestingBase):
         for sid in ("orch", "s1"):
             self.assertNotIn("call_list", rows[sid], "ordinary sessions are not given a call list: it would more than double the page")
         first = rows["run-many-calls"]["call_list"][0]
-        self.assertEqual(sorted(first), ["cost", "effort", "in_cost", "in_tok", "model", "out_cost", "out_tok", "sub", "ts", "what"])
+        self.assertEqual(sorted(first), ["cost", "effort", "in_cost", "in_tok", "model", "out_cost", "out_tok", "sub", "ts", "turn", "what"])
         self.assertEqual((first["in_tok"], first["out_tok"], first["cost"]), (100000, 10000, 0.75))
         self.assertEqual(first["what"], "Bash: python -m pytest -q (+1 more)")
+
+
+class PilotLaunches(NestingBase):
+    """`scripts/run-pilot.zsh start <label> --go` starts one run per arm; they nest under the session that ran it."""
+    def test_a_pilot_start_links_all_three_arms(self):
+        self.launcher("cd ~/experiments && zsh scripts/run-pilot.zsh start p1 --go 2>&1 | cut -c1-200")
+        for arm in "abc":
+            self.run_session("pilot-p1-" + arm, arm_rows())
+        r = self.rows()
+        for arm in "abc":
+            self.assertEqual(r["run-pilot-p1-" + arm]["parent"], "orch", arm)
+
+    def test_a_dry_run_links_nothing(self):
+        self.launcher("zsh scripts/run-pilot.zsh start p1")
+        self.run_session("pilot-p1-a", arm_rows())
+        self.assertIsNone(self.rows()["run-pilot-p1-a"].get("parent"))
+
+    def test_pilot_arms_names_the_runs_to_link(self):
+        self.launcher("PILOT_ARMS=c PILOT_BUDGET_USD=3 zsh scripts/run-pilot.zsh start dry1 --go")
+        for arm in "ac":
+            self.run_session("pilot-dry1-" + arm, arm_rows())
+        r = self.rows()
+        self.assertEqual(r["run-pilot-dry1-c"]["parent"], "orch")
+        self.assertIsNone(r["run-pilot-dry1-a"].get("parent"), "arm a was not started by that command")
+
+
+class SubagentCallsNested(NestingBase):
+    """A run session lists a subagent's calls directly under the call that launched it, indented, after a header row naming the agent."""
+    def setUp(self):
+        super().setUp()
+        self.launcher("auto-mode/ab-docker/run-ab.zsh solve nested m ~/p main ~/b.md")
+        window = [(ts(0), ts(40), "solve", 0, "claude-opus-4-9", "abc1234", "headless;exit=0")]
+        self.make_run("nested", rows=window)
+        launch = with_blocks(assistant(6, "claude-opus-4-9", OPUS_USAGE, "m1", "r1", sid="run-nested"),
+                             {"type": "tool_use", "id": "toolu_N", "name": "Agent", "input": {"description": "Hard task", "prompt": "x"}})
+        write_log(Path(self.runs) / "nested.session", "-work/run-nested.jsonl", [
+            ab_user(5, "go", "run-nested"), launch,
+            assistant(9, "claude-opus-4-9", OPUS_USAGE, "m2", "r2", sid="run-nested"),          # the orchestrator waiting
+            ab_user(12, "<task-notification> done", "run-nested"),
+            assistant(13, "claude-opus-4-9", OPUS_USAGE, "m3", "r3", sid="run-nested"),
+        ])
+        # the agent's calls cost far more than the orchestrator's (Haiku usage here is the expensive one), so by cost alone it would lead
+        write_log(Path(self.runs) / "nested.session", "-work/run-nested/subagents/agent-x.jsonl", [
+            assistant(7, "claude-haiku-4-9", HAIKU_USAGE, "s1", "rs1", side=True, sid="run-nested"),
+            assistant(8, "claude-haiku-4-9", HAIKU_USAGE, "s2", "rs2", side=True, sid="run-nested"),
+        ])
+        Path(self.runs, "nested.session", "-work", "run-nested", "subagents", "agent-x.meta.json").write_text(
+            json.dumps({"agentType": "hard-solver", "toolUseId": "toolu_N"}))
+        self.data = b.collect(self.main, days=0, ab_root=self.runs)
+        self.html = b.render(self.data)
+
+    def test_the_data_links_each_agent_call_to_its_launching_call(self):
+        run = next(r for r in self.data["sessions"] if r.get("ab") == "nested")
+        launcher = [c for c in run["call_list"] if c.get("launches")]
+        subs = [c for c in run["call_list"] if c.get("launch")]
+        self.assertEqual([c["launches"] for c in launcher], [["toolu_N"]])
+        self.assertEqual(len(subs), 2)
+        self.assertTrue(all(c["launch"] == "toolu_N" and c["agent"] == "hard-solver" and c["sub"] for c in subs))
+        self.assertTrue(all("launch" not in c and "launches" not in c for c in run["call_list"] if c not in launcher and c not in subs))
+
+    def test_the_page_nests_them_under_the_launching_call(self):
+        h = run_page(self, self.html, [{"expand": "orch"}, {"expand": "run-nested"}])["sess"]
+        order = re.findall(r'<tr class="t( call| callgrp)?"', h)
+        # task 1: the orchestrator's calls newest first, then the launching call followed by its group; task 2: its one call
+        self.assertEqual(order, ["", " call", " call", " callgrp", " call", " call", "", " call"])
+        grp = re.search(r'<tr class="t callgrp".*?</tr>', h, re.S).group(0)
+        self.assertIn("hard-solver", grp)
+        self.assertIn("2 calls", grp)
+        self.assertIn("haiku-4-9", grp)
+        self.assertEqual(h.count('title="[subagent]'), 2, "both agent calls are still listed individually")
+
+    def model_cell(self, row_html):
+        """The text of a row without its prompt cell's own lines, so a subagent named there does not count as the row's model."""
+        no_prompt = re.sub(r'<div class="cd-pc".*?</div>', '', row_html, flags=re.S)
+        return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", no_prompt)).strip()
+
+    def test_a_run_and_its_tasks_are_labelled_by_the_orchestrators_model_not_the_agents(self):
+        h = run_page(self, self.html, [{"expand": "orch"}, {"expand": "run-nested"}])["sess"]
+        run_row = re.search(r'<tr class="s[^"]*" data-id="run-nested".*?</tr>', h, re.S).group(0)
+        text = self.model_cell(run_row)
+        self.assertIn("opus-4-9", text, "the orchestrator's model leads")
+        self.assertNotIn("haiku-4-9", text, "the agent's model is only counted in the +N")
+        self.assertRegex(text, r"\+1\b")
+        task_rows = re.findall(r'<tr class="t">.*?</tr>', h, re.S)
+        self.assertEqual(len(task_rows), 2)
+        for tr in task_rows:
+            self.assertIn("opus-4-9", self.model_cell(tr))
+            self.assertNotIn("haiku-4-9", self.model_cell(tr), "a task that launched an agent still names its own model")
+
+    def test_a_runs_task_rows_leave_the_subagent_to_its_group_row(self):
+        h = run_page(self, self.html, [{"expand": "orch"}, {"expand": "run-nested"}])["sess"]
+        for tr in re.findall(r'<tr class="t">.*?</tr>', h, re.S):
+            self.assertNotIn("⤷", tr, "no subagent line under the task's prompt: the group row below shows it")
+            cells = [re.sub(r"<[^>]+>", "", c).strip() for c in re.findall(r"<td[^>]*>(.*?)</td>", tr, re.S)]
+            self.assertEqual(cells[-2], "", "and the Subagent cell stays blank")
+        self.assertEqual(h.count('class="t callgrp"'), 1)
+
+    def ab_page(self):
+        return run_page(self, self.html, [{"abToggle": "run:nested"}, {"abToggle": "step:nested:0"}])["ab-runs"]
+
+    def test_the_ab_tab_nests_the_agents_calls_under_the_launching_call_like_sessions(self):
+        h = self.ab_page()
+        rows = re.findall(r'<tr class="ab call[^"]*" style="--d:(\d+)">(.*?)</tr>', h, re.S)
+        kinds = [("grp" if "callgrp" in m else "call") for m in re.findall(r'<tr class="ab (call[^"]*)"', h)]
+        self.assertEqual(kinds.count("grp"), 1, "one header row for the agent")
+        i = kinds.index("grp")
+        self.assertIn("hard-solver", rows[i][1])
+        self.assertEqual(rows[i][0], rows[i - 1][0], "the header sits at the launching call's depth")
+        self.assertEqual([r[0] for r in rows[i + 1:i + 3]], [str(int(rows[i][0]) + 1)] * 2, "its two calls are one level deeper")
+        self.assertIn("[subagent]", rows[i + 1][1])
+        self.assertIn("[subagent]", rows[i + 2][1])
+        self.assertNotIn("[subagent]", rows[i + 3][1], "the orchestrator's next call is back at the outer level")
+
+    def test_the_ab_tab_draws_models_with_the_same_swatches_as_sessions(self):
+        h = self.ab_page()
+        for tr in re.findall(r'<tr class="ab (?:call|run)[^"]*".*?</tr>', h, re.S):
+            self.assertIn('class="cd-sw"', tr, "every run and call row names its model with a swatch")
+        self.assertRegex(h, r"opus-4-9 · \w+")
+
+    def test_a_subagent_call_with_no_launching_call_stays_in_the_flow(self):
+        Path(self.runs, "nested.session", "-work", "run-nested", "subagents", "agent-x.meta.json").write_text(
+            json.dumps({"agentType": "hard-solver", "toolUseId": "toolu_GONE"}))
+        html = b.render(b.collect(self.main, days=0, ab_root=self.runs))
+        h = run_page(self, html, [{"expand": "orch"}, {"expand": "run-nested"}])["sess"]
+        self.assertNotIn('class="t callgrp"', h)
+        self.assertEqual(h.count('title="[subagent]'), 2, "still listed, not dropped")
+        self.assertIn("2 calls not tied to a task", h, "under their own heading, since no task launched them")
 
 
 class CallLabels(NestingBase):
