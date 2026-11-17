@@ -124,6 +124,13 @@ t "branch -d not name check" "$(cmd 'git branch -d old-feature')"               
 t "branch --show-current"    "$(cmd 'git branch --show-current')"                                                0
 t "branch -a not name check" "$(cmd 'git branch -a')"                                                            0
 t "branch no args (list)"    "$(cmd 'git branch')"                                                               0
+t "docs slug allowed"        "$(cmd 'git checkout -b docs/eval-pilot-budget')"                                 0
+t "docs with ticket allowed" "$(cmd 'git switch -c docs/PROJ-12-update-readme')"                              0
+t "docs via branch"          "$(cmd 'git branch docs/plan-0003-oracle-v2')"                                    0
+t "docs uppercase blocked"   "$(cmd 'git checkout -b docs/Bad_Name')"                                          2
+t "docs empty slug blocked"  "$(cmd 'git checkout -b docs/')"                                                  2
+t "docs underscore blocked"  "$(cmd 'git checkout -b docs/bad_name')"                                          2
+t "doc (singular) blocked"   "$(cmd 'git checkout -b doc/something')"                                          2
 t "sentinel bypasses branch check" "$(cmd 'GIT_GUARD_SANCTIONED=1 git checkout -b my-quick-branch')"            0
 
 # Same as cmd(), plus the hook's cwd (the session's working directory)
@@ -210,6 +217,38 @@ t "exp: branch name allowed"     "$(cmd 'git checkout -b exp/sonnet-vs-fable')" 
 t "exp: bad slug blocked"        "$(cmd 'git checkout -b exp/Bad_Name')"                     2
 t "exp: worktree add -b name"    "$(cmd 'git branch exp/fable-run')"                         0
 rm -rf "$exp_repo" "$main_repo"
+
+print "=== single-branch repos: branch naming is not enforced (git-branch-naming.md)"
+rf_repo=$(mktemp -d); sb_repo=$(mktemp -d); dev_repo=$(mktemp -d); feat_repo=$(mktemp -d); rem_repo=$(mktemp -d); notgit=$(mktemp -d)
+# Refs are made with plumbing (an empty tree as the target): the git wrapper refuses `git commit` without a remote.
+for r in "$sb_repo" "$dev_repo" "$feat_repo" "$rem_repo"; do
+  git -C "$r" init -q -b main 2>/dev/null || git -C "$r" init -q
+done
+sb_obj=$(git -C "$dev_repo" hash-object -w -t tree /dev/null)
+# update-ref refuses a non-commit under refs/heads/, so write those two ref files directly.
+git -C "$feat_repo" hash-object -w -t tree /dev/null >/dev/null
+mkdir -p "$feat_repo/.git/refs/heads/feature"
+print "$sb_obj" > "$dev_repo/.git/refs/heads/develop"
+print "$sb_obj" > "$feat_repo/.git/refs/heads/feature/PROJ-1-old"
+git -C "$rem_repo" update-ref refs/remotes/origin/develop "$sb_obj"
+git -C "$rf_repo" init -q -b main 2>/dev/null || git -C "$rf_repo" init -q
+git -C "$rf_repo" update-ref refs/remotes/origin/feature/PROJ-1-old "$sb_obj"
+t "single-branch: free name allowed"      "$(cmdc "$sb_repo" 'git checkout -b wip/my-branch')"      0
+t "single-branch: switch -c allowed"      "$(cmdc "$sb_repo" 'git switch -c wip/my-branch')"        0
+t "single-branch: git branch allowed"     "$(cmdc "$sb_repo" 'git branch weirdname')"                0
+t "single-branch: commit still blocked"   "$(cmdc "$sb_repo" 'git commit -m wip')"                   2
+t "single-branch: push still blocked"     "$(cmdc "$sb_repo" 'git push')"                            2
+t "single-branch: cd elsewhere enforced"  "$(cmdc "$sb_repo" 'cd /tmp/other && git checkout -b bad_name')" 2
+t "single-branch: git -C enforced"        "$(cmdc "$sb_repo" 'git -C /tmp/other checkout -b bad_name')"     2
+t "single-branch: --git-dir enforced"     "$(cmdc "$sb_repo" 'git --git-dir=/tmp/o/.git checkout -b bad_name')" 2
+t "develop repo: free name blocked"       "$(cmdc "$dev_repo" 'git checkout -b wip/my-branch')"     2
+t "develop repo: conforming name allowed" "$(cmdc "$dev_repo" 'git checkout -b feature/PROJ-2-new')" 0
+t "feature-branch repo: free name blocked" "$(cmdc "$feat_repo" 'git checkout -b wip/my-branch')"   2
+t "remote develop: free name blocked"     "$(cmdc "$rem_repo" 'git checkout -b wip/my-branch')"     2
+t "remote feature branch: free name blocked" "$(cmdc "$rf_repo" 'git checkout -b wip/my-branch')" 2
+t "not a git repo: enforced"              "$(cmdc "$notgit" 'git checkout -b wip/my-branch')"       2
+t "no cwd: enforced"                      "$(cmd 'git checkout -b wip/my-branch')"                  2
+rm -rf "$rf_repo" "$sb_repo" "$dev_repo" "$feat_repo" "$rem_repo" "$notgit"
 
 print "=== fallback: grep/sed extraction when jq is unavailable"
 nojq_info=("${(f)$(_make_nojq_path)}")

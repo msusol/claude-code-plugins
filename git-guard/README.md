@@ -83,12 +83,23 @@ pass through untouched). If `<name>` isn't `main`/`develop` and doesn't match:
 
 - `(feature|bugfix|chore)/<TICKET>-<slug>` — e.g. `feature/PROJ-1234-bulk-export`
 - `(release|hotfix)/<major.minor.patch>` — e.g. `release/2.4.0`
+- `docs/<slug>` (ticket key optional) — e.g. `docs/eval-pilot-budget`
+- `exp/<slug>` — see the experiment branches section below
 
 the hook blocks with exit 2 and prints the convention. This is the GitFlow (Lite)
 branching convention; the full rationale (cut-from/merge-into mapping, merge strategy,
 release vs. hotfix process) lives in `src/rules/git-branch-naming.md`, installed to
 `~/.claude/rules/git-branch-naming.md` and @-imported into `~/.claude/CLAUDE.md` so Claude
 follows it proactively instead of only getting blocked reactively.
+
+**Single-branch repos are exempt.** The naming check is skipped when the session's working
+directory is a git repo with no `develop` branch (local or on any remote) and no
+`feature/`, `bugfix/` or `chore/` branch (local or remote): such a repo never used the
+convention, and a ticket-keyed name only gets in the way. The exemption is scoped like the
+`exp/*` commit exemption: the repo is read from the hook's own `cwd`, and a command that
+could act on another repo (`cd`, `-C`, `--git-dir`, `--work-tree`) is still checked. With no
+`cwd`, or a `cwd` that is not a git repo, the check runs as before. Commit, tag and push stay
+guarded everywhere. (Added 1.6.0; an installed older hook enforces the name in every repo.)
 
 ### `/git-commit` skill — the sanctioned path for commits
 
@@ -300,7 +311,7 @@ The suite covers:
 - Malformed / empty JSON input — allowed (no false positives)
 - Sentinel without required trailing space — still blocked
 - Branch creation with a non-conforming name (`checkout -b`, `switch -c`, `branch <name>`) — blocked (exit 2)
-- Branch creation matching the convention, `main`/`develop`, `exp/<slug>`, or a start-point argument after the name — allowed
+- Branch creation matching the convention, `main`/`develop`, `docs/<slug>`, `exp/<slug>`, or a start-point argument after the name — allowed
 - `git commit` on an `exp/*` branch (judged from the hook's `cwd`) — allowed; push, tag, `cd`/`--git-dir` forms, other branches, missing/bad `cwd` — still blocked
 - Non-creation `git branch` invocations (`-d`, `-a`, `--show-current`, bare `branch`) — never treated as a name to validate
 - Sentinel bypasses the branch-naming check the same way it bypasses commit/push

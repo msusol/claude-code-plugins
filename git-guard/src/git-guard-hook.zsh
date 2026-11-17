@@ -114,9 +114,28 @@ else
   fi
 fi
 
-if [[ -n "$branch_name" && "$branch_name" != "main" && "$branch_name" != "develop" ]]; then
+# Single-branch exemption (see src/rules/git-branch-naming.md): the naming model
+# only applies to a repo that has a permanent `develop` branch or already uses
+# feature/bugfix/chore branches. A repo with neither (only main/master) skips the
+# naming check. Scoped like the exp/* commit exemption: the repo is read from the
+# hook's own `cwd`, and a command that could act on a different repo (`cd`, or
+# `-C` / `--git-dir` / `--work-tree`) is never exempt. No cwd, or a cwd that is
+# not a git repo, means the check runs as before.
+single_branch_repo() {
+  [[ -n "$hook_cwd" && -d "$hook_cwd" ]] || return 1
+  echo "$cmd" | grep -qE '(^|[^[:alnum:]_-])cd[[:space:]]' && return 1
+  echo "$cmd" | grep -qE '(^|[[:space:]])(-C[[:space:]]|--git-dir|--work-tree)' && return 1
+  git -C "$hook_cwd" rev-parse --git-dir >/dev/null 2>&1 || return 1
+  [[ -z "$(git -C "$hook_cwd" for-each-ref --count=1 \
+    'refs/heads/develop' 'refs/remotes/*/develop' \
+    'refs/heads/feature' 'refs/heads/bugfix' 'refs/heads/chore' \
+    'refs/remotes/*/feature/*' 'refs/remotes/*/bugfix/*' 'refs/remotes/*/chore/*' 2>/dev/null)" ]]
+}
+
+if [[ -n "$branch_name" && "$branch_name" != "main" && "$branch_name" != "develop" ]] && ! single_branch_repo; then
   if ! echo "$branch_name" | grep -qE '^(feature|bugfix|chore)/[A-Z][A-Z0-9]+-[0-9]+-[a-z0-9]+(-[a-z0-9]+)*$' \
      && ! echo "$branch_name" | grep -qE '^(release|hotfix)/[0-9]+\.[0-9]+\.[0-9]+$' \
+     && ! echo "$branch_name" | grep -qE '^docs/([A-Z][A-Z0-9]+-[0-9]+-)?[a-z0-9]+(-[a-z0-9]+)*$' \
      && ! echo "$branch_name" | grep -qE '^exp/[a-z0-9]+(-[a-z0-9]+)*$'; then
     echo "git-guard: branch name '$branch_name' doesn't match the GitFlow (Lite) naming convention." >&2
     echo "  feature/<TICKET>-<slug>      e.g. feature/PROJ-1234-bulk-export" >&2
@@ -124,6 +143,7 @@ if [[ -n "$branch_name" && "$branch_name" != "main" && "$branch_name" != "develo
     echo "  chore/<TICKET>-<slug>        e.g. chore/PROJ-1310-bump-node-20" >&2
     echo "  release/<major.minor.patch>  e.g. release/2.4.0" >&2
     echo "  hotfix/<major.minor.patch>   e.g. hotfix/2.3.1" >&2
+    echo "  docs/<slug>                  e.g. docs/eval-pilot-budget (optional ticket: docs/PROJ-12-slug)" >&2
     echo "  exp/<slug>                   e.g. exp/sonnet-vs-fable (commits allowed without /git-commit)" >&2
     echo "See the git-branch-naming rule for the full GitFlow (Lite) convention." >&2
     echo "Deliberate, explained exception: prefix with GIT_GUARD_SANCTIONED=1." >&2
