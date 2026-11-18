@@ -411,6 +411,15 @@ const headCell = ([k,l]) => {
   const toggle = k==='project' ? ` <button class="cd-ptoggle" type="button" aria-expanded="${showPrompt}" title="${showPrompt ? 'Hide' : 'Show'} the first prompt">${showPrompt ? '◂' : '▸'}</button>` : '';
   return `<th data-k="${k}" class="${cls}"${k===sortKey?` aria-sort="${sortDir<0?'descending':'ascending'}"`:''}>${l}${toggle}</th>`;
 };
+// view state kept in the URL query (the #tab hash is left alone): urlGet reads one parameter, urlSet changes several at once, dropping an empty one,
+// through history.replaceState so Back is not flooded. q is the search text, shared by the Sessions and A/B tabs (typing in either box fills the other); Sessions also keeps sort (key, or key:asc), rows (page size) and prompt=1.
+function urlGet(name){ try { return new URLSearchParams(location.search).get(name) || ''; } catch (e) { return ''; } }
+function urlSet(obj){ try { const u = new URLSearchParams(location.search); for (const k in obj) obj[k] ? u.set(k, obj[k]) : u.delete(k); const qs = u.toString();
+  history.replaceState(null, '', location.pathname + (qs ? '?' + qs : '') + (location.hash || '')); } catch (e) {} }
+function sessUrl(){ urlSet({ q: $('q').value, sort: (sortKey==='last' && sortDir<0) ? '' : sortKey + (sortDir>0 ? ':asc' : ''), rows: pageSize===10 ? '' : String(pageSize), prompt: showPrompt ? '1' : '' }); }
+{ $('q').value = urlGet('q'); showPrompt = urlGet('prompt') === '1';
+  const [k, d] = urlGet('sort').split(':'); if (k && colsNow().some(c => c[0] === k)) { sortKey = k; sortDir = d === 'asc' ? 1 : -1; }
+  const n = +urlGet('rows'); if (PAGE_SIZES.includes(n)) pageSize = n; }
 function render(){
   const q = $('q').value.toLowerCase(), cols = colsNow();
   const hay = s => (s.project+' '+(s.ab ? 'a/b ' : '')+roleOf(s)+' '+s.title+' '+Object.keys(s.models).join(' ')+' '+Object.values(s.matrix).flatMap(o=>Object.keys(o)).join(' ')).toLowerCase();
@@ -483,13 +492,13 @@ function render(){
 }
 $('sess').addEventListener('click',e=>{
   if(e.target.closest('a')) return;   // a link opens the raw log; it does not open or close the row
-  if(e.target.closest('.cd-ptoggle')){ showPrompt = !showPrompt; return render(); }
-  const th=e.target.closest('th'); if(th){const k=th.dataset.k; if(!k) return; if(k===sortKey)sortDir*=-1; else{sortKey=k;sortDir=-1} page=0; return render()}
+  if(e.target.closest('.cd-ptoggle')){ showPrompt = !showPrompt; sessUrl(); return render(); }
+  const th=e.target.closest('th'); if(th){const k=th.dataset.k; if(!k) return; if(k===sortKey)sortDir*=-1; else{sortKey=k;sortDir=-1} page=0; sessUrl(); return render()}
   const tr=e.target.closest('tr.s'); if(tr){const id=tr.dataset.id; open.has(id)?open.delete(id):open.add(id); render()}
 });
 $('pager').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b||b.disabled) return; page += b.dataset.pg==='next' ? 1 : -1; render(); });
-$('pager').addEventListener('change',e=>{ if(e.target.id==='page-size'){ pageSize = +e.target.value; page = 0; render(); } });
-$('q').addEventListener('input',()=>{ page = 0; render(); });
+$('pager').addEventListener('change',e=>{ if(e.target.id==='page-size'){ pageSize = +e.target.value; page = 0; sessUrl(); render(); } });
+$('q').addEventListener('input',()=>{ page = 0; $('ab-q').value = $('q').value; sessUrl(); render(); drawAB(); });
 
 // keyboard: Enter or Space expands the focused session row
 $('sess').addEventListener('keydown',e=>{ if((e.key==='Enter'||e.key===' ')&&e.target.matches('tr.s')){e.preventDefault(); e.target.click();} });
@@ -604,7 +613,8 @@ if (AB) {
     if (n.run) { n.run.steps.forEach((st, i) => keys.push(`step:${n.run.name}:${i}`)); keys.push(`step:${n.run.name}:loose`); } }; abTree(AB.runs).forEach(walk); return keys; };
   $('ab-runs').addEventListener('click', e => { if (e.target.closest('a')) return; const tr = e.target.closest('tr.ab'); if (!tr || !tr.dataset.key) return; const k = tr.dataset.key; abOpen.has(k) ? abOpen.delete(k) : abOpen.add(k); drawAB(); });
   $('ab-runs').addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('tr.ab.x')) { e.preventDefault(); e.target.click(); } });
-  $('ab-q').addEventListener('input', drawAB);
+  $('ab-q').value = urlGet('q');   // the search text lives in the URL as ?q=<text>, shared with the Sessions tab
+  $('ab-q').addEventListener('input', () => { $('q').value = $('ab-q').value; page = 0; urlSet({ q: $('ab-q').value }); render(); drawAB(); });
   $('ab-expand').addEventListener('click', () => { abOpen = new Set(abAllKeys()); drawAB(); });
   $('ab-collapse').addEventListener('click', () => { abOpen = new Set(); drawAB(); });
 }

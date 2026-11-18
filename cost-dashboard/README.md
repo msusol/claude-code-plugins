@@ -42,6 +42,18 @@ The default port is **8780**. It was 8766 up to 0.2.0: a port other local dashbo
 fail with "address in use". Pass `--port N` to use another, and update any bookmark or SSH tunnel that pointed at 8766. If the port is taken, the
 server says so and exits rather than picking another.
 
+## Screenshots
+
+Both were taken with the search box set to `pilot-le`, which is what `?q=pilot-le` restores (see "View state in the URL" below).
+
+![The A/B tab: runs grouped by plan and round, each arm with its model, calls, tokens and cost](images/cost-dashboard-ab-tab.png)
+
+The A/B tab: runs grouped by plan and round, with the cost of each arm side by side.
+
+![The Sessions tab: launcher sessions with their nested A/B runs](images/cost-dashboard-sessions-tab.png)
+
+The Sessions tab: launcher sessions with their nested runs, filtered by the same shared `?q=` search.
+
 ## What it shows
 
 Four tabs, every table with **tokens in and out and the dollars for each side**, the figures models are compared on:
@@ -110,7 +122,7 @@ Every step has a single Cost, whoever incurred it: a Claude step's cost is price
 its runs (Claude tokens in and out, Cost, Copilot reviews, fixes, wall time), the models used, and `N of M clean` for the runs that had
 reviews. A `≥` on a cost means a run in the group has no session logs, so the figure is a lower bound. A level with one child collapses into
 it, so a lone run is a plain row. Models are drawn as on the Sessions tab (same swatch and `model · effort` label; a run is labelled by its main thread's model), and a call that launched a subagent is followed by a `⤷ <agent>` header row and the agent's calls, indented. A pilot's arms (`pilot-p1-a`, `-b`, `-c`) form one group row (`pilot-p1`). The **Search runs** box above the
-table keeps the runs whose name or model contains the text, and the groups of those runs. Click a row (or press Enter) to open it: a plan opens to its rounds, a round to its runs, and a run to its
+table keeps the runs whose name or model contains the text, and the groups of those runs. The text is shared with the Sessions tab's search box and kept in the page URL as `?q=<text>` (see "View state in the URL" below), so `?q=pilot-leave#ab` opens the A/B tab already filtered. Click a row (or press Enter) to open it: a plan opens to its rounds, a round to its runs, and a run to its
 steps (**Arm session**, **Solve**, each **Review N** with what Copilot found, each **Fix N**), each with its own calls, tokens and cost. A step
 that made Claude calls opens again, to **each call**: its time, what it did (`Bash: pytest -q`, `Edit: wordfreq.py`, `reply: …`, with a subagent's
 call marked), its model, tokens in and out, and its cost, oldest first. A Copilot review made none, so it is a plain row; calls that fall
@@ -195,6 +207,18 @@ Run from the repo root. The tests build synthetic session logs, so they need no 
   by the model that ran the main thread (the orchestrator), from the calls that are not a subagent's, and
   the subagent's model shows only in the `+N` and in its own rows, so a cheap orchestrator is not relabelled
   by an expensive agent.
+- **View state in the URL (0.6.0).** The search text and the Sessions controls are kept in the page URL's query, next to the `#tab` hash, so a reload
+  or a shared link restores them. The query is changed with `history.replaceState`, so the Back button is not filled with one entry per keystroke.
+  Defaults are left out and an unknown value falls back to the default.
+
+  | Parameter | Tab | Holds |
+  |---|---|---|
+  | `q` | Sessions and A/B | the search text: one value for both tabs, so typing in either search box fills the other and the text follows you when you switch tabs; clearing the box removes `q` |
+  | `sort` | Sessions | the sort column key, descending; `key:asc` for ascending (default `last`, descending, is omitted) |
+  | `rows` | Sessions | rows per page: 25, 50 or 100 (10 is the default) |
+  | `prompt` | Sessions | `1` when the first-prompt column is shown |
+
+  Example: `?q=pilot&sort=cost&rows=50#sessions`, or `?q=pilot-leave#ab`. The open rows and the current page are not kept.
 - Subscription plans (Pro/Max) are not billed per token; the numbers show API-equivalent value.
 
 ## Uninstall

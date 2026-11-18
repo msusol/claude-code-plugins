@@ -744,6 +744,43 @@ class SessionsTab(Base):
         self.assertRegex(out["pager"], r'data-pg="prev" disabled')
         self.assertNotRegex(out["pager"], r'data-pg="next" disabled')
 
+    def urls(self, actions=(), search="", hash_=""):
+        return json.loads(run_page(self, self.html, list(actions), hash_, search)["__urls"])
+
+    def test_the_sessions_view_is_kept_in_the_url_and_defaults_are_left_out(self):
+        self.assertEqual(self.urls([{"search": "prompt number 1"}], hash_="#sessions"), ["/?q=prompt+number+1#sessions"])
+        self.assertEqual(self.urls([{"sort": "cost"}]), ["/?sort=cost"], "a new sort key starts descending")
+        self.assertEqual(self.urls([{"sort": "last"}]), ["/?sort=last%3Aasc"], "the default key flips to ascending")
+        self.assertEqual(self.urls([{"sort": "last"}, {"sort": "last"}]), ["/?sort=last%3Aasc", "/"], "and back to the default, which is left out")
+        self.assertEqual(self.urls([{"pageSize": 25}]), ["/?rows=25"])
+        self.assertEqual(self.urls([{"toggleWide": True}]), ["/?prompt=1"])
+        self.assertEqual(self.urls([{"pageSize": 10}], search="?rows=25&x=1"), ["/?x=1"], "back to the default drops it, other tabs' parameters stay")
+        self.assertEqual(self.urls([{"search": ""}], search="?q=abc"), ["/"])
+
+    def test_loading_with_sessions_parameters_restores_the_view(self):
+        out, rows, pager = self.page_at("?q=prompt+number+1&rows=25")
+        self.assertEqual(rows, ["s19", "s18", "s17", "s16", "s15", "s14", "s13", "s12", "s11", "s10", "s1"])
+        self.assertIn("1–11 of 11", pager)
+        _, rows, _ = self.page_at("?sort=last%3Aasc")
+        self.assertEqual(rows[0], "s0")
+        out, _, _ = self.page_at("?prompt=1")
+        self.assertIn("First prompt", out["sess"])
+        _, rows, _ = self.page_at("?sort=bogus&rows=7")
+        self.assertEqual(rows[0], "s24", "unknown values fall back to the defaults")
+
+    def test_a_sessions_search_with_special_characters_round_trips(self):
+        value = "a b&c=d#e?é"
+        url = self.urls([{"search": value}])[0]
+        from urllib.parse import parse_qs, urlsplit
+        self.assertEqual(parse_qs(urlsplit(url).query)["q"], [value])
+        out, rows, _ = self.page_at("?" + urlsplit(url).query)
+        self.assertEqual(rows, [])
+
+    def page_at(self, search):
+        out = run_page(self, self.html, [], "", search)
+        rows = re.findall(r'<tr class="s[^"]*" data-id="([^"]+)"', out["sess"])
+        return out, rows, re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", out["pager"])).strip()
+
     def test_next_and_previous_move_through_the_pages(self):
         _, rows, pager = self.page({"pager": "next"})
         self.assertEqual(rows, ["s%d" % i for i in range(14, 4, -1)])
@@ -921,7 +958,7 @@ class NewestMtime(Base):
         self.assertEqual(b.newest_mtime(self.root), 1_000)
 
 
-def run_page(case, html, actions=None):
+def run_page(case, html, actions=None, hash_="", search=""):
     """Run the page's script under node with a stub DOM, replaying `actions` (see dom_stub.js); returns {element id: innerHTML}."""
     import shutil
     node = shutil.which("node")
@@ -932,7 +969,7 @@ def run_page(case, html, actions=None):
     with tempfile.TemporaryDirectory() as tmp:
         page = Path(tmp) / "page.js"
         page.write_text(script, encoding="utf-8")
-        r = subprocess.run([node, str(runner), str(page), json.dumps(actions or [])], capture_output=True, text=True, timeout=30)
+        r = subprocess.run([node, str(runner), str(page), json.dumps(actions or []), hash_, search], capture_output=True, text=True, timeout=30)
     case.assertEqual(r.returncode, 0, r.stderr)
     return json.loads(r.stdout)
 

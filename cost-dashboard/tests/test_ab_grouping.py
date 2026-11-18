@@ -3,6 +3,7 @@ every row opens down to the steps (arm session, each Copilot review round, each 
 
 Run from the plugin repo root:  python3 -m unittest discover -s cost-dashboard/tests -v
 """
+import json
 import re
 import sys
 import unittest
@@ -82,6 +83,48 @@ class PilotAndSearch(GroupBase):
         self.assertIn("solo-check-r1", self.page({"abSearch": "sonnet"}))
         self.assertNotIn("leave-engine-docs-fable-r2", self.page({"abSearch": "sonnet"}))
         self.assertIn("solo-check-r1", self.page({"abSearch": "x"}, {"abSearch": ""}))
+
+
+    def load(self, actions=(), hash_="", search=""):
+        return run_page(self, self.html, list(actions), hash_, search)
+
+    def test_typing_in_the_filter_puts_it_in_the_url_and_keeps_the_tab_hash(self):
+        out = self.load([{"abSearch": "pilot-p1"}], hash_="#ab")
+        self.assertEqual(json.loads(out["__urls"]), ["/?q=pilot-p1#ab"])
+
+    def test_clearing_the_filter_removes_the_parameter_and_keeps_the_others(self):
+        out = self.load([{"abSearch": ""}], hash_="#ab", search="?q=pilot-p1&x=1")
+        self.assertEqual(json.loads(out["__urls"]), ["/?x=1#ab"])
+        out = self.load([{"abSearch": ""}], search="?q=pilot-p1")
+        self.assertEqual(json.loads(out["__urls"]), ["/"])
+
+    def test_loading_with_the_parameter_prefills_and_applies_the_filter(self):
+        out = self.load(search="?q=pilot-p1")
+        self.assertIn("pilot-p1 3 runs", self.text(out["ab-runs"]))
+        self.assertNotIn("solo-check", out["ab-runs"])
+        self.assertEqual(json.loads(out["__urls"]), [], "loading alone does not rewrite the URL")
+
+    def test_one_q_is_shared_so_typing_in_either_tab_fills_the_other(self):
+        out = self.load([{"search": "pilot-p1"}], hash_="#sessions")
+        self.assertEqual(json.loads(out["__urls"]), ["/?q=pilot-p1#sessions"])
+        self.assertIn("pilot-p1 3 runs", self.text(out["ab-runs"]), "the Sessions box filtered the A/B tab too")
+        self.assertNotIn("solo-check", out["ab-runs"])
+        out = self.load([{"abSearch": "pilot-p1"}], hash_="#ab")
+        self.assertNotIn("solo-check", out["sess"], "the A/B box filtered the Sessions tab too")
+
+    def test_loading_with_q_filters_both_tabs(self):
+        out = self.load(search="?q=pilot-p1", hash_="#sessions")
+        self.assertIn("pilot-p1 3 runs", self.text(out["ab-runs"]))
+        self.assertNotIn("solo-check", out["sess"])
+
+    def test_a_value_with_spaces_and_special_characters_round_trips(self):
+        value = "pilot p1 & a=b/é#?"
+        url = json.loads(self.load([{"abSearch": value}])["__urls"])[0]
+        from urllib.parse import parse_qs, urlsplit
+        self.assertEqual(parse_qs(urlsplit(url).query)["q"], [value])
+        self.assertEqual(urlsplit(url).fragment, "")
+        out = self.load(search=urlsplit(url).query and "?" + urlsplit(url).query)
+        self.assertNotIn("pilot-p1", out["ab-runs"], "no run matches the odd text, so none is listed")
 
 
 class Collapsed(GroupBase):

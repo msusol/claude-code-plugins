@@ -1,4 +1,5 @@
 // Runs the dashboard page's script against a stub DOM and prints {element id: innerHTML} as JSON. Used by test_build_dashboard.py.
+// Optional argv[4] is the initial location.hash and argv[5] the initial location.search; every history.replaceState URL comes back in "__urls" (a JSON list).
 // Optional argv[3] is a JSON list of actions replayed after load: {"pager":"next"|"prev"}, {"pageSize":25}, {"toggleWide":true},
 // {"sort":"in_tok"}, {"expand":"<session id>"}, {"search":"text"}, {"abSearch":"text"} (type in the A/B search box), {"abToggle":"<row key>"} (click an A/B row, for
 // example "plan:x", "round:x-r2" or "run:x-fable-r2"), {"abAll":true|false} (Expand all / Collapse all), {"clickLink":"<session id>"} and {"abLink":"<row key>"} (click a link inside a row). Elements that got a className are reported as "<id>:class".
@@ -12,7 +13,9 @@ function el(id) {
   return ids[id];
 }
 global.document = { getElementById: el, querySelectorAll: () => [] };
-global.location = { hash: '' };
+global.location = { hash: process.argv[4] || '', search: process.argv[5] || '', pathname: '/' };
+const replaced = [];   // every history.replaceState URL, reported as "__urls"
+global.history = { replaceState(_s, _t, url) { replaced.push(url); const u = new URL(url, 'http://x'); location.search = u.search; } };
 global.addEventListener = () => {};
 require('vm').runInThisContext(fs.readFileSync(process.argv[2], 'utf8'));
 const fire = (id, type, ev) => (listeners[id + ':' + type] || []).forEach(f => f(ev));
@@ -30,6 +33,6 @@ for (const a of JSON.parse(process.argv[3] || '[]')) {
   else if (a.abLink) fire('ab-runs', 'click', { target: { closest: closest({ a: {}, 'tr.ab': { dataset: { key: a.abLink } } }) } });
   else if (a.abAll !== undefined) fire(a.abAll ? 'ab-expand' : 'ab-collapse', 'click', {});
 }
-const out = {};
+const out = { __urls: JSON.stringify(replaced) };
 for (const k of Object.keys(ids)) { out[k] = ids[k]._h || ids[k].textContent; if (ids[k].className) out[k + ':class'] = ids[k].className; }
 console.log(JSON.stringify(out));
