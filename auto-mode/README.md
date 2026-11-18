@@ -144,6 +144,12 @@ solution), run each arm in a container instead: see [ab-docker/README.md](ab-doc
 Caveats: the two runs are not perfectly controlled (model sampling varies between runs), so repeat the
 experiment before concluding anything. The Stop hook sends both models the same continuation message.
 
+## Watching what a run costs
+
+The [cost-dashboard](../cost-dashboard/) plugin's A/B tab shows these runs side by side: runs grouped by plan and round, each arm's model, calls, tokens and cost, and, when you open a run, its calls in order. A call that launched a subagent (here the `hard-solver` that `solve` started) is followed by that agent's own calls. Filter by run name; the filter is kept in the URL as `?q=`, for example `?q=pilot-leave-engine-docs-0006#ab`.
+
+![The cost dashboard's A/B tab, filtered to one pilot: its three arms, with arm c opened to its calls and the hard-solver subagent's calls nested under the call that launched it](images/cost-dashboard-ab-run.webp)
+
 ## Tests
 
 ```zsh
