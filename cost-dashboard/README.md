@@ -44,7 +44,7 @@ server says so and exits rather than picking another.
 
 ## Screenshots
 
-Both were taken with the search box set to `pilot-le`, which is what `?q=pilot-le` restores (see "View state in the URL" below). The total at the top right is blurred.
+Both were taken with the search box set to `pilot-le`, which is what `?q=pilot-le` restores (see "View state in the URL" below).
 
 ![The A/B tab: runs grouped by plan and round, each arm with its model, calls, tokens and cost](images/cost-dashboard-ab-tab.png)
 
