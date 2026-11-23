@@ -37,6 +37,9 @@ body { padding: 1.5rem 1rem; }
 .rh-tabs button[aria-selected=true] { color: var(--color-fg); border-bottom-color: var(--rh-gold); }
 .rh-tabs button:focus-visible { outline: 2px solid var(--rh-gold); outline-offset: 2px; }
 .rh-eyebrow { margin: 0; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); text-transform: none; }
+.rh-home { color: inherit; text-decoration: none; }
+.rh-home[href] { text-decoration: underline; text-underline-offset: 2px; }
+.rh-home[href]:hover, .rh-home[href]:focus-visible { color: var(--color-fg, inherit); }
 .rh h1 { margin: 0; font-family: var(--font-anthropic-sans); font-weight: 700; font-size: 1.75rem; line-height: 1.15; text-transform: uppercase; letter-spacing: 0.01em; }
 .rh h1::after { content: ''; display: block; width: 2.25rem; height: 3px; background: var(--rh-gold); margin-top: 0.75rem; }
 .rh-tile { border-top: 3px solid var(--rh-gold); background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-lg); display: flex; flex-direction: column; gap: var(--cds-gap-xs); min-width: 0; }
@@ -136,7 +139,7 @@ body { padding: 1.5rem 1rem; }
 <div class="rh">
   <header class="rh-head">
     <div class="rh-head-main">
-      <p class="rh-eyebrow">Docs Hub</p>
+      <p class="rh-eyebrow"><a id="hub-home" class="rh-home">Docs Hub</a></p>
       <h1 id="ttl"></h1>
     <nav class="rh-tabs" role="tablist" aria-label="Sections">
       <button type="button" role="tab" data-tab="progress" aria-selected="true">Plan progress</button>
@@ -527,6 +530,8 @@ function drawTop() {
   const t = totals();
   $('ttl').textContent = D.project;
   document.title = D.project + ' · Docs Hub';
+  // Served by serve_hub.py, "/" lists every project (or opens the only one): make the eyebrow a way back to it. A file:// copy has no index, so no link.
+  if (/^https?:$/.test(location.protocol)) { $('hub-home').href = '/'; $('hub-home').title = 'All projects'; }
   $('pct-top').textContent = fmtP(t.pct_done);
   $('pct-note').textContent = fmtC(t.todo_done) + ' of ' + fmtC(t.todo_total) + ' active items in TODO';
   $('pct-all').hidden = !t.archived_n;
@@ -535,7 +540,7 @@ function drawTop() {
   $('inv-pct').textContent = fmtP(t.inv_done_pct);
   $('spec-n').textContent = fmtC((D.specs || []).length);
   $('proc-n').textContent = fmtC((D.process || []).length);
-  $('work-pct').textContent = fmtP(t.pct_done);
+  drawWorkPct();
   $('foot').textContent = "Built from each file's frontmatter, its first heading, and the checkboxes in plans/TODO.md. A plan's progress is only as current as its TODO section. Done is [x], open is [ ]; tasks struck through as obsolete, dropped or deferred, and archived plans, are left out of the main figure.";
   const gen = document.createElement('span');
   gen.style.display = 'block';
@@ -608,7 +613,15 @@ function drawProcRows() {
   noteTable(sortRows(D.process || [], st.process.key, st.process.dir), 'proc-rows',
     (r) => [{ text: r.title, links: [{ label: r.title, path: r.path }] }, r.date], 2);
 }
+function drawWorkPct() {
+  // The Open work figure follows the plan picker: all plans gives the headline, one plan gives that plan's own done share.
+  // The top-right "Checklist done" card always stays overall. A struck-through task is left out, as in the headline.
+  const plan = st.todo.plan;
+  const tasks = D.work.filter((r) => r.kind === 'task' && !r.skip && (plan ? r.plan === plan : !r.archived));
+  $('work-pct').textContent = fmtP(tasks.length ? tasks.filter((r) => r.done).length / tasks.length : 0);
+}
 function drawWorkRows() {
+  drawWorkPct();
   const tb = $('work-rows');
   const s = st.todo, q = s.q.trim().toLowerCase();
   const tasks = D.work.filter((r) => r.kind === 'task' && live(r) && (s.done || !(r.done || r.skip)) && (!s.plan || r.plan === s.plan) &&

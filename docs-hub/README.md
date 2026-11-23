@@ -31,7 +31,7 @@ files you already keep and shows that, without a database or a build step.
 | Specifications | `specs/` |
 | Process | `process/` |
 | Investigations | `investigate/` |
-| Open work | every open task, with "Include done" to widen it |
+| Open work | every open task, with "Include done" to widen it; the Done figure follows the plan picker |
 
 It also checks that `TODO.md` mirrors each plan file task for task (⚠ on a plan whose done and open
 counts differ) and flags a "Next steps" item whose date has passed.

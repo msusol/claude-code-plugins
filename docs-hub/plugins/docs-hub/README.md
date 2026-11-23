@@ -14,7 +14,7 @@ python3 scripts/serve_hub.py --root ~/Projects --port 8781   # every <project>/d
 
 In Claude Code: `/docs-hub:hub`, `/docs-hub:hub serve`, `/docs-hub:hub serve re-lead-pipeline` (a project name is found below your home directory), or `/docs-hub:hub serve all ~/Projects --port 8781`. `build_hub.py` warns when `.hub/` is not git-ignored, and the command adds the line to `.gitignore` for you (it never commits it).
 
-With `--root`, each project is at `/<project>/.hub/index.html` and `/` lists them. Served pages are built in memory, so serving writes nothing into the project and needs no `.gitignore` entry (`build_hub.py` still writes `docs/.hub/`).
+With `--root`, each project is at `/<project>/.hub/index.html` and `/` lists them. The "Docs Hub" label at the top of a served page links back to `/`. Served pages are built in memory, so serving writes nothing into the project and needs no `.gitignore` entry (`build_hub.py` still writes `docs/.hub/`).
 
 A `file://` page does not auto-reload; the served page polls `hub.json` and re-renders in place.
 Open a tab directly with `index.html#open` (`plans`, `adrs`, `inv`, `open`).
@@ -39,7 +39,7 @@ A struck-through task needs the keyword (`obsolete`, `dropped` or `deferred`) af
 - **Headline tile:** done ÷ (done + open) over the active plans' tasks. Plans in `plans/archive/`, and any of their tasks still listed in `TODO.md`, are left out. Archiving a mostly-finished plan therefore lowers the figure, because the work that was finished leaves both sides of the fraction.
 - **Second line:** the same fraction with each archived plan's own checklist added (counted by the same rules), so it only grows as plans are finished: "41% of all work, with 1 archived plan". It is hidden when no plan is archived.
 - **Plan progress chart:** one row per plan, in plan-number order (an inserted number such as `00011` sits between `0001` and `0002`). Archived plans appear only when the **Archived** box is ticked; ticking it never changes the tile.
-- **Open work tab:** lists open tasks; obsolete, dropped and deferred ones appear only with "Include done". Choose an archived plan (with **Archived** ticked) and the tab says it has no open work, with its name as a link: a click shows the plan rendered in place below, and Ctrl or Cmd click, or "Open the file" in that view, opens the raw markdown.
+- **Open work tab:** lists open tasks; obsolete, dropped and deferred ones appear only with "Include done". The Done figure on the card follows the plan picker: all plans gives the headline share, one plan gives that plan's own share, while the "Checklist done" card at the top stays overall. Choose an archived plan (with **Archived** ticked) and the tab says it has no open work, with its name as a link: a click shows the plan rendered in place below, and Ctrl or Cmd click, or "Open the file" in that view, opens the raw markdown.
 
 ## The TODO sync check
 
