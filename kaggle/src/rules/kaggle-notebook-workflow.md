@@ -28,7 +28,7 @@ notebooks/
 - Slug format: `vX.Y-<short-method-description>` — matches the versioned plan name in
   `docs/plans/vX.Y-<slug>-plan.md`.
 - Kernel title and `id` in the metadata file must also reflect the version
-  (e.g. `gdataranger/llm-classification-finetuning-v01-tfidf`).
+  (e.g. `<kaggle-user>/llm-classification-finetuning-v01-tfidf`).
 - Never reuse or overwrite a prior notebook; create a new file for each new method.
 - Keep an investigation doc in `docs/investigate/` tracking run results, errors, and
   fixes for each notebook — one `##` section per slug.

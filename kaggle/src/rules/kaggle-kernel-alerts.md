@@ -6,15 +6,15 @@ polling the Kaggle UI.
 
 ## SMS gateway
 
-SMS is sent via the CLP project's Google Fi email-to-SMS script:
+SMS is sent via the owner's email-to-SMS script (a Google Fi gateway in the original setup), kept in a project the owner names:
 
 ```zsh
-cd /home/msusol/LosusAI/Projects/ColoradoLandPartners
+cd <sms-project-dir>
 zsh scripts/send_sms_fi.zsh "<message>"
 ```
 
-The script reads the Fi number and SMTP credentials from the CLP project config. It
-must be invoked from the CLP repo root (the `clp_parcel_ai` module must be on the path).
+The script reads the phone number and SMTP credentials from that project's config. It
+must be invoked from that project's root. Ask the owner once which project it is.
 
 ## Watcher pattern
 
@@ -25,8 +25,8 @@ completion promptly without hammering the Kaggle API.
 ```zsh
 cat > /tmp/watch_kernel_<slug>.zsh << 'EOF'
 #!/usr/bin/env zsh
-KERNEL="gdataranger/<kernel-id>"
-CLP="/home/msusol/LosusAI/Projects/ColoradoLandPartners"
+KERNEL="<kaggle-user>/<kernel-id>"
+SMS_DIR="<sms-project-dir>"
 INTERVAL=300
 
 while true; do
@@ -34,10 +34,10 @@ while true; do
   echo "[$(date '+%H:%M:%S')] $STATUS"
 
   if echo "$STATUS" | grep -q "COMPLETE"; then
-    cd "$CLP" && zsh scripts/send_sms_fi.zsh "Kaggle <slug> COMPLETE — check results and leaderboard."
+    cd "$SMS_DIR" && zsh scripts/send_sms_fi.zsh "Kaggle <slug> COMPLETE — check results and leaderboard."
     break
   elif echo "$STATUS" | grep -q "ERROR"; then
-    cd "$CLP" && zsh scripts/send_sms_fi.zsh "Kaggle <slug> ERROR — kernel failed, check log."
+    cd "$SMS_DIR" && zsh scripts/send_sms_fi.zsh "Kaggle <slug> ERROR — kernel failed, check log."
     break
   fi
 

@@ -15,7 +15,7 @@ Steps:
    - A project name (for example `re-lead-pipeline`): run
      `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/serve_hub.py" --find <name>` from the current
      directory. It searches each parent folder below your home directory for
-     `<name>/docs` (or `<group>/<name>/docs`, such as `LosusAIOps/accountant-agent`) and
+     `<name>/docs` (or `<group>/<name>/docs`, such as `Ops/billing-agent`) and
      prints the docs path. If it finds nothing, say so and stop.
    - A directory: use it, or its `docs/` subfolder if it has one.
    - `all` (optionally followed by a projects directory, default the current one): every

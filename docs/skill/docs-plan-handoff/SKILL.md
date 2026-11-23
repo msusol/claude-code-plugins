@@ -28,24 +28,24 @@ For any planning done where the repo is not reachable: a new feature, a design d
 1. Zip as `docs_<topic>.zip` with `docs_<topic>/` as the single top-level folder, so it cannot be confused with an existing `docs.zip`.
 2. Send the zip to the user.
 3. If the session has a working shell and bridge to the user's computer, stage the zip in `~/Downloads/`: request access to that folder if it is not connected, wait for approval, then write the zip there. If the bridge is unavailable or access is declined, skip this and tell the user to download the zip from the chat.
-4. Do not try to run `scp` or `ssh` from the desktop link. Its shell is an isolated sandbox with none of the user's SSH setup, so the `spark-db62` alias is not defined there. Print the commands for the user to run instead.
+4. Do not try to run `scp` or `ssh` from the desktop link. Its shell is an isolated sandbox with none of the user's SSH setup, so the host alias (`<spark-host>` below) is not defined there. Print the commands for the user to run instead.
 5. Finish by printing the full process below, filled in for this topic.
 
 ## The full process to print
 
-The user reaches the Spark through the SSH host alias `spark-db62` (defined in their `~/.ssh/config`). Only the repo path on the Spark needs to be known. Ask once if it has not been confirmed; never guess it. Print these steps, in order:
+The user reaches the Spark through an SSH host alias (defined in their `~/.ssh/config`; shown below as `<spark-host>`). Only that alias and the repo path on the Spark need to be known. Ask once if either has not been confirmed; never guess them. Print these steps, in order:
 
 1. **Get the zip** into `~/Downloads/` on the user's computer (already staged if step 3 of Delivery worked).
 2. **Copy it** from the user's terminal:
 
 ```bash
-scp ~/Downloads/docs_<topic>.zip spark-db62:<repo-path>/
+scp ~/Downloads/docs_<topic>.zip <spark-host>:<repo-path>/
 ```
 
 3. **Unzip it** on the Spark. `-n` never overwrites existing files, and the zip is left in place until the merge is done:
 
 ```bash
-ssh spark-db62 \
+ssh <spark-host> \
   'cd <repo-path> \
    && unzip -n docs_<topic>.zip'
 ```

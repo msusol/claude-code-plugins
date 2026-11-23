@@ -37,7 +37,7 @@ Source plan: [0001-alpha.md](0001-alpha.md)
 - [ ] open task
 - [x] ~~old idea~~ — obsolete: replaced by the new pipeline
 - [ ] ~~moved task~~ — deferred to [plan 0003](0003-gamma.md)
-- [x] ~~dropped task~~ — dropped for William
+- [x] ~~dropped task~~ — dropped for the client
 
 ## 00011 Beta
 
@@ -78,7 +78,7 @@ class SkipKind(unittest.TestCase):
     def test_a_struck_task_with_a_keyword_after_it_is_skipped(self):
         self.assertEqual(b.skip_kind("~~Task~~ — obsolete: why"), "obsolete")
         self.assertEqual(b.skip_kind("~~Task~~ — deferred to [plan 0018](x.md)"), "deferred")
-        self.assertEqual(b.skip_kind("~~Task~~ — dropped for William"), "dropped")
+        self.assertEqual(b.skip_kind("~~Task~~ — dropped for the client"), "dropped")
         self.assertEqual(b.skip_kind("~~Task~~ - Obsolete"), "obsolete")                    # case and a plain hyphen
 
     def test_ordinary_tasks_are_not_skipped(self):

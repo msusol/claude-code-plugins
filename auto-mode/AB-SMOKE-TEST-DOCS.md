@@ -22,7 +22,7 @@ Run everything from the `claude-code-plugins` repo, on the Spark, in `tmux` (a d
 
 ```zsh
 tmux new -s ab
-cd ~/LosusAI/Projects/Claude/claude-code-plugins
+cd <path-to>/claude-code-plugins
 export AB=auto-mode/ab-docker/run-ab.zsh
 export AB_DOCS=1
 export AB_RUNS_DIR=~/experiments/runs   # overrides the old ~/.bashrc value (~/experiments/ab-runs, which no longer exists)
@@ -176,7 +176,7 @@ rerunning `review-round` is safe: it reuses the existing PR.
 
 ```zsh
 tmux new -s ab-review
-cd ~/LosusAI/Projects/Claude/claude-code-plugins
+cd <path-to>/claude-code-plugins
 export AB=auto-mode/ab-docker/run-ab.zsh AB_DOCS=1 AB_RUNS_DIR=~/experiments/runs
 export AB_REVIEW_REPO=msusol/ab-review-scratch
 ```

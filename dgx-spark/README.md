@@ -15,8 +15,8 @@ Unlike the `kaggle` plugin (workspace-scoped, since Kaggle conventions only matt
 inside a Kaggle workspace), the facts this plugin captures are about the **machine
 itself** — which Docker daemon is authoritative, what AppArmor will and won't let a
 root shell touch, which container serves which shared dependency. Those are true no
-matter which project you're sitting in on `spark-db62`: `ColoradoLandPartners`,
-`LosusAIOps`, `Kaggle`, or anything added later. A workspace-scoped rule would mean
+matter which project you're sitting in on `spark-db62`: `ClientWork`,
+`Ops`, `Kaggle`, or anything added later. A workspace-scoped rule would mean
 re-deploying (and re-syncing edits to) the same content into every one of those
 workspace roots separately — global is the correct scope here, the same reasoning
 that keeps the `docs` plugin's `planning-*` rules global.

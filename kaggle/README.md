@@ -100,7 +100,7 @@ command shown to you before execution — any bypass is auditable.
 ```
 
 `<workspace-root>` is the parent directory holding your Kaggle competition projects
-(e.g. `~/LosusAI/Projects/Kaggle/`) — defaults to `$PWD` if omitted. If the target turns out
+(e.g. `~/Projects/Kaggle/`) — defaults to `$PWD` if omitted. If the target turns out
 to be this `claude-code-plugins` checkout itself (for example `deploy-all.zsh` run from here),
 the rules and `CLAUDE.md` step is skipped with a warning, because rules written into the
 plugin repo would load into every session started there; the global hook and plugin
@@ -153,13 +153,13 @@ the workspace-root argument regardless of which directory you're actually standi
 
 ```zsh
 # 1. Edit a rule directly at the deployed location, e.g.:
-#    ~/LosusAI/Projects/Kaggle/.claude/rules/kaggle-notebook-workflow.md
+#    ~/Projects/Kaggle/.claude/rules/kaggle-notebook-workflow.md
 # 2. Pull the change back into this plugin repo for committing — run from anywhere,
 #    pointing at the workspace root:
-/path/to/claude-code-plugins/kaggle/collect.zsh ~/LosusAI/Projects/Kaggle
+/path/to/claude-code-plugins/kaggle/collect.zsh ~/Projects/Kaggle
 # 3. Review the diff in kaggle/src/rules/, then commit + push from this repo.
 # 4. On another machine (or to pick up someone else's rule change): git pull, then
-/path/to/claude-code-plugins/kaggle/deploy.zsh ~/LosusAI/Projects/Kaggle
+/path/to/claude-code-plugins/kaggle/deploy.zsh ~/Projects/Kaggle
 ```
 
 Or edit `src/rules/kaggle-*.md` directly in this repo, commit, then run `deploy.zsh
