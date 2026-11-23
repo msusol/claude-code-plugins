@@ -20,7 +20,7 @@ Steps:
    (global, works even before the project directory is a repo); if that's unset, ask
    the user for a name before scaffolding.
 3. Kaggle rules deploy once to the shared **workspace root** — the parent directory that
-   holds many competition projects (e.g. `~/LosusAI/Projects/Kaggle/`) — not into each
+   holds many competition projects (e.g. `~/Projects/Kaggle/`) — not into each
    competition subdirectory individually. Determine the workspace root as the parent
    directory of the scaffolded project root. Check whether
    `<workspace-root>/.claude/rules/kaggle-*.md` already exist:
