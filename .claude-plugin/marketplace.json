@@ -118,6 +118,17 @@
       "category": "development"
     },
     {
+      "name": "plan-swarm",
+      "source": {
+        "source": "git-subdir",
+        "url": "msusol/claude-code-plugins",
+        "path": "plan-swarm/plugins/plan-swarm",
+        "ref": "main"
+      },
+      "description": "The /plan-swarm skill — runs the open tasks of one or more numbered plans in parallel waves of subagents, in dependency order, verifying each task and keeping plan and TODO.md in sync.",
+      "category": "development"
+    },
+    {
       "name": "docs-hub",
       "source": {
         "source": "git-subdir",
