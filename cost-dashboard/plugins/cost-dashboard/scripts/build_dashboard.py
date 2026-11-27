@@ -563,7 +563,7 @@ def collect(root, days=30, project="", now=None, ab_root=None, ab_sessions=True)
         ab = ab_steps.collect_ab(ab_root, sys.modules[__name__], PRICING.get("copilot_usd_per_review"))
 
     seen = sorted({m for r in rows for m in r["models"]})
-    data = {"generated": (now or datetime.now()).isoformat(timespec="seconds"), "days": days,
+    data = {"generated": (now or datetime.now().astimezone()).isoformat(timespec="seconds"), "days": days,
             "unpriced": sorted(UNPRICED), "speed_flags": sorted(SPEED_FLAGS), "sessions": rows,
             "rates": {m: rate_card(m) for m in seen}, "rates_source": PRICING.get("source", ""), "rates_verified": PRICING.get("verified", "")}
     if ab:
