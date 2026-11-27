@@ -958,7 +958,7 @@ class NewestMtime(Base):
         self.assertEqual(b.newest_mtime(self.root), 1_000)
 
 
-def run_page(case, html, actions=None, hash_="", search=""):
+def run_page(case, html, actions=None, hash_="", search="", env=None):
     """Run the page's script under node with a stub DOM, replaying `actions` (see dom_stub.js); returns {element id: innerHTML}."""
     import shutil
     node = shutil.which("node")
@@ -969,7 +969,8 @@ def run_page(case, html, actions=None, hash_="", search=""):
     with tempfile.TemporaryDirectory() as tmp:
         page = Path(tmp) / "page.js"
         page.write_text(script, encoding="utf-8")
-        r = subprocess.run([node, str(runner), str(page), json.dumps(actions or []), hash_, search], capture_output=True, text=True, timeout=30)
+        r = subprocess.run([node, str(runner), str(page), json.dumps(actions or []), hash_, search], capture_output=True, text=True, timeout=30,
+                           env={**os.environ, **(env or {})})
     case.assertEqual(r.returncode, 0, r.stderr)
     return json.loads(r.stdout)
 
@@ -1125,6 +1126,32 @@ class Render(Base):
         self.assertRegex(out["task-eff"], r'<tr><td class="nw"><span class="cd-sw"')
         self.assertRegex(out["mod-eff"], r'<tr class="tot"><td class="nw"><span class="cd-sw"')
         self.assertIn('<th class="nw">Model · effort</th>', out["task-eff"])
+
+    def test_times_on_the_page_are_shown_in_the_viewers_own_time_zone(self):
+        """The logs are UTC. A session that ended at 01:53 UTC on the 27th ended at 6:53 pm on the 26th in Denver, and the page must say so (found live
+        2026-11-26: the Sessions table read 01:53 while the footer said 18:53)."""
+        at = lambda m: "2026-11-27T01:%02d:07.123000+00:00" % m
+        write_log(self.root, "-p/s1.jsonl", [
+            {"type": "user", "sessionId": "s1", "timestamp": at(40), "cwd": "/home/u/proj", "message": {"content": "go"}},
+            {**assistant(0, "claude-opus-4-9", OPUS_USAGE), "timestamp": at(53)}])
+        html = b.render(self.build())
+        sess = lambda tz: run_page(self, html, [{"expand": "s1"}], env={"TZ": tz})["sess"]
+        denver, utc = sess("America/Denver"), sess("UTC")
+        self.assertIn("2026-11-26 18:53", denver)
+        self.assertNotIn("2026-11-27 01:53", denver)
+        self.assertIn("2026-11-27 01:53", utc, "a viewer in UTC still sees UTC")
+        self.assertIn('<td class="nw r">18:40</td>', denver, "the time of each task row is local too")
+        self.assertIn('<td class="nw r">01:40</td>', utc)
+
+    def test_the_footer_names_the_zone_and_shows_generated_in_it(self):
+        write_log(self.root, "-p/s1.jsonl", [user(0, "go"), assistant(1, "claude-opus-4-9", OPUS_USAGE)])
+        html = b.render(self.build(now=None))
+        foot = run_page(self, html, env={"TZ": "America/Denver"})["foot"]
+        self.assertRegex(foot, r"Times are in your local time \((MST|MDT|GMT-7|GMT-6)\)\. Generated \d{4}-\d\d-\d\d \d\d:\d\d\.")
+
+    def test_a_real_build_stamps_generated_with_its_offset_and_a_fixed_one_stays_as_given(self):
+        write_log(self.root, "-p/s1.jsonl", [user(0, "go"), assistant(1, "claude-opus-4-9", OPUS_USAGE)])
+        self.assertRegex(self.build()["generated"], r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d[+-]\d\d:\d\d$")
 
     def test_generated_time_can_be_fixed(self):
         write_log(self.root, "-p/s1.jsonl", [user(0, "go"), assistant(1, "claude-opus-4-9", OPUS_USAGE)])

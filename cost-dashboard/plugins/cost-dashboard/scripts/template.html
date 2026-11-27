@@ -196,6 +196,12 @@ const DATA = /*__DATA__*/null;
 const $ = id => document.getElementById(id);
 const rate = x => '$' + (x >= 1 ? x.toFixed(2) : x.toFixed(3));
 const usd = x => '$' + x.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+// Every timestamp in the data is UTC (the logs write "...Z"); show it in the viewer's own time zone, so a session that ended at 6:53 pm local does not
+// read 01:53 the next day. A string that does not parse is shown as it came.
+const p2 = n => String(n).padStart(2, '0');
+const localStamp = ts => { const d = new Date(ts); return isNaN(d) ? String(ts) : `${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}`; };
+const localClock = (ts, secs) => { const d = new Date(ts); return isNaN(d) ? String(ts).slice(11, secs ? 19 : 16) : `${p2(d.getHours())}:${p2(d.getMinutes())}` + (secs ? ':' + p2(d.getSeconds()) : ''); };
+const zoneName = () => { try { return new Intl.DateTimeFormat(undefined, {timeZoneName: 'short'}).formatToParts(new Date()).find(x => x.type === 'timeZoneName').value; } catch (e) { return ''; } };
 const kfmt = n => n>=1e6 ? (n/1e6).toFixed(1)+'M' : n>=1e3 ? (n/1e3).toFixed(1)+'k' : String(n);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const ses = DATA.sessions;
@@ -219,7 +225,7 @@ const allIO = Object.values(modelCells).reduce(addTo, ZERO());
 const ioCells = c => `<td class="n">${kfmt(c.in_tok)}</td><td class="n">${kfmt(c.out_tok)}</td><td class="n">${usd(c.in_cost)}</td><td class="n">${usd(c.out_cost)}</td>`;
 const IO_HEAD = '<th class="n">In tokens</th><th class="n">Out tokens</th><th class="n">$ In</th><th class="n">$ Out</th>';
 const perM = (cost, tok) => tok ? rate(1e6*cost/tok) : '–';
-$('foot').textContent = `Built from your local Claude Code session logs. Costs are estimates: token counts x the rates in pricing.json, not a bill. Generated ${DATA.generated}.`;
+$('foot').textContent = `Built from your local Claude Code session logs. Costs are estimates: token counts x the rates in pricing.json, not a bill. Times are in your local time${zoneName() ? ' (' + zoneName() + ')' : ''}. Generated ${localStamp(DATA.generated)}.`;
 const warns = [];
 if (DATA.speed_flags && DATA.speed_flags.length) warns.push(`Non-standard speed or tier seen (${esc(DATA.speed_flags.join(', '))}); those calls are priced at standard rates, so the estimate may be low.`);
 if (DATA.unpriced.length) warns.push(`Unpriced models (fallback rates used): ${esc(DATA.unpriced.join(', '))}. Edit pricing.json for accurate numbers.`);
@@ -440,13 +446,13 @@ function render(){
   let h = head + '<tbody>';
   const emit = (s, kid) => {
     const role = roleOf(s), oneTask = !!s.ab && s.turns.length <= 1;   // a run's session is nearly always one prompt, which would only repeat the row: no task count, and it opens to its calls instead
-    h += `<tr class="s${kid?' kid':''}${open.has(s.id)?' open':''}" data-id="${esc(s.id)}" tabindex="0"><td class="nw">${s.last?s.last.slice(0,16).replace('T',' '):''}</td><td class="nw">${kid?'↳ ':''}${esc(s.project)}${role ? ` <span class="cd-tag">${role}</span>` : ''}${s.ab ? ' ' + rawLink(s.id, 'raw ↗', 'cd-raw') : ''}</td>` +
+    h += `<tr class="s${kid?' kid':''}${open.has(s.id)?' open':''}" data-id="${esc(s.id)}" tabindex="0"><td class="nw">${s.last?localStamp(s.last):''}</td><td class="nw">${kid?'↳ ':''}${esc(s.project)}${role ? ` <span class="cd-tag">${role}</span>` : ''}${s.ab ? ' ' + rawLink(s.id, 'raw ↗', 'cd-raw') : ''}</td>` +
       (showPrompt ? `<td class="p"><div class="cd-pc" title="${esc(s.title)}">${esc(s.title)}</div></td>` : '') +
       `<td class="nw">${(()=>{const c=headCombo(s); return c ? sw(c[0],c[1])+' ' : '';})()}${esc(comboOf(s))}</td>
       <td class="n">${oneTask ? '' : s.turns.length}</td><td class="n">${s.calls}</td>${ioCells(s.io)}
       <td class="n">${usd(s.sub_cost)}</td><td class="n">${usd(s.cost)}<div class="cd-bar" style="width:${100*s.cost/mxc}%"></div></td></tr>`;
     const callRow = (c, cmax, indent) => { const what = (c.sub ? '[subagent] ' : '') + (c.what || 'reply'), pr = `<div class="cd-pc" title="${esc(what)}">${indent ? '&nbsp;&nbsp;&nbsp;' : ''}↳ ${esc(what)}</div>`;
-      return `<tr class="t call"><td class="nw r">${c.ts ? rawLink(s.id, c.ts.slice(11,19), 'cd-rawt') : ''}</td>` + (showPrompt ? `<td></td><td class="p">${pr}</td>` : `<td class="p">${pr}</td>`) +
+      return `<tr class="t call"><td class="nw r">${c.ts ? rawLink(s.id, localClock(c.ts, true), 'cd-rawt') : ''}</td>` + (showPrompt ? `<td></td><td class="p">${pr}</td>` : `<td class="p">${pr}</td>`) +
       `<td class="nw">${sw(c.model, c.effort)} ${esc(comboLabel(c.model, c.effort))}</td><td class="n"></td><td class="n"></td>${ioCells(c)}
       <td class="n">${c.sub ? usd(c.cost) : ''}</td><td class="n">${usd(c.cost)}<div class="cd-bar t" style="width:${100*c.cost/cmax}%"></div></td></tr>`; };
     // calls in the table's order; a call that launched a subagent is followed by a header row and that agent's own calls (oldest first), indented
@@ -475,7 +481,7 @@ function render(){
       const looseRows = loose.length ? `<tr class="t"><td class="nw r"></td><td class="p" colspan="${cols.length - 1}"><div class="cd-pc">↳ ${loose.length} call${loose.length === 1 ? '' : 's'} not tied to a task</div></td></tr>` + nest(loose, rcmax) : '';
       h += s.turns.slice().sort(s.ab ? ((a,b) => (a.ts || '').localeCompare(b.ts || '')) : ((a,b) => b.cost - a.cost)).map(t=>{ const c = (s.ab && leadCombo(callsOfTurn[t.ts])) || topCombo(t.me), pr = `<div class="cd-pc" title="${esc(t.prompt)}">↳ ${esc(t.prompt)}</div>` + (s.ab ? '' : (t.subs || []).map(x => `<div class="cd-pc" title="subagent launched by this task">&nbsp;&nbsp;⤷ ${esc(x.agent)} · ${esc(x.model.replace(/^claude-/, ''))} ${usd(x.cost)}</div>`).join(''));
         // collapsed: the task's prompt sits in the Project column (capped, full text on hover); expanded: it gets the First prompt column
-        return `<tr class="t"><td class="nw r">${t.ts?t.ts.slice(11,16):''}</td>` + (showPrompt ? `<td></td><td class="p">${pr}</td>` : `<td class="p">${pr}</td>`) +
+        return `<tr class="t"><td class="nw r">${t.ts?localClock(t.ts, false):''}</td>` + (showPrompt ? `<td></td><td class="p">${pr}</td>` : `<td class="p">${pr}</td>`) +
         `<td class="nw">${c ? sw(c[0],c[1]) + ' ' + esc(comboLabel(c[0], c[1])) : ''}</td>
         <td class="n"></td><td class="n">${t.calls}</td>${ioCells(sumNest(t.me))}
         <td class="n">${!s.ab && t.sub_cost ? usd(t.sub_cost) : ''}</td><td class="n">${usd(t.cost)}<div class="cd-bar t" style="width:${100*t.cost/tmax}%"></div></td></tr>` +
@@ -563,7 +569,7 @@ function abRows(n, depth, out) {
       // the calls behind a step (or behind "outside any step"): when, what each one did, its model, tokens and cost; oldest first, as logged
       const callRows = (list, d) => { const cm = Math.max(...list.map(c => c.cost), 0.01), cell = '<td class="n"></td>';
         const row = (c, dd) => { const what = (c.sub ? '[subagent] ' : '') + (c.what || 'reply');
-          return `<tr class="ab call" style="--d:${dd}"><td title="${esc(what)}"><span class="cd-note">${rawLink(c.sid, c.ts.slice(11, 19), 'cd-rawt')}</span> ${esc(what)}</td><td class="nw">${abCombo(c.model, c.effort)}</td>${cell}<td class="n">${kfmt(c.in_tok)}</td><td class="n">${kfmt(c.out_tok)}</td><td class="n">${abCost(c.cost, false, cm)}</td><td class="n"></td><td></td><td></td>${cell}${cell}</tr>`; };
+          return `<tr class="ab call" style="--d:${dd}"><td title="${esc(what)}"><span class="cd-note">${rawLink(c.sid, localClock(c.ts, true), 'cd-rawt')}</span> ${esc(what)}</td><td class="nw">${abCombo(c.model, c.effort)}</td>${cell}<td class="n">${kfmt(c.in_tok)}</td><td class="n">${kfmt(c.out_tok)}</td><td class="n">${abCost(c.cost, false, cm)}</td><td class="n"></td><td></td><td></td>${cell}${cell}</tr>`; };
         // like the Sessions tab: a call that launched a subagent is followed by a header row and that agent's own calls (oldest first), indented
         const subs = list.filter(c => c.launch), mains = list.filter(c => !c.launch), launched = new Set(mains.flatMap(c => c.launches || []));
         const flow = mains.concat(subs.filter(c => !launched.has(c.launch)));   // a subagent call whose launching call is not in this list stays in the flow
