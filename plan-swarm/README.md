@@ -19,6 +19,12 @@ open tasks in parallel waves of subagents, in dependency order.
    full tests itself, then ticks the plan and `TODO.md` together and commits per task.
 6. Reports a task/status/commit table and the readings workers chose where the brief was silent.
 
+After the one go-ahead it runs to the end without further prompts, pausing only for a failed phase gate, a rate limit,
+the task cap, or a worker that needs something only you can give (that goes on the Needs you list while unrelated tasks
+keep running). A Stop hook or auto-mode answer never counts as a go-ahead. Each worker has a wall-clock limit
+(`--worker-minutes`, default 20) enforced by the coordinator, and a run state file in `.git/plan-swarm/` lets
+`--resume` continue after a dead session.
+
 Workers never edit plan checkboxes, `TODO.md` or `docs/index.md`; only the coordinator does, which is what lets
 two plans run at once. It does not push, merge to a protected branch, or archive (use `plan-bash` for that).
 

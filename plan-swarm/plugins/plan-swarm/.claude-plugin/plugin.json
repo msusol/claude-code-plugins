@@ -1,6 +1,6 @@
 {
   "name": "plan-swarm",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "The /plan-swarm skill — runs the open tasks of one or more docs/plans/NNNN-*.md plans in parallel waves of subagents, in dependency order, with the coordinator verifying each task and keeping plan and TODO.md in sync.",
   "author": {
     "name": "Mark Susol"
