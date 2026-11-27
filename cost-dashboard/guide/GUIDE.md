@@ -276,6 +276,12 @@ a high cache hit rate with a large context means you are paying the cheap read p
 
 One row per session. It starts compact, and you open up what you want.
 
+**Table or Graph.** Two buttons beside the search box switch the tab between the table below and a graph of cost per calendar day,
+stacked by model (the same colour for a model as in the other charts). The graph covers every session the search lets through, not only the
+page the table shows, so searching `sonnet` or a project name shows that slice's trend. Days with no cost still get a slot, so a quiet
+week reads as a gap. The legend gives each model's total for the period, and hovering a segment shows the day, the model and its cost
+beside that day's total. The choice is kept in the address (`?view=graph`), so a link opens on the graph.
+
 **Collapsed (the default)** shows Last active, **Project ▸**, Model · effort, Tasks, Calls, In tokens, Out tokens, `$ In`, `$ Out`, Subagent and Cost:
 
 | Last active | Project ▸ | Model · effort | Tasks | Calls | In tokens | Out tokens | $ In | $ Out | Subagent | Cost |
