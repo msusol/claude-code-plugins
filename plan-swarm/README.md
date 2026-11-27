@@ -12,7 +12,8 @@ open tasks in parallel waves of subagents, in dependency order.
 1. Resolves each number to one `docs/plans/NNNN-*.md` and checks the plan against its `TODO.md` section.
 2. Builds a task graph: ID, `depends_on`, owned files, acceptance criteria, verify command.
 3. Leaves out what a worker cannot do: tasks with no verify command, `[hard]` tasks (use `auto-mode:solve`),
-   live checks, decisions, open questions.
+   live checks, decisions, open questions. If nothing is left to dispatch it stops right there and spends nothing.
+   Everything it left out comes back as a **Needs you** checklist, one line per item saying what to reply with.
 4. Shows the waves and bounds (tasks, workers, one retry) and **asks before running**. Workers are in-session subagents on your subscription: no API key, no per-token bill, but they count against usage limits. For API-billed isolation use `auto-mode:solve`.
 5. Per wave: one worktree subagent per ready task; the coordinator merges, runs each verify command and the
    full tests itself, then ticks the plan and `TODO.md` together and commits per task.

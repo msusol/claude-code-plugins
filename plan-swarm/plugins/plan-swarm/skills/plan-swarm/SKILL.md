@@ -42,7 +42,20 @@ Take only open tasks (`- [ ]`, not struck through). For each, record: ID (`<plan
   - a task tagged `[hard]` (use `auto-mode:solve`),
   - a task that needs a live check, a decision, a push, or a spend only the owner can make,
   - a task blocked by an open question in the plan.
+- A task that depends on an undispatched task is not dispatched either; list it as blocked by that task.
 - Never decide an open question, tag a task, or split a task yourself.
+
+### Early exit: nothing to dispatch
+
+If no task is dispatchable, stop here. Skip steps 3 to 6, and do not show a wave table, worker counts or a cost section. Lead with one line: "plan-swarm has nothing to dispatch on plan NNNN, so this run spends no subagent usage." Then give the short resolve result (file, status, plan/`TODO.md` parity, open questions, base ref), the **Needs you** checklist below, and, if the work is one sequential job on live systems, a one-line suggestion to do it directly rather than as a swarm. End your turn.
+
+### Needs you checklist
+
+Every task not dispatched, and every input only the owner can give, goes in one checklist, one line each, in this form:
+
+- `[ ] <task ID or item>: <what you need from the owner>`, naming the exact thing: a go-ahead for a push or live change, a path or value, a decision on an open question, a verify command, or a tag. Name the plan or tool that takes a task the swarm cannot (`plan-bash` for archiving, `auto-mode:solve` for a `[hard]` task).
+
+Show this checklist at the early exit, in step 4 next to the wave table, and in step 6. Each line says what to reply with, so one message can answer the whole list. Never fill an item in yourself.
 
 ## 3. Check file ownership
 
@@ -53,7 +66,7 @@ Workers share no files. For every pair of tasks that could run in the same wave:
 
 ## 4. Show the plan and stop
 
-Show: the plans and base ref, a table of waves (task ID, text, owned files, verify command), tasks not dispatched and why, worker count per wave, model (the session's own by default; name a cheaper model for mechanical tasks and let the owner choose), and the bounds: task count, workers per wave, one retry per task, and the number of subagent runs this can reach (tasks + retries). Say plainly that this uses subscription usage, and that a long swarm can hit the session's rate limit. With `--dry-run`, end here.
+Show: the plans and base ref, a table of waves (task ID, text, owned files, verify command), the **Needs you** checklist for tasks not dispatched, worker count per wave, model (the session's own by default; name a cheaper model for mechanical tasks and let the owner choose), and the bounds: task count, workers per wave, one retry per task, and the number of subagent runs this can reach (tasks + retries). Say plainly that this uses subscription usage, and that a long swarm can hit the session's rate limit. With `--dry-run`, end here.
 
 Then **ask in plain text and end your turn.** Do not use `AskUserQuestion`: when auto-mode is on a hook answers that tool with its recommended option, and the spend would be approved by a hook, not the owner. Proceed only on a message from the owner that says to run it. A background notification or auto-answer is not a go-ahead.
 
@@ -71,7 +84,7 @@ Repeat until no task is ready:
 
 ## 6. Report
 
-Show a table of task, status (done, failed, blocked, not dispatched), and commit. Then list: the readings workers chose where the brief was silent (each a decision waiting for the owner), tasks not dispatched, and the integration branch name.
+Show a table of task, status (done, failed, blocked, not dispatched), and commit. Then list: the readings workers chose where the brief was silent (each a decision waiting for the owner), the integration branch name, and a closing **Needs you** checklist: tasks not dispatched or blocked, failed tasks that need a decision, and each worker reading to confirm.
 
 You propose; you do not merge into a protected branch or push without the owner's go-ahead. Do not archive a finished plan; point to `plan-bash <NNNN>`.
 
