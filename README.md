@@ -21,6 +21,7 @@ Personal collection of [Claude Code](https://claude.ai/code) plugins.
 | [jira-tickets](jira-tickets/) | 1.0.0 | The `/jira-describe` skill: a living Current Status + append-only History layout for Jira ticket descriptions, and which Atlassian tool path renders real Markdown/ADF |
 | [kaggle](kaggle/) | 1.1.1 | Light harness for Kaggle competitions: `kaggle-*` rules, a project-scaffold skill, and `/kaggle:new` + `/kaggle:preflight` commands |
 | [plan-bash](plan-bash/) | 1.0.0 | The `/plan-bash` skill: given a plan number (`plan-bash 0007`), checks that one numbered plan against live state and archives it with its number intact |
+| [plan-swarm](plan-swarm/) | 1.0.0 | The `/plan-swarm` skill: runs the open tasks of one or more numbered plans in parallel waves of subagents, in dependency order |
 | [scratch-guard](scratch-guard/) | 1.0.0 | PreToolUse hook that blocks scratch/test scripts from being written as standalone files in a shared system temp directory outside the session scratchpad |
 | [usage-statusline](usage-statusline/) | — | Status line showing model, context %, and subscription rate limits |
 
@@ -53,6 +54,7 @@ Or run each plugin's own installer directly:
 ./scratch-guard/deploy.zsh
 ./bug-bash/deploy.zsh
 ./plan-bash/deploy.zsh
+./plan-swarm/deploy.zsh
 ./docs-hub/deploy.zsh
 ./cost-dashboard/deploy.zsh
 ./usage-statusline/deploy.zsh
@@ -70,6 +72,7 @@ claude plugin install docs@losus-ai
 claude plugin install git-guard@losus-ai
 claude plugin install bug-bash@losus-ai
 claude plugin install plan-bash@losus-ai
+claude plugin install plan-swarm@losus-ai
 claude plugin install docs-hub@losus-ai
 claude plugin install cost-dashboard@losus-ai
 ```
@@ -93,7 +96,7 @@ pulling updates. To remove a plugin:
 ./usage-statusline/uninstall.zsh
 ```
 
-`jira-tickets`, `bug-bash`, `plan-bash`, and `docs-hub` have no uninstaller; remove them
+`jira-tickets`, `bug-bash`, `plan-bash`, `plan-swarm`, and `docs-hub` have no uninstaller; remove them
 with `claude plugin uninstall <name>@losus-ai`.
 
 ## Numbered plans, `bug-bash`, and `plan-bash`
