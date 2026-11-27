@@ -110,5 +110,111 @@ class SessionsGraph(Base):
         self.assertIn('id="sess-view-graph" data-view="graph" aria-pressed="false"', self.html)
 
 
+class SessionsGraphRange(Base):
+    """The graph's range menu: the last 1, 3, 6 or 12 months, all time, or one calendar year. Without it the x-axis would grow forever."""
+
+    AGES = {"a": 400, "b": 200, "c": 40, "d": 1}       # days ago; 400 is last year, 200 is about 6.6 months back, 40 is within 3 months
+
+    def setUp(self):
+        super().setUp()
+        for sid, age in self.AGES.items():
+            write_log(self.root, f"-p/{sid}.jsonl", [user(-age * DAY, f"{sid} work", sessionId=sid),
+                                                     assistant(-age * DAY + 1, "claude-opus-4-9", OPUS_USAGE, f"m{sid}", f"r{sid}", sid=sid, per_turn="high")])
+        self.data = self.build()
+        self.html = b.render(self.data)
+        self.day_of = {}
+        for sess in self.data["sessions"]:
+            self.day_of[sess["title"].split()[0]] = next(iter(sess["daily_me"]))
+
+    def page(self, actions=None, search=""):
+        return run_page(self, self.html, actions, search=search)
+
+    def days_drawn(self, out):
+        return sorted({t.split(" ")[0] for t in TIP.findall(out.get("sess-daily", ""))})
+
+    def expect(self, out, *sids):
+        self.assertEqual(self.days_drawn(out), sorted(self.day_of[x] for x in sids))
+
+    def test_the_default_is_the_last_three_months(self):
+        out = self.page([{"sessView": "graph"}])
+        self.expect(out, "c", "d")
+        self.assertIn("last 3 months", out["sess-graph-note"])
+        self.assertIn('<option value="3m" selected>', out["sess-range"])
+
+    def test_each_range_keeps_the_days_inside_it(self):
+        for rng, sids in (("1m", ("d",)), ("3m", ("c", "d")), ("6m", ("c", "d")), ("12m", ("b", "c", "d")), ("all", ("a", "b", "c", "d"))):
+            with self.subTest(range=rng):
+                self.expect(self.page([{"sessView": "graph"}, {"sessRange": rng}]), *sids)
+
+    def test_a_calendar_year_shows_only_that_year(self):
+        last_year = self.day_of["a"][:4]
+        out = self.page([{"sessView": "graph"}, {"sessRange": last_year}])
+        self.expect(out, "a")
+        self.assertIn(f"({last_year})", out["sess-graph-note"])
+
+    def test_the_menu_lists_the_ranges_then_the_years_that_have_data_newest_first(self):
+        out = self.page([{"sessView": "graph"}])
+        values = re.findall(r'<option value="([^"]+)"', out["sess-range"])
+        years = sorted({d[:4] for d in self.day_of.values()}, reverse=True)
+        self.assertEqual(values, ["1m", "3m", "6m", "12m", "all"] + years)
+        self.assertGreaterEqual(len(years), 2, "the fixture spans two calendar years")
+
+    def test_the_note_and_legend_count_only_what_is_in_the_range(self):
+        out = self.page([{"sessView": "graph"}])                      # c and d
+        self.assertIn("2 sessions", out["sess-graph-note"])
+        wide = self.page([{"sessView": "graph"}, {"sessRange": "all"}])
+        self.assertIn("4 sessions", wide["sess-graph-note"])
+        total = lambda o: float(re.search(r"\$([\d,]+\.\d{2}) across", o["sess-graph-note"]).group(1).replace(",", ""))
+        self.assertGreater(total(wide), total(out))
+
+    def test_a_range_with_no_cost_says_so_and_points_to_a_longer_one(self):
+        out = self.page([{"sessView": "graph"}, {"search": "a work"}])      # only the 400-day-old session matches, outside the default range
+        self.assertIn("No cost in this range", out["sess-graph-note"])
+        self.assertNotIn("<rect", out.get("sess-daily", ""))
+
+    def test_the_range_is_kept_in_the_address_and_read_back(self):
+        out = self.page([{"sessView": "graph"}, {"sessRange": "6m"}])
+        self.assertIn("range=6m", json.loads(out["__urls"])[-1])
+        back = self.page([{"sessView": "graph"}, {"sessRange": "6m"}, {"sessRange": "3m"}])
+        self.assertNotIn("range=", json.loads(back["__urls"])[-1], "3 months is the default, so the address does not carry it")
+        opened = self.page(search="?view=graph&range=all")
+        self.expect(opened, "a", "b", "c", "d")
+        junk = self.page(search="?view=graph&range=bogus")
+        self.expect(junk, "c", "d")                                        # an unknown value falls back to the default
+
+
+class SessionsGraphBuiltWindow(Base):
+    """A page built for the last 30 days cannot show a longer range; the graph says so instead of drawing the same bars under every choice."""
+
+    def setUp(self):
+        super().setUp()
+        write_log(self.root, "-p/d.jsonl", [user(-1 * DAY, "recent work", sessionId="d"),
+                                            assistant(-1 * DAY + 1, "claude-opus-4-9", OPUS_USAGE, "md", "rd", sid="d", per_turn="high")])
+
+    def note(self, days, rng):
+        html = b.render(self.build(days=days))
+        out = run_page(self, html, [{"sessView": "graph"}, {"sessRange": rng}])
+        return out["sess-graph-note"]
+
+    def test_a_range_longer_than_the_built_window_carries_the_hint(self):
+        for rng in ("3m", "6m", "12m", "all"):
+            with self.subTest(range=rng):
+                text = self.note(30, rng)
+                self.assertIn("built for the last 30 days", text)
+                self.assertIn("--days 0", text)
+
+    def test_a_range_inside_the_built_window_has_no_hint(self):
+        self.assertNotIn("built for the last", self.note(30, "1m"), "a month is inside 30 days plus the week of tolerance")
+
+    def test_a_page_built_for_everything_has_no_hint(self):
+        for rng in ("3m", "12m", "all"):
+            with self.subTest(range=rng):
+                self.assertNotIn("built for the last", self.note(0, rng))
+
+    def test_the_hint_names_the_days_the_page_was_built_for(self):
+        self.assertIn("built for the last 90 days", self.note(90, "all"))
+        self.assertNotIn("built for the last", self.note(90, "3m"), "3 months is within 90 days plus a week")
+
+
 if __name__ == "__main__":
     unittest.main()

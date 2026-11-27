@@ -280,7 +280,13 @@ One row per session. It starts compact, and you open up what you want.
 stacked by model (the same colour for a model as in the other charts). The graph covers every session the search lets through, not only the
 page the table shows, so searching `sonnet` or a project name shows that slice's trend. Days with no cost still get a slot, so a quiet
 week reads as a gap. The legend gives each model's total for the period, and hovering a segment shows the day, the model and its cost
-beside that day's total. The choice is kept in the address (`?view=graph`), so a link opens on the graph.
+beside that day's total. A **Show** menu above the graph limits the range, so the axis does not grow with your history: the last month, 3 months
+(the default), 6 or 12 months, all time, or one calendar year that has data. Months count back from today. The choice is kept in the address
+(`?view=graph&range=6m`; 3 months is the default and is left out), so a link opens on the same view.
+
+The menu can only show what the page holds. The page is built for the last 30 days unless you pass `--days N` (0 = everything), so a longer range
+draws the same bars, and the note under the graph says so. Even `--days 0` reaches only as far back as Claude Code still keeps session logs; it
+prunes old ones, so a page built today cannot draw days that are gone.
 
 **Collapsed (the default)** shows Last active, **Project ▸**, Model · effort, Tasks, Calls, In tokens, Out tokens, `$ In`, `$ Out`, Subagent and Cost:
 

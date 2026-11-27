@@ -63,7 +63,7 @@ Four tabs, every table with **tokens in and out and the dollars for each side**,
 | **Overview** | What did I spend? Totals, averages, cache hit rate, cost per day, cost by model |
 | **Model & effort** | How do models, and effort levels on one model, compare? Cost by model and effort (effort is always shown with its model), a model x effort grid, cost per task, cost per day |
 | **Context** | Why does it cost this much? Cost by token type, the price per 1M tokens for each model, and how the context grows call by call (with compactions) |
-| **Sessions** | Which sessions cost the most? Paged, sortable (newest first by default; click Cost to rank by spend), searchable; click a row for its tasks; Project ▸ expands to show the first prompt. A Table / Graph toggle switches to cost per day stacked by model, over the sessions the search lets through |
+| **Sessions** | Which sessions cost the most? Paged, sortable (newest first by default; click Cost to rank by spend), searchable; click a row for its tasks; Project ▸ expands to show the first prompt. A Table / Graph toggle switches to cost per day stacked by model, over the sessions the search lets through; a menu limits it to the last 1, 3 (default), 6 or 12 months, all time, or one year |
 
 A "task" is one user prompt and everything Claude did in response, including subagents spawned in that turn.
 

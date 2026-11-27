@@ -2,7 +2,7 @@
 // Optional argv[4] is the initial location.hash and argv[5] the initial location.search; every history.replaceState URL comes back in "__urls" (a JSON list).
 // Optional argv[3] is a JSON list of actions replayed after load: {"pager":"next"|"prev"}, {"pageSize":25}, {"toggleWide":true},
 // {"sort":"in_tok"}, {"expand":"<session id>"}, {"search":"text"}, {"abSearch":"text"} (type in the A/B search box), {"abToggle":"<row key>"} (click an A/B row, for
-// example "plan:x", "round:x-r2" or "run:x-fable-r2"), {"abAll":true|false} (Expand all / Collapse all), {"sessView":"graph"|"table"} (the Sessions Table / Graph buttons), {"clickLink":"<session id>"} and {"abLink":"<row key>"} (click a link inside a row). Elements that got a className are reported as "<id>:class".
+// example "plan:x", "round:x-r2" or "run:x-fable-r2"), {"abAll":true|false} (Expand all / Collapse all), {"sessView":"graph"|"table"} (the Sessions Table / Graph buttons), {"sessRange":"1m"|"3m"|"6m"|"12m"|"all"|"YYYY"} (the graph's range menu), {"clickLink":"<session id>"} and {"abLink":"<row key>"} (click a link inside a row). Elements that got a className are reported as "<id>:class".
 const fs = require('fs');
 const ids = {}, listeners = {};
 function el(id) {
@@ -24,6 +24,7 @@ for (const a of JSON.parse(process.argv[3] || '[]')) {
   if (a.pager) fire('pager', 'click', { target: { closest: closest({ button: { disabled: false, dataset: { pg: a.pager } } }) } });
   else if (a.pageSize) fire('pager', 'change', { target: { id: 'page-size', value: String(a.pageSize) } });
   else if (a.sessView) fire('sess-view', 'click', { target: { closest: closest({ button: { dataset: { view: a.sessView } } }) } });
+  else if (a.sessRange) { el('sess-range').value = a.sessRange; fire('sess-range', 'change', {}); }
   else if (a.toggleWide) fire('sess', 'click', { target: { closest: closest({ '.cd-ptoggle': {} }) } });
   else if (a.sort) fire('sess', 'click', { target: { closest: closest({ th: { dataset: { k: a.sort } } }) } });
   else if (a.expand) fire('sess', 'click', { target: { closest: closest({ 'tr.s': { dataset: { id: a.expand } } }) } });
