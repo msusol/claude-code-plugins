@@ -15,7 +15,7 @@ open tasks in parallel waves of subagents, in dependency order.
    live checks, decisions, open questions. If nothing is left to dispatch it stops right there and spends nothing.
    Everything it left out comes back as a **Needs you** checklist, one line per item saying what to reply with.
 4. Classifies each remaining task as a **worker task** (tracked files, judgment, a diff to merge) or a **background job**
-   (a fixed command whose output is gitignored or needs resources a worktree lacks). Jobs run as tmux lanes the coordinator
+   (a fixed command whose output is gitignored or needs resources a worktree lacks). Jobs run as background lanes the coordinator
    starts and checks itself, never as subagents; jobs on the same output share a lane.
 5. Shows the waves and bounds (tasks, workers, one retry) and **asks before running**. Workers are in-session subagents on your subscription: no API key, no per-token bill, but they count against usage limits. For API-billed isolation use `auto-mode:solve`.
 6. Per wave: one worktree subagent per ready task; the coordinator merges, runs each verify command and the
@@ -35,7 +35,7 @@ two plans run at once. It does not push, merge to a protected branch, or archive
 
 plan-swarm hands **plan tasks that change tracked files** to subagents in worktrees and verifies them by tests. A fixed job
 such as an ingest or an import is a different thing: no task to merge, and its output is usually gitignored, so a worktree
-cannot carry it. The skill classifies each task (step 2, "Worker or background job") and runs the jobs itself as tmux lanes:
+cannot carry it. The skill classifies each task (step 2, "Worker or background job") and runs the jobs itself as background lanes:
 a plain process that costs no session usage while it waits, checked by its log and the files it wrote. A swarm worker is a
 Claude instance that thinks and costs session usage. Jobs on the same output share a lane. For a job that is not in any
 plan, run it the same way yourself. The skill's "When plan-swarm does not fit" section has the comparison table.
