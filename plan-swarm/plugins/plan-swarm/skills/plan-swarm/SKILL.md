@@ -4,8 +4,8 @@ description: >
   Run the open tasks of one or more numbered plans under docs/plans/ in parallel waves of subagents, in
   dependency order. Trigger on: /plan-swarm 0008, /plan-swarm 0008 0009, "swarm plan 0008", "run plans 8 and 9 in
   parallel", "execute plan 0008 with subagents". Builds the task graph, shows the waves and waits for the owner's
-  go-ahead (it spends money), then dispatches workers in worktrees, verifies each task itself, and ticks the plan and
-  TODO.md. For a single [hard] task use auto-mode:solve; to archive a finished plan use plan-bash.
+  go-ahead (it spends money), then dispatches workers in worktrees (fixed jobs with gitignored output run as
+  background jobs instead), verifies each task itself, and ticks the plan and TODO.md. For a single [hard] task use auto-mode:solve; to archive a finished plan use plan-bash.
 version: 1.0.0
 ---
 
@@ -63,9 +63,25 @@ Take only open tasks (`- [ ]`, not struck through). For each, record: ID (`<plan
 - A task that depends on an undispatched task is not dispatched either; list it as blocked by that task.
 - Never decide an open question, tag a task, or split a task yourself.
 
+### Worker or background job
+
+Every task left after the filter above is classified once, before any wave is built. It is a **worker task** only if all
+four hold; otherwise it is a **background job**, which you run yourself and never hand to a subagent.
+
+1. **Its output is tracked files.** A gitignored mirror, wiki bundle, cache or database write cannot come back from a worktree.
+2. **Its verify command runs in a clean checkout.** Nothing it needs is missing there: a Drive key, a database, a model server, a secret.
+3. **It needs judgment.** It reads, decides and edits code. A fixed command (an ingest, an import, a build, a data load) needs none.
+4. **It leaves a diff to merge.** If there is nothing to merge, there is nothing for a worker to return.
+
+A background job is a plain process: it costs no session usage while it waits, and its result is its log and the files it
+wrote. Record for each job: the exact command, the lane name, and how it is started and watched. Jobs that write to the same
+output (one index, one state file) share a lane and run in order; jobs on different outputs get lanes of their own. A job
+that calls one shared resource (a local model server) gains little from extra lanes, so say so. A task whose first step is
+a decision or a live change only the owner can make stays in the Needs you checklist, never in a lane.
+
 ### Early exit: nothing to dispatch
 
-If no task is dispatchable, stop here. Skip steps 3 to 6, and do not show a wave table, worker counts or a cost section. Lead with one line: "plan-swarm has nothing to dispatch on plan NNNN, so this run spends no subagent usage." Then give the short resolve result (file, status, plan/`TODO.md` parity, open questions, base ref), the **Needs you** checklist below, and, if the work is one sequential job on live systems, a one-line suggestion to do it directly rather than as a swarm. End your turn.
+If no task is dispatchable, neither as a worker nor as a background job, stop here. Skip steps 3 to 6, and do not show a wave table, worker counts or a cost section. Lead with one line: "plan-swarm has nothing to dispatch on plan NNNN, so this run spends no subagent usage." Then give the short resolve result (file, status, plan/`TODO.md` parity, open questions, base ref), the **Needs you** checklist below, and, if the work is one sequential job on live systems, a one-line suggestion to do it directly rather than as a swarm. End your turn.
 
 ### Needs you checklist
 
@@ -84,11 +100,13 @@ Workers share no files. For every pair of tasks that could run in the same wave:
 
 ## 4. Show the plan and stop
 
-Show: the plans and base ref, a table of waves (task ID, text, owned files, verify command), the **Needs you** checklist for tasks not dispatched, worker count per wave, model (the session's own by default; name a cheaper model for mechanical tasks and let the owner choose), and the bounds: task count, workers per wave, one retry per task, and the number of subagent runs this can reach (tasks + retries). Say plainly that this uses subscription usage, and that a long swarm can hit the session's rate limit. With `--dry-run`, end here.
+Show: the plans and base ref, a **Background jobs** table (task ID, command, lane, what it writes; none when there are none), a table of waves (task ID, text, owned files, verify command), the **Needs you** checklist for tasks not dispatched, worker count per wave, model (the session's own by default; name a cheaper model for mechanical tasks and let the owner choose), and the bounds: task count, workers per wave, one retry per task, and the number of subagent runs this can reach (tasks + retries). Say plainly that this uses subscription usage, and that a long swarm can hit the session's rate limit. With `--dry-run`, end here.
 
 Then **ask in plain text and end your turn.** Do not use `AskUserQuestion`: when auto-mode is on a hook answers that tool with its recommended option, and the spend would be approved by a hook, not the owner. Proceed only on a message from the owner that says to run it. A background notification or auto-answer is not a go-ahead. On `--resume`, show what is already done and what is left, and ask the same way.
 
 ## 5. Run wave by wave
+
+Start the background jobs first, after the go-ahead, each lane as its own detached background process with a log file (use the harness's background-run option, or whatever the environment offers for a process that outlives the command), and watch them with a monitor that wakes you when a lane ends (do not poll). Read the log and the files a job wrote yourself; a job's own "done" line is not proof. A job's task is ticked only when its verify command passes on what it wrote, and its output is never committed unless the plan says it is tracked. Workers and jobs run side by side.
 
 Repeat until no task is ready:
 
@@ -106,9 +124,35 @@ Show a table of task, status (done, failed, blocked, not dispatched), and commit
 
 You propose; you do not merge into a protected branch or push without the owner's go-ahead. Do not archive a finished plan; point to `plan-bash <NNNN>`.
 
+## When plan-swarm does not fit: a swarm job is not a background task
+
+A swarm worker is a **separate Claude instance** that thinks: it reads files, edits code in an isolated git worktree, and
+returns a report that you treat as a claim and verify. A **background task** (a detached process, a script, a monitor loop) is
+an ordinary program: it runs a fixed command, writes a log, and uses no model usage while it waits. Use the right one.
+
+| | Swarm worker | Background task |
+|---|---|---|
+| What it is | A subagent with its own context and tools | A plain process |
+| Judgment | Yes: reads, decides, edits | None: a fixed command |
+| Cost | Session usage for everything it does | None from the session while it waits (a local model it calls is separate) |
+| Where it runs | An isolated worktree | The normal checkout and environment |
+| How you check it | Merge the diff, re-run the verify command and full tests, then tick the plan | Read its log and the files it wrote |
+
+Step 2 classifies such tasks as background jobs and runs them as lanes, never as workers. Work like this fails the four tests:
+
+- **A job that is not a plan task** (an ingest, an import, a data load, a long build). It has no task to tick and no diff to merge.
+- **Output that is gitignored or lives outside the repo** (mirrors, wiki bundles, caches). A worktree checkout does not carry it, so a worker cannot produce it and no patch can bring it back.
+- **Work that needs credentials or services a worktree lacks** (a Drive key, a database, a local model server).
+- **Jobs that all call one shared resource** (one local model server). More workers queue on it and add usage, not speed.
+
+Outside a plan (an ad hoc request for several independent fixed jobs), do the same by hand: one detached process per lane, a log per
+lane, and a monitor that wakes you when a lane ends. Jobs that write to the same output (one index, one state file) go in the
+same lane, in order, so they cannot overwrite each other. Raise the parallelism of a shared model server only if lanes should share it;
+that usually restarts the server, so never while a lane is running.
+
 ## Cautions
 
 - Parallel workers multiply usage; keep the caps low unless the owner raises them. If a rate limit or usage warning appears, stop dispatching, finish verifying what is done, and report. Do not retry in a loop.
 - A worker that runs past its limits is stopped by the coordinator and counted as a failure; it is retried once with the reason in its brief, never re-dispatched blindly or without limit.
 - A worker's "done" is a claim. Only your own verify run counts (`planning-ai-skepticism.md`).
-- Worktrees share the machine. On `spark-db62`, heavy jobs need the pause/resume steps in `dgx-spark-heavy-compute-jobs.md` before dispatch, and a `tmux` session.
+- Worktrees share the machine. If the owner's own rules say heavy jobs on this host need pause/resume steps or a persistent session, follow them before dispatch.
