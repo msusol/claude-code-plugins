@@ -53,6 +53,12 @@ body { padding: 1.5rem 1rem; }
 .cd-tip { position: fixed; z-index: 5; pointer-events: none; background: var(--panel); border: 1px solid var(--line); border-radius: 2px; box-shadow: var(--shadow);
   padding: var(--cd-pad-xs) var(--cd-pad-sm); font-size: var(--cd-caption); line-height: 1.45; }
 .cd-tools { display: flex; flex-wrap: wrap; gap: var(--cd-gap-sm); align-items: center; }
+.cd-view { display: inline-flex; gap: var(--cd-gap-sm); }
+.cd-view button { font: inherit; font-size: var(--cd-caption); font-weight: 600; color: var(--mut); background: var(--panel); border: 1px solid var(--line); border-radius: 999px;
+  padding: var(--cd-pad-xs) var(--cd-gap-md); cursor: pointer; }
+.cd-view button:hover { color: var(--fg); }
+.cd-view button[aria-pressed=true] { color: var(--fg); border-color: var(--gold); background: var(--focus); }
+.cd-view button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 .cd-search { font: inherit; font-size: var(--cd-caption); color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 2px;
   padding: var(--cd-pad-xs) var(--cd-pad-sm); min-width: min(100%, 14rem); flex: 1 1 14rem; }
 /* No max-height and no vertical scroll: a scrollbar inside the box sat beside the last column's header. The page scrolls instead; the box only scrolls sideways on a narrow screen. */
@@ -178,9 +184,23 @@ body { padding: 1.5rem 1rem; }
     <div class="cd-card">
       <h2>Sessions</h2>
       <p class="cd-sub">Click a header to sort and a row to expand its tasks (one user prompt and everything Claude did in response). Only Project shows by default; click its ▸ to split it into Project and First prompt, after which the table scrolls sideways. Search by project, prompt, model or effort; search a/b for the A/B runs.</p>
-      <div class="cd-tools"><input class="cd-search" id="q" type="search" placeholder="Search sessions"></div>
-      <div class="cd-box"><table class="cd-table" id="sess"></table></div>
-      <div class="cd-pager" id="pager"></div>
+      <div class="cd-tools">
+        <div class="cd-view" id="sess-view" role="group" aria-label="Show sessions as">
+          <button type="button" id="sess-view-table" data-view="table" aria-pressed="true">Table</button>
+          <button type="button" id="sess-view-graph" data-view="graph" aria-pressed="false">Graph</button>
+        </div>
+        <input class="cd-search" id="q" type="search" placeholder="Search sessions">
+      </div>
+      <div id="sess-table-wrap">
+        <div class="cd-box"><table class="cd-table" id="sess"></table></div>
+        <div class="cd-pager" id="pager"></div>
+      </div>
+      <div id="sess-graph-wrap" hidden>
+        <div class="cd-tools"><label class="cd-small">Show <select class="cd-search" id="sess-range" style="flex:none;min-width:0" aria-label="Range shown in the graph"></select></label></div>
+        <p class="cd-sub" id="sess-graph-note"></p>
+        <div class="cd-chart"><svg id="sess-daily" width="100%" height="260" role="img" aria-label="Estimated cost per day, stacked by model"></svg></div>
+        <div class="cd-legend" id="sess-legend"></div>
+      </div>
     </div>
   </section>
   <section id="tab-ab" class="cd-main" hidden>
@@ -395,7 +415,7 @@ $('ctx-tbl').addEventListener('keydown', e => { if ((e.key==='Enter'||e.key===' 
 drawCtx(); drawCtxTable();
 
 // sessions table
-let sortKey='last', sortDir=-1, open = new Set(), page = 0, pageSize = 10, showPrompt = false;
+let sortKey='last', sortDir=-1, open = new Set(), page = 0, pageSize = 10, showPrompt = false, sessView = 'table', sessRange = '3m';
 const PAGE_SIZES = [10, 25, 50, 100];
 const NUM = ['turns','calls','in_tok','out_tok','in_cost','out_cost','sub_cost','cost'];
 const NOWRAP = ['last','project','model'];
@@ -422,8 +442,8 @@ const headCell = ([k,l]) => {
 function urlGet(name){ try { return new URLSearchParams(location.search).get(name) || ''; } catch (e) { return ''; } }
 function urlSet(obj){ try { const u = new URLSearchParams(location.search); for (const k in obj) obj[k] ? u.set(k, obj[k]) : u.delete(k); const qs = u.toString();
   history.replaceState(null, '', location.pathname + (qs ? '?' + qs : '') + (location.hash || '')); } catch (e) {} }
-function sessUrl(){ urlSet({ q: $('q').value, sort: (sortKey==='last' && sortDir<0) ? '' : sortKey + (sortDir>0 ? ':asc' : ''), rows: pageSize===10 ? '' : String(pageSize), prompt: showPrompt ? '1' : '' }); }
-{ $('q').value = urlGet('q'); showPrompt = urlGet('prompt') === '1';
+function sessUrl(){ urlSet({ q: $('q').value, sort: (sortKey==='last' && sortDir<0) ? '' : sortKey + (sortDir>0 ? ':asc' : ''), rows: pageSize===10 ? '' : String(pageSize), prompt: showPrompt ? '1' : '', view: sessView === 'graph' ? 'graph' : '', range: sessRange === '3m' ? '' : sessRange }); }
+{ $('q').value = urlGet('q'); showPrompt = urlGet('prompt') === '1'; sessView = urlGet('view') === 'graph' ? 'graph' : 'table'; { const r = urlGet('range'); if (/^(1m|3m|6m|12m|all|\d{4})$/.test(r)) sessRange = r; }
   const [k, d] = urlGet('sort').split(':'); if (k && colsNow().some(c => c[0] === k)) { sortKey = k; sortDir = d === 'asc' ? 1 : -1; }
   const n = +urlGet('rows'); if (PAGE_SIZES.includes(n)) pageSize = n; }
 function render(){
@@ -495,7 +515,63 @@ function render(){
   $('pager').innerHTML = `<label class="grp">Rows per page <select class="cd-search" id="page-size" style="flex:none;min-width:0">${PAGE_SIZES.map(n => `<option${n===pageSize?' selected':''}>${n}</option>`).join('')}</select></label>` +
     `<span>${from}–${to} of ${rows.length}${ses.some(s => s.parent) ? ` (nested sessions sit under their launcher and are not counted)` : ''}</span>` +
     `<span class="grp"><button class="cd-btn" type="button" data-pg="prev"${page===0?' disabled':''}>Previous</button><span>Page ${page+1} of ${pages}</span><button class="cd-btn" type="button" data-pg="next"${page>=pages-1?' disabled':''}>Next</button></span>`;
+  ;drawSessGraph(ses.filter(s => !q || hay(s).includes(q)));   // the graph follows the search box, over every session, not just the page shown
+  showSessView();
 }
+// Table or graph: one search box and one set of sessions behind both
+function showSessView() {
+  $('sess-table-wrap').hidden = sessView !== 'table';
+  $('sess-graph-wrap').hidden = sessView !== 'graph';
+  $('sess-view-table').setAttribute('aria-pressed', String(sessView === 'table'));
+  $('sess-view-graph').setAttribute('aria-pressed', String(sessView === 'graph'));
+}
+// Cost per calendar day, stacked by model. Days with no cost in the range still get a slot, so a quiet week reads as a gap and not as two
+// neighbouring bars. The colour is the model's (the same hue as in the other charts, at the high-effort shade).
+function drawSessGraph(list) {
+  const days = {};   // day -> model -> cost
+  list.forEach(s => { for (const d in s.daily_me) for (const m in s.daily_me[d]) {
+    const c = Object.values(s.daily_me[d][m]).reduce((a, b) => a + b, 0), day = days[d] || (days[d] = {}); day[m] = (day[m] || 0) + c; } });
+  // The range menu: the last 1, 3, 6 or 12 months, everything, or one calendar year that has data. Months count back from today.
+  const allKeys = Object.keys(days).sort(), years = [...new Set(allKeys.map(d => d.slice(0, 4)))].sort().reverse();
+  const RANGES = [['1m', 'Last month'], ['3m', 'Last 3 months'], ['6m', 'Last 6 months'], ['12m', 'Last 12 months'], ['all', 'All time'], ...years.map(y => [y, y])];
+  if (!RANGES.some(r => r[0] === sessRange)) sessRange = '3m';
+  $('sess-range').innerHTML = RANGES.map(([v, label]) => `<option value="${v}"${v === sessRange ? ' selected' : ''}>${label}</option>`).join('');
+  $('sess-range').value = sessRange;
+  const today = new Date(), localDay = dt => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+  const back = n => { const dt = new Date(today.getFullYear(), today.getMonth() - n, today.getDate()); return localDay(dt); };
+  const inRange = d => sessRange === 'all' ? true : /^\d{4}$/.test(sessRange) ? d.slice(0, 4) === sessRange : d >= back(parseInt(sessRange, 10));
+  const keys = allKeys.filter(inRange), svg = $('sess-daily'), range = [];
+  if (keys.length) for (let t = Date.parse(keys[0] + 'T00:00:00Z'), end = Date.parse(keys[keys.length - 1] + 'T00:00:00Z'); t <= end; t += 864e5) range.push(new Date(t).toISOString().slice(0, 10));
+  const dayTot = d => Object.values(days[d] || {}).reduce((a, b) => a + b, 0), total = keys.reduce((a, d) => a + dayTot(d), 0);
+  const inWin = new Set(keys), nSes = list.filter(s => Object.keys(s.daily_me || {}).some(d => inWin.has(d))).length, rangeLabel = (RANGES.find(r => r[0] === sessRange) || [0, ''])[1];
+  const perModel = {};  keys.forEach(d => { for (const m in days[d]) perModel[m] = (perModel[m] || 0) + days[d][m]; });
+  const present = mods.filter(m => perModel[m] > 0), color = m => combo(m, 'high');
+  // The page only holds what the build read (the last DATA.days days, default 30), so a longer range cannot show more. Say so when the
+  // selected range reaches more than a week before that window, instead of drawing the same bars under every choice.
+  const winStart = sessRange === 'all' ? '0000-00-00' : /^\d{4}$/.test(sessRange) ? sessRange + '-01-01' : back(parseInt(sessRange, 10));
+  const builtFrom = DATA.days ? localDay(new Date(today.getTime() - (DATA.days + 7) * 864e5)) : '';
+  const hint = builtFrom && winStart < builtFrom
+    ? ` This page was built for the last ${DATA.days} days, so a longer range cannot show more. For everything still in your logs run /cost-dashboard:dashboard --days 0.` : '';
+  $('sess-graph-note').textContent = (keys.length
+    ? `${usd(total)} across ${nSes} session${nSes === 1 ? '' : 's'} and ${range.length} day${range.length === 1 ? '' : 's'} (${rangeLabel.toLowerCase()}). One bar per day, split by model; it follows the search box.`
+    : (allKeys.length ? `No cost in this range (${rangeLabel.toLowerCase()}). Pick a longer one.` : 'No sessions match.')) + (allKeys.length ? hint : '');
+  $('sess-legend').innerHTML = present.map(m => `<span><span class="cd-sw" style="background:${color(m)}"></span> ${esc(short(m))} · ${usd(perModel[m])}</span>`).join('');
+  if (!keys.length) { svg.innerHTML = ''; return; }
+  const W = 1100, H = 260, pL = 56, pR = 8, pT = 14, pB = 26, mx = Math.max(...keys.map(dayTot), 0.01), bw = (W - pL - pR) / range.length, hOf = v => (v / mx) * (H - pT - pB);
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  const grid = [0, 0.5, 1].map(f => { const y = H - pB - f * (H - pT - pB);
+    return `<line x1="${pL}" x2="${W - pR}" y1="${y}" y2="${y}" stroke="var(--line)" stroke-width="1"/><text x="${pL - 6}" y="${y + 3}" font-size="10" text-anchor="end" fill="var(--mut)">${usd(f * mx)}</text>`; }).join('');
+  const bars = range.map((d, i) => { let y = H - pB;
+    return present.filter(m => (days[d] || {})[m] > 0).map(m => { const v = days[d][m], h = hOf(v); y -= h;
+      const tip = `${d} ${short(m)}: ${usd(v)} (day total ${usd(dayTot(d))})`;
+      return `<rect x="${pL + i * bw + 1}" y="${y}" width="${Math.max(bw - 2, 1)}" height="${h}" fill="${color(m)}" data-tip="${esc(tip)}"><title>${esc(tip)}</title></rect>`; }).join(''); }).join('');
+  const step = Math.max(1, Math.ceil(range.length / 10));
+  const ticks = range.map((d, i) => i % step ? '' : `<text x="${pL + i * bw + bw / 2}" y="${H - 8}" font-size="10" text-anchor="middle" fill="var(--mut)">${range.length > 92 ? d.slice(2) : d.slice(5)}</text>`).join('');
+  svg.innerHTML = grid + bars + ticks;
+}
+$('sess-range').addEventListener('change', () => { sessRange = $('sess-range').value; sessUrl(); render(); });
+$('sess-view').addEventListener('click', e => { const b = e.target.closest && e.target.closest('button'); if (!b || !b.dataset.view) return;
+  sessView = b.dataset.view === 'graph' ? 'graph' : 'table'; sessUrl(); render(); });
 $('sess').addEventListener('click',e=>{
   if(e.target.closest('a')) return;   // a link opens the raw log; it does not open or close the row
   if(e.target.closest('.cd-ptoggle')){ showPrompt = !showPrompt; sessUrl(); return render(); }
@@ -638,7 +714,7 @@ showTab(location.hash.slice(1));
 
 // tooltip for the daily bars
 const tip=$('tip');
-for (const id of ['daily','daily-eff','ctx-chart']) {
+for (const id of ['daily','daily-eff','ctx-chart','sess-daily']) {
   $(id).addEventListener('mousemove',e=>{const t=e.target.getAttribute&&e.target.getAttribute('data-tip'); if(!t){tip.hidden=true;return}
     tip.textContent=t; tip.hidden=false; tip.style.left=(e.clientX+12)+'px'; tip.style.top=(e.clientY+12)+'px';});
   $(id).addEventListener('mouseleave',()=>{tip.hidden=true});
